@@ -1,0 +1,3 @@
+[submodule "PinionCore.NetSync.Package"]
+	path = PinionCore.NetSync.Package
+	url = https://github.com/jiowchern/PinionCore.NetSync.Package.git
