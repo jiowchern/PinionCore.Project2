@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <!-- <Extract Name="IncludeProtocols" > -->
+  <ItemGroup>
+    <ProjectReference Include="..\PinionCore.Remote\PinionCore.Remote.Tools.Protocol.Sources\PinionCore.Remote.Tools.Protocol.Sources.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\PinionCore.Remote\PinionCore.Remote\PinionCore.Remote.csproj" />
+  </ItemGroup>
+  <!-- </Extract> -->
+</Project>
