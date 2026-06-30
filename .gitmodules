@@ -1,3 +1,6 @@
 [submodule "PinionCore.Remote"]
 	path = PinionCore.Remote
 	url = https://github.com/jiowchern/PinionCore.Remote
+[submodule "PinionCore.NetSync.Package"]
+	path = PinionCore.NetSync.Package
+	url = https://github.com/jiowchern/PinionCore.NetSync.Package
