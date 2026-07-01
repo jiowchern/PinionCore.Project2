@@ -4,3 +4,6 @@
 [submodule "PinionCore.NetSync.Package"]
 	path = PinionCore.NetSync.Package
 	url = https://github.com/jiowchern/PinionCore.NetSync.Package
+[submodule "PinionCore.NetSync.UniRx"]
+	path = PinionCore.NetSync.UniRx
+	url = https://github.com/jiowchern/PinionCore.NetSync.UniRx
