@@ -1,37 +1,75 @@
 using System.Collections;
 using NUnit.Framework;
+using Unity.Entities;
+using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.TestTools;
-using PinionCore.NetSync.UniRx;
-using UniRx;
-using System.Linq;
+using UniRx;                       // Subscribe 等 UniRx 擴充
+using PinionCore.NetSync.UniRx;    // RemoteValue():把 Value<T> 轉成 IObservable
+using PinionCore.Project2.Protocols.Worlds;
+
 public class WorldTestScript
 {
-    // A Test behaves as an ordinary method
-    [Test]
-    public void IWorldTestScriptSimplePasses()
+    // 這個 World 內部自建一個獨立的 DOTS 世界(world.Dots),測試之間互不污染。
+    PinionCore.Project2.Worlds.World _world;
+
+    [SetUp]
+    public void SetUp()
     {
-        // Use the Assert class to test conditions
+        var worldInfo = ScriptableObject.CreateInstance<PinionCore.Project2.Worlds.WorldInfo>();
+        worldInfo.Name = "TestWorld";
+        
+        // Resources.Load 的路徑是相對於任一 Resources 資料夾、且不含副檔名。
+        worldInfo.TerrainPrefab = Resources.Load<GameObject>("Terrain");
+        _world = new PinionCore.Project2.Worlds.World(worldInfo);
     }
 
-    // A UnityTest behaves like a coroutine in Play Mode. In Edit Mode you can use
-    // `yield return null;` to skip a frame.
+    [TearDown]
+    public void TearDown()
+    {
+        _world?.Dispose();   // 釋放內部自建的 DOTS 世界
+        _world = null;
+    }
+
     [UnityTest]
     public IEnumerator IWorldTestScriptWithEnumeratorPasses()
     {
-        // Use the Assert class to test conditions.
-        // Use yield to skip a frame.
+        IWorld world = _world;
 
-        PinionCore.Project2.Protocols.Worlds.IWorld world = new PinionCore.Project2.Worlds.World();
-        var obs = from result in world.LoadTerrain().RemoteValue()
-                  select result;
+        // Act:呼叫 LoadTerrain,並用 UniRx 的 RemoteValue() 訂閱其非同步結果。
+        // RemoteValue 會在結果解析後發一次值(這裡是同步完成,通常立即)。
+        bool? loaded = null;
+        world.LoadTerrain()
+             .RemoteValue()
+             .Subscribe(v => loaded = v);
 
-        obs.Subscribe(x => Debug.Log(x));
+        // 等到結果出現;有超時保護,避免永遠卡住。
+        float deadline = Time.realtimeSinceStartup + 5f;
+        while (!loaded.HasValue)
+        {
+            if (Time.realtimeSinceStartup > deadline)
+            {
+                Assert.Fail("等待 LoadTerrain 超時");
+                yield break;
+            }
+            yield return null;
+        }
 
-        yield return obs;
+        // L1 契約:回報成功。
+        Assert.IsTrue(loaded.Value, "LoadTerrain 回報失敗");
 
-        
-        
+        // L2 存在:DOTS 世界內確實出現「剛好一顆」帶 TerrainTag 的地形實體。
+        var em = _world.Dots.EntityManager;
+        using (var query = em.CreateEntityQuery(typeof(PinionCore.Project2.Worlds.TerrainTag)))
+        {
+            Assert.AreEqual(1, query.CalculateEntityCount(), "應剛好有一顆 Terrain 實體");
 
+            // L3 內容:實體帶有預期的元件(位置 + 碰撞)。
+            var terrain = query.GetSingletonEntity();
+            Assert.IsTrue(em.HasComponent<LocalTransform>(terrain),
+                "Terrain 缺少 LocalTransform");
+            Assert.IsTrue(em.HasComponent<Unity.Physics.PhysicsCollider>(terrain),
+                "Terrain 缺少碰撞資料 PhysicsCollider");
+        }
     }
 }

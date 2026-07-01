@@ -10,7 +10,7 @@
         "PinionCore.NetSync.UniRx",
         "UniRx",
         "Unity.Entities",
-        "Unity.Entities.Graphics",
+        "Unity.Physics",
         "Unity.Transforms",
         "Unity.Collections",
         "Unity.Mathematics"

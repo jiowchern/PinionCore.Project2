@@ -5,7 +5,7 @@
         "GUID:5130fd88bf7f8dc4f88f641245629de5",
         "Unity.Entities",
         "Unity.Entities.Hybrid",
-        "Unity.Entities.Graphics",
+        "Unity.Physics",
         "Unity.Transforms",
         "Unity.Scenes",
         "Unity.Collections",
