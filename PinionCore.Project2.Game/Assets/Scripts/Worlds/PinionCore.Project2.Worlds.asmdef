@@ -2,11 +2,19 @@
     "name": "PinionCore.Project2.Worlds",
     "rootNamespace": "",
     "references": [
-        "GUID:5130fd88bf7f8dc4f88f641245629de5"
+        "GUID:5130fd88bf7f8dc4f88f641245629de5",
+        "Unity.Entities",
+        "Unity.Entities.Hybrid",
+        "Unity.Entities.Graphics",
+        "Unity.Transforms",
+        "Unity.Scenes",
+        "Unity.Collections",
+        "Unity.Mathematics",
+        "Unity.Burst"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": false,
+    "allowUnsafeCode": true,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
