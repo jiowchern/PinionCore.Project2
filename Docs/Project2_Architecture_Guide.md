@@ -7,28 +7,59 @@
 
 ## 1. 架構總覽
 
-```
-        ┌──────────────────────────────┐         ┌───────────────────────────────┐
-        │        伺服器 (權威)          │         │        前端 (WebGL client)     │
-        │  Unity DOTS / Entities        │         │  一般 Unity + GameObject        │
-        │                               │         │  (不需要 DOTS,不用 Entities   │
-        │  讀 prefab → 取 Collider      │         │   Graphics)                    │
-        │  建 Entity:                   │         │                                │
-        │   • PhysicsCollider (碰撞)    │         │  讀「同一份」prefab            │
-        │   • LocalTransform (位置)     │         │   → Instantiate GameObject     │
-        │   • TerrainTag / CharacterTag │         │   → 只作視覺呈現               │
-        │                               │         │                                │
-        │  權威判定:移動、碰撞、命中   │         │  輸入:相機射線 ⨯ 平面(數學) │
-        └───────────────┬───────────────┘         └────────────────┬──────────────┘
-                        │                                           │
-                        │        PinionCore.Remote (協定/ghost)     │
-                        │  Value<T> = RPC 呼叫結果                  │
-                        │  Property<T> = 連續狀態同步(位置…)      │
-                        │  Notifier<T> Supply/Unsupply = 生成/銷毀 │
-                        └───────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    prefab["同一份 Prefab（Collider + Renderer）"]
+
+    subgraph Game["Game ─ 伺服器（權威）"]
+        srv["Unity DOTS / Entities<br/>讀 prefab → 取 Collider<br/>建 Entity：PhysicsCollider + LocalTransform + TerrainTag<br/>權威判定：移動 · 碰撞 · 命中"]
+    end
+
+    subgraph Client["Client ─ 前端（WebGL）"]
+        cli["一般 Unity + GameObject（不用 Entities Graphics）<br/>讀同一份 prefab → Instantiate GameObject<br/>只作視覺呈現<br/>輸入：相機射線 ⨯ 平面（數學）"]
+    end
+
+    prefab -. 讀碰撞 .-> srv
+    prefab -. 讀外觀 .-> cli
+    srv <-->|"PinionCore.Remote　Value=RPC · Property=狀態同步 · Notifier=生成/銷毀"| cli
 ```
 
 核心觀念:**「模擬」與「呈現」是兩件事,而且在兩台機器上。** 伺服器只關心「地形踩不踩得到、角色能不能走到那、有沒有命中」;前端只關心「畫成什麼樣」。中間用 PinionCore.Remote 傳「事實」(誰在哪、發生了什麼),不傳畫面、也不傳 mesh。
+
+---
+
+## 1.1 部署拓樸(Client / Gateway / User / Game)
+
+實際佈署拆成四個以 PinionCore.Remote 串接的角色:
+
+```mermaid
+flowchart LR
+    Client["Client<br/>前端 View（WebGL）"]
+    Gateway["Gateway<br/>PinionCore.Remote 中繼"]
+    User["User<br/>登入 · 通知 Game · 管理 World<br/>（待實作）"]
+    Game["Game<br/>World（DOTS 後端 · 權威碰撞）"]
+
+    Client <--> Gateway
+    Gateway <--> User
+    User <--> Game
+
+    Game -. "IView 觀察面" .-> Client
+    Game -. "IWorld 控制面" .-> User
+```
+
+| 角色 | 內容 | 職責 |
+|---|---|---|
+| **Client** | View(前端呈現) | 消費 ghost 畫地形/角色、收輸入;WebGL。 |
+| **Gateway** | PinionCore.Remote 自帶 | 連線中繼/路由,接 Client 與後端服務。 |
+| **User** | 待實作 | Client 登入、通知 Game、管理 World(生成/銷毀);控制面。 |
+| **Game** | World(DOTS 後端) | 權威碰撞/模擬;對外暴露 World 的協定介面。 |
+
+**介面對象(誰拿到哪個 facet):** 同一顆 Game 端的 `World`,對不同對象暴露不同介面:
+
+- `IWorld`(控制面)→ 給 **User**:管理與控制 World。
+- `IView`(觀察面)→ 給 **Client**:唯讀取資訊來繪製。
+
+所以 `IWorld`/`IView` **要分開**,不是同一消費者的讀 vs 寫,而是**不同對象、不同信任邊界**(interface segregation by audience)。
 
 ---
 
@@ -221,13 +252,23 @@ Agent.QueryNotifier<IWorld>().Supply += world =>
 
 ## 10. 待辦事項與風險
 
-- [ ] **安裝 `com.unity.physics`**(後端碰撞需要;目前只裝了 entities + entities.graphics)。
-- [ ] **後端 `Worlds.asmdef` 移除 `Unity.Entities.Graphics`、加入 `Unity.Physics`。**
-- [ ] **改寫後端 `World.LoadTerrain`**:從取 MeshRenderer 改成取 MeshCollider → 建 `PhysicsCollider` 實體(不再加 RenderMesh)。
-- [ ] **地形/角色的載入路徑改 WebGL 相容**(SubScene 烘焙 / Addressables / Resources),取代 `#if UNITY_EDITOR` 的 `AssetDatabase`。
-- [ ] **定義 `ICharacter` 協定與伺服器實作**(Notifier 生成、Property 同步位置、MoveTo RPC)。
-- [ ] **建立前端 `PinionCore.Project2.View`**:訂閱 ghost、prefab→GameObject、輸入。
+**已完成**
+
+- [x] 安裝 `com.unity.physics`(6.5.0)。
+- [x] 後端 `Worlds.asmdef` 移除 `Unity.Entities.Graphics`、加入 `Unity.Physics`。
+- [x] 後端 `World` 改為碰撞:取 `MeshCollider`/`MeshFilter` 幾何 → 烘 `PhysicsCollider` 實體(`PhysicsCollider` + `LocalTransform` + `PhysicsWorldIndex` + `TerrainTag`),完全不加渲染元件。
+- [x] 地形載入改用 `Resources`:prefab 移到 `Assets/Resources/`,以 `Resources.Load("Terrain")` 載入。PlayMode 測試已改斷言 `PhysicsCollider` 並通過。
+- [x] `World` 收斂職責:改吃 `WorldInfo`、自建獨立 `Unity.Entities.World`(不注入預設世界),`LoadTerrain` 於建構時執行。
+
+**待辦**
+
+- [ ] **定義/實作 `IActor` 伺服器端**:目前 `Actor` 為 `NotImplementedException`(`PrototypeId`/`EntityId`/`OnPathChanged`/`Move`)。
+- [ ] **角色生成/銷毀通道**:用 `Notifier<IActor>` 讓前端 spawn/despawn 對應 GameObject。
+- [ ] **建立前端 View**:消費 `IView`/`IWorld` ghost、prefab→GameObject、處理輸入(獨立 assembly,見第 7 節)。
+- [ ] **命名/職責釐清**:`World`/`View`/`IWorld`/`IView` 的對稱與分層(見第 12 節)。
 - [ ] **確認 PinionCore.Remote client 在 WebGL 用 WebSocket 傳輸。**
+- [ ] **WebGL 正式版載入策略**:評估 Addressables / SubScene 取代 `Resources`。
+- [ ] **效能(延後)**:World 銷毀採「重用 + 清內容」還是「重建」,依頻率與網路身分需求決定;blob 需自行釋放。
 
 風險點:WebGL 上 DOTS/WebGPU 支援度變動快,任何「前端用 ECS 渲染」的想法都要先做最小驗證 build 才能押。
 
@@ -243,6 +284,52 @@ Agent.QueryNotifier<IWorld>().Supply += world =>
 | Ghost 同步的 `LocalTransform` | `ICharacter.Position`(`Property<Position>`) |
 | ClientWorld / ServerWorld 分離 | 前端(一般 Unity)/ 伺服器(DOTS)分離 |
 | 點擊:射線 ⨯ 平面(數學,WebGL 友善) | 同左(照搬) |
+
+---
+
+## 12. 命名與職責分層(建議)
+
+**更新(以此為準):** `IWorld` 是給 **User** 的**控制面**、`IView` 是給 **Client** 的**觀察面**——兩者服務**不同對象**,所以**分開是對的**(interface segregation by audience);先前「合併」的建議作廢。同一顆 Game 端的 `World` 同時實作這兩個 facet。
+
+剩下值得斟酌的三個純命名/結構細節:
+
+1. **前端類別 `View` vs 協定 `IView` 不是「實作對」。** 實作 `IView` 的是 Game 的 `World`;Client 的 `View` 只是**消費** `IView` ghost。因為 `IView` 現在明確是「給 View/Client 的 facet」,可接受;若要零歧義,協定可叫 `IWorldView`、Client 類別叫 `WorldView`。
+2. **`IWorld : IView` 的繼承 =「控制面包含觀察面」。** User 若本來就要觀察世界則合理;若要嚴格區隔兩個對象看到的成員,改成**兄弟**(各自 `Protocolable`,`World` 同時實作)。
+3. **`WorldInfo`(ScriptableObject 設定)→ 建議改名 `WorldConfig`**,與「可觀察的世界資訊」區隔。
+
+建議 namespace 對齊部署角色(第 1.1 節):`Protocols`(共用契約:`IWorld` 控制 / `IView` 觀察 / `IActor` / `Path`)、`Worlds`(Game 端:`World : IWorld, IView`、`Actor`、`WorldConfig`)、`View`(Client 端:`View`/`WorldView`、`ActorView`)、`User`(未來 User 端)。
+
+> 注意:下方「建議命名」區塊為早期草稿,其中把 `IWorld` 標為觀察面、另立 `IWorldControl`,與本專案最終決定(`IWorld`=控制、`IView`=觀察)**相反**,請以上方為準。
+
+根因:名字把**三條互相垂直的軸**混在一起了。建議各用各的手段分:
+
+| 軸 | 用什麼區分 |
+|---|---|
+| 契約 vs 實作 | 介面 `I...` 前綴 vs 類別(已有) |
+| 伺服器 vs 前端 | **namespace 分層**,不要用型別名硬扛 |
+| 觀察 vs 控制 | 用**能力**命名介面,不要借用「View」 |
+
+**建議命名(能力命名 + namespace 分層):**
+
+```
+PinionCore.Project2.Protocols          // 共用契約
+  IWorld                 // 世界的可觀察/唯讀面(Name、地形資訊、Notifier<IActor> 角色清單)
+  IWorldControl : IWorld // 需要時再疊上權威指令(可選,若前端只給唯讀)
+  IActor, Path
+
+PinionCore.Project2.Worlds  (或 .Server)   // 後端 DOTS 實作
+  World : IWorldControl
+  Actor : IActor
+  WorldConfig            // ← 原 WorldInfo 改名,凸顯它是設定而非可觀察資訊
+
+PinionCore.Project2.View  (或 .Presentation / .Client)  // 前端呈現
+  WorldView   (或 WorldPresenter / WorldRenderer)  // 消費 IWorld ghost、prefab→GameObject
+  ActorView
+```
+
+**核心原則:「View」是前端的一個『呈現者』角色,它是類別、不是協定。** 協定用能力命名(觀察 `IWorld` / 控制 `IWorldControl`),就不會出現「`IView` 被 `World` 實作、卻被 `View` 消費」的錯亂。namespace 分層(Protocols / Server / View)本來就該做,分層後名字還能更短;但 namespace 修不掉上面的語意誤導——那要靠改名。
+
+> 若你偏好保留「唯讀切面」的概念,把 `IView` 改名為 `IWorldObservable` / `IReadOnlyWorld` 也行,重點是**別讓協定名跟前端類別名同字**。
 
 ---
 

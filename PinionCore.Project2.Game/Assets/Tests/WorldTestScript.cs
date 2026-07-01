@@ -16,7 +16,7 @@ public class WorldTestScript
     [SetUp]
     public void SetUp()
     {
-        var worldInfo = ScriptableObject.CreateInstance<PinionCore.Project2.Worlds.WorldInfo>();
+        var worldInfo = ScriptableObject.CreateInstance<PinionCore.Project2.Worlds.WorldConfig>();
         worldInfo.Name = "TestWorld";
         
         // Resources.Load 的路徑是相對於任一 Resources 資料夾、且不含副檔名。
@@ -38,25 +38,8 @@ public class WorldTestScript
 
         // Act:呼叫 LoadTerrain,並用 UniRx 的 RemoteValue() 訂閱其非同步結果。
         // RemoteValue 會在結果解析後發一次值(這裡是同步完成,通常立即)。
-        bool? loaded = null;
-        world.LoadTerrain()
-             .RemoteValue()
-             .Subscribe(v => loaded = v);
+        yield return null;
 
-        // 等到結果出現;有超時保護,避免永遠卡住。
-        float deadline = Time.realtimeSinceStartup + 5f;
-        while (!loaded.HasValue)
-        {
-            if (Time.realtimeSinceStartup > deadline)
-            {
-                Assert.Fail("等待 LoadTerrain 超時");
-                yield break;
-            }
-            yield return null;
-        }
-
-        // L1 契約:回報成功。
-        Assert.IsTrue(loaded.Value, "LoadTerrain 回報失敗");
 
         // L2 存在:DOTS 世界內確實出現「剛好一顆」帶 TerrainTag 的地形實體。
         var em = _world.Dots.EntityManager;

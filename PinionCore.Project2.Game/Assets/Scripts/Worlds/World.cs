@@ -9,11 +9,8 @@ using UnityEngine;
 
 namespace PinionCore.Project2.Worlds
 {
-    public class WorldInfo : ScriptableObject
-    {
-        public string Name;
-        public GameObject TerrainPrefab;
-    }
+
+
 
     /// <summary>
     /// Unity DOTS 的封裝類:只負責「後端碰撞/模擬」。
@@ -25,7 +22,7 @@ namespace PinionCore.Project2.Worlds
     {
         // 內部持有、自建的 DOTS 世界。
         readonly Unity.Entities.World _dots;
-        readonly WorldInfo _info;
+        readonly WorldConfig _info;
 
         // 記住建立出來的 collider blob;blob 不隨 world 自動釋放,Dispose 時要手動釋放。
         Unity.Entities.BlobAssetReference<Unity.Physics.Collider> _terrainCollider;
@@ -35,11 +32,16 @@ namespace PinionCore.Project2.Worlds
         /// </summary>
         public Unity.Entities.World Dots => _dots;
 
-        public World(WorldInfo worldInfo)
+        Property<string> IView.Name => new Property<string>(_info.Name);
+
+        public World(WorldConfig worldInfo)
         {
             _info = worldInfo;
             _dots = new Unity.Entities.World(_info.Name);
+
+            _LoadTerrain();
         }
+
 
         public void Dispose()
         {
@@ -49,7 +51,7 @@ namespace PinionCore.Project2.Worlds
                 _dots.Dispose();
         }
 
-        Value<bool> IWorld.LoadTerrain()
+        Value<bool> _LoadTerrain()
         {
             // 回傳 Value<bool>:Value<T> 有 bool 的隱式轉換,所以直接 return true/false 即可。
             try
