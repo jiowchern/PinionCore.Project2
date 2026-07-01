@@ -1,0 +1,16 @@
+{
+    "name": "PinionCore.Project2.Worlds",
+    "rootNamespace": "",
+    "references": [
+        "GUID:5130fd88bf7f8dc4f88f641245629de5"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

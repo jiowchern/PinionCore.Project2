@@ -1,0 +1,29 @@
+{
+    "name": "Tests",
+    "rootNamespace": "",
+    "references": [
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "PinionCore.Project2.Worlds",
+        "PinionCore.NetSync",
+        "PinionCore.Project2.Protocols",
+        "PinionCore.NetSync.UniRx",
+        "UniRx"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll",
+        "PinionCore.Remote.dll",
+        "PinionCore.Remote.Protocol.Identify.dll",
+        "PinionCore.Utility.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -17,11 +17,27 @@
       },
       "hash": "85c101f5329ec1b0c6f70cba44614166dd78f53c"
     },
+    "com.neuecc.unirx": {
+      "version": "https://github.com/neuecc/UniRx.git?path=Assets/Plugins/UniRx/Scripts#6baeccf6c544c155497164327cca72f28163a578",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "6baeccf6c544c155497164327cca72f28163a578"
+    },
     "com.pinioncore.netsync": {
       "version": "file:../../PinionCore.NetSync.Package",
       "depth": 0,
       "source": "local",
       "dependencies": {}
+    },
+    "com.pinioncore.netsync.unirx": {
+      "version": "file:../../PinionCore.NetSync.UniRx",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.pinioncore.netsync": "0.0.1",
+        "com.neuecc.unirx": "7.1.0"
+      }
     },
     "com.unity.ai.navigation": {
       "version": "2.0.13",
