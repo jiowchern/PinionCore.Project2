@@ -1,0 +1,19 @@
+{
+    "name": "PinionCore.Project2.Users",
+    "rootNamespace": "",
+    "references": [
+        "GUID:5130fd88bf7f8dc4f88f641245629de5",
+        "GUID:3c7bfc5e6dae22445a733e0b540c9813",
+        "Unity.Addressables",
+        "Unity.ResourceManager"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

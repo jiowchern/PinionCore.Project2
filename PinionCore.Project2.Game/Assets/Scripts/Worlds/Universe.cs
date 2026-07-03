@@ -23,13 +23,6 @@ namespace PinionCore.Project2.Worlds
             _WorldsNotifier = _WorldsDepot.ToNotifier<IWorld>();
         }
 
-        public void Start()
-        {
-
-
-
-        }
-
         Value<Guid> IUniverse.CreateWorld(string name)
         {
             var config = WorldConfigs.FirstOrDefault(c => c.Name == name);  
