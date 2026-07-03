@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using UniRx;                       // Subscribe 等 UniRx 擴充
 using PinionCore.NetSync.UniRx;    // RemoteValue():把 Value<T> 轉成 IObservable
-using PinionCore.Project2.Protocols.Worlds;
+using PinionCore.Project2.Protocols;
 
 public class WorldTestScript
 {

@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace PinionCore.Project2.Protocols.Worlds
+namespace PinionCore.Project2.Protocols
 {
     public struct Path
     {

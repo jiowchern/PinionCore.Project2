@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1cab7feac3300b64384e5234f1fe3bc6, type: 3}
+  m_Name: Test1
+  m_EditorClassIdentifier: PinionCore.Project2.Worlds::PinionCore.Project2.Worlds.WorldConfig
+  Name: Test1
+  TerrainPrefab: {fileID: 2097212237341297188, guid: 23ce3d8401169974192e8eb581ecfde7, type: 3}

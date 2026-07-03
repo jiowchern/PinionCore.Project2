@@ -1,5 +1,5 @@
 using System;
-using PinionCore.Project2.Protocols.Worlds;
+using PinionCore.Project2.Protocols;
 using PinionCore.Remote;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -9,8 +9,7 @@ using UnityEngine;
 
 namespace PinionCore.Project2.Worlds
 {
-
-
+    
 
     /// <summary>
     /// Unity DOTS 的封裝類:只負責「後端碰撞/模擬」。

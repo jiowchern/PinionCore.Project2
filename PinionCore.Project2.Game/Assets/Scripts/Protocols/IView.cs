@@ -1,7 +1,11 @@
-﻿namespace PinionCore.Project2.Protocols.Worlds
+﻿namespace PinionCore.Project2.Protocols
 {
-    public interface IView : PinionCore.Remote.Protocolable
+    /// <summary>
+    /// 抽象的視圖介面
+    /// 提供外部使用者查詢視圖資訊。
+    /// </summary>
+    public interface IView : Remote.Protocolable
     {
-        PinionCore.Remote.Property<string> Name { get; }
+        Remote.Property<string> Name { get; }
     }
 }
