@@ -11,6 +11,6 @@ namespace PinionCore.Project2.Protocols
     /// </summary>
     public interface IWorld : IView
     {
-        
+       PinionCore.Remote.Property<System.Guid> Id { get; }
     }
 }

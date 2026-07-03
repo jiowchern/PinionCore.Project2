@@ -13,4 +13,9 @@ MonoBehaviour:
   m_Name: Test1
   m_EditorClassIdentifier: PinionCore.Project2.Worlds::PinionCore.Project2.Worlds.WorldConfig
   Name: Test1
-  TerrainPrefab: {fileID: 2097212237341297188, guid: 23ce3d8401169974192e8eb581ecfde7, type: 3}
+  TerrainPrefab:
+    m_AssetGUID: 23ce3d8401169974192e8eb581ecfde7
+    m_SubObjectName: 
+    m_SubObjectType: 
+    m_SubObjectGUID: 
+    m_EditorAssetChanged: 0

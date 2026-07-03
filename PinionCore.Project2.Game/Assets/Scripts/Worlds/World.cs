@@ -6,6 +6,7 @@ using Unity.Mathematics;
 using Unity.Physics;      // MeshCollider / PhysicsCollider / CollisionFilter / Material
 using Unity.Transforms;   // LocalTransform
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 
 namespace PinionCore.Project2.Worlds
 {
@@ -33,8 +34,15 @@ namespace PinionCore.Project2.Worlds
 
         Property<string> IView.Name => new Property<string>(_info.Name);
 
-        public World(WorldConfig worldInfo)
+        Property<Guid> IWorld.Id => new Property<Guid>(Id);
+
+        public readonly Guid Id;
+
+
+
+        public World(Guid id,WorldConfig worldInfo)
         {
+            Id = id;
             _info = worldInfo;
             _dots = new Unity.Entities.World(_info.Name);
 
@@ -53,12 +61,24 @@ namespace PinionCore.Project2.Worlds
         Value<bool> _LoadTerrain()
         {
             // 回傳 Value<bool>:Value<T> 有 bool 的隱式轉換,所以直接 return true/false 即可。
+            //
+            // TerrainPrefab 現為 Addressable 參考。後端(伺服器)側只需讀取一次 mesh 來烘焙
+            // 碰撞 blob,故用同步 WaitForCompletion 取得 prefab;此路徑跑在非 WebGL 的後端,
+            // 同步載入可接受。烘焙完成後立即 Release,不常駐佔用資源。
+            UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> loadHandle = default;
             try
             {
-                var prefab = _info.TerrainPrefab;
+                if (_info.TerrainPrefab == null || !_info.TerrainPrefab.RuntimeKeyIsValid())
+                {
+                    Debug.LogError("[World] WorldInfo.TerrainPrefab 未設定有效的 Addressable 參考");
+                    return false;
+                }
+
+                loadHandle = _info.TerrainPrefab.LoadAssetAsync<GameObject>();
+                var prefab = loadHandle.WaitForCompletion();
                 if (prefab == null)
                 {
-                    Debug.LogError("[World] WorldInfo.TerrainPrefab 為 null");
+                    Debug.LogError("[World] 地形 Addressable 載入失敗");
                     return false;
                 }
 
@@ -84,6 +104,12 @@ namespace PinionCore.Project2.Worlds
                 // 任何例外都視為載入失敗,回報 false,而不是讓例外往外拋。
                 Debug.LogException(e);
                 return false;
+            }
+            finally
+            {
+                // mesh 幾何已烘進 collider blob,原 prefab 資源可釋放。
+                if (loadHandle.IsValid())
+                    Addressables.Release(loadHandle);
             }
         }
 

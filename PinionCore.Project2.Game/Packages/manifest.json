@@ -4,6 +4,7 @@
     "com.neuecc.unirx": "https://github.com/neuecc/UniRx.git?path=Assets/Plugins/UniRx/Scripts#6baeccf6c544c155497164327cca72f28163a578",
     "com.pinioncore.netsync": "file:../../PinionCore.NetSync.Package",
     "com.pinioncore.netsync.unirx": "file:../../PinionCore.NetSync.UniRx",
+    "com.unity.addressables": "3.1.0",
     "com.unity.ai.navigation": "2.0.13",
     "com.unity.collab-proxy": "2.12.4",
     "com.unity.entities": "6.5.0",

@@ -128,7 +128,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1185084310}
-  - component: {fileID: 1185084309}
   - component: {fileID: 1185084308}
   m_Layer: 0
   m_Name: User
@@ -149,19 +148,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f30c862ef727323459647a0ae441abcb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.Project2.Worlds::PinionCore.Project2.Worlds.User
-  Universe: {fileID: 0}
---- !u!114 &1185084309
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1185084307}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cc153a4803fa6064c85a77e890387e32, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Syncs.Souls.User
+  Universe: {fileID: 2137534725}
 --- !u!4 &1185084310
 Transform:
   m_ObjectHideFlags: 0

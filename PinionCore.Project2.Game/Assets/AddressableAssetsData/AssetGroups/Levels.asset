@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Levels
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: Levels
+  m_GUID: b47661ac3e48e3449a885d6ebab1d8c5
+  m_SerializeEntries:
+  - m_GUID: 23ce3d8401169974192e8eb581ecfde7
+    m_Address: level/test/terrain1
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - webgl
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 84e3641b69ee6b2419379df04933bb0d
+    m_Address: level/terrain
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - webgl
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 48be80aad374e9a45a71e7a0b19b1e74, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: e145b755d5ac8fe40a71dd3fa64b6047, type: 2}
+    - {fileID: 11400000, guid: 1aa71378d2d38c444b8ae02a298b4a12, type: 2}
