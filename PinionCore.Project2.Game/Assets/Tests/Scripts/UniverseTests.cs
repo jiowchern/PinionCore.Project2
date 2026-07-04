@@ -38,9 +38,8 @@ namespace PinionCore.Project2.Tests
             // 等一個 frame 讓 StandaloneStartToBind.Start 先把 Listener 綁上 Server
             yield return null;
 
-            // bind listener to client
-            _Connector.Listener = _Listener;
-            _Connector.Connect();
+            // bind listener to client            
+            _Connector.Connect(_Listener);
         }
 
         [UnityTearDown]

@@ -130,6 +130,8 @@ GameObject:
   - component: {fileID: 497929654}
   - component: {fileID: 497929653}
   - component: {fileID: 497929651}
+  - component: {fileID: 497929656}
+  - component: {fileID: 497929655}
   m_Layer: 0
   m_Name: GatewayClient
   m_TagString: Untagged
@@ -184,6 +186,32 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &497929655
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 497929650}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 823e270d024300242bb64d672a623140, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Standalone.Connector
+  Listener: {fileID: 0}
+--- !u!114 &497929656
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 497929650}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d19e1249fccd59a42b9eff2c33f83b15, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Web.WebConnector
+  Config: {fileID: 11400000, guid: fd390f6659a1ddf4bbbbd60834a23c2a, type: 2}
 --- !u!1 &1089854463
 GameObject:
   m_ObjectHideFlags: 0
