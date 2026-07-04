@@ -15,7 +15,8 @@
         "Unity.Collections",
         "Unity.Mathematics",
         "Unity.Addressables",
-        "Unity.ResourceManager"
+        "Unity.ResourceManager",
+        "PinionCore.Project2.Users"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
