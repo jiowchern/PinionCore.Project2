@@ -55,6 +55,7 @@
     "com.unity.modules.xr": "1.0.0"
   },
   "testables": [
+    "com.pinioncore.netsync",
     "com.pinioncore.netsync.unirx"
   ]
 }
