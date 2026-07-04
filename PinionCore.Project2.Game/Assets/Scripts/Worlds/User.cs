@@ -1,11 +1,11 @@
-using PinionCore.NetSync.Syncs.Souls;
+using PinionCore.NetSync.Sessions;
 using PinionCore.Remote;
 
 namespace PinionCore.Project2.Worlds
 {
 
 
-    public class User : PinionCore.NetSync.Syncs.Souls.User
+    public class User : PinionCore.NetSync.Sessions.User
     {
         public Universe Universe;
 
