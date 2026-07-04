@@ -119,65 +119,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &107421217
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 107421218}
-  - component: {fileID: 107421220}
-  - component: {fileID: 107421219}
-  m_Layer: 0
-  m_Name: Bind
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &107421218
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 107421217}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1314589886}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &107421219
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 107421217}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fb93e0cf694e31b4488623eb8aca7aac, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Kits.StandaloneStartToBind
-  Listener: {fileID: 1314589887}
---- !u!114 &107421220
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 107421217}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 756bbe78033bb7e4395351d1000734b0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Kits.TcpStartToBind
-  Listener: {fileID: 1314589888}
 --- !u!1 &393411251
 GameObject:
   m_ObjectHideFlags: 0
@@ -257,8 +198,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 823e270d024300242bb64d672a623140, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Standalone.Connector
-  Listener: {fileID: 0}
---- !u!1 &1314589884
+--- !u!1 &633939010
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -266,81 +206,58 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1314589886}
-  - component: {fileID: 1314589885}
-  - component: {fileID: 1314589889}
-  - component: {fileID: 1314589888}
-  - component: {fileID: 1314589887}
+  - component: {fileID: 633939014}
+  - component: {fileID: 633939013}
+  - component: {fileID: 633939012}
+  - component: {fileID: 633939011}
+  - component: {fileID: 633939015}
   m_Layer: 0
-  m_Name: UserService
+  m_Name: GatewayService
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1314589885
+--- !u!114 &633939011
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1314589884}
+  m_GameObject: {fileID: 633939010}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ebd32006c7fd2c046a546728e9efc2e2, type: 3}
+  m_Script: {fileID: 11500000, guid: 2f84435295aa9f944a5196c31c35aa56, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Syncs.Souls.UserProvider
-  Server: {fileID: 1314589889}
-  UserPrefab: {fileID: 0}
---- !u!4 &1314589886
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1314589884}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1828419271}
-  - {fileID: 107421218}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1314589887
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Tcp.TcpConnector
+  Config: {fileID: 11400000, guid: 8f9446f980f6a6b4a89b8e16bfb4948a, type: 2}
+  ConnectResultEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  ConnectBreakEvent:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &633939012
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1314589884}
+  m_GameObject: {fileID: 633939010}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b816db3782033a644b9f22645503aab8, type: 3}
+  m_Script: {fileID: 11500000, guid: bf88b24104b1afb4aa3deacf1678bfdf, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Standalone.Listener
---- !u!114 &1314589888
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Gateways.GatewayRegistry
+  Provider: {fileID: 11400000, guid: 2177ef7ad07432643b0fe35c896e0965, type: 2}
+  Group: 1
+--- !u!114 &633939013
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1314589884}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4d083218062bdde4988436357b64d782, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Tcp.TcpListener
-  Config: {fileID: 11400000, guid: de00954eb0bc9af4b9691c312baf3175, type: 2}
---- !u!114 &1314589889
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1314589884}
+  m_GameObject: {fileID: 633939010}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 42be095c2fca02f4a8984e7177d7bd03, type: 3}
@@ -350,6 +267,33 @@ MonoBehaviour:
   BinderEvent:
     m_PersistentCalls:
       m_Calls: []
+--- !u!4 &633939014
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 633939010}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &633939015
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 633939010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 823e270d024300242bb64d672a623140, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Standalone.Connector
 --- !u!1 &1715423958
 GameObject:
   m_ObjectHideFlags: 0
@@ -395,53 +339,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PinionCore.Project2.Users::PinionCore.Project2.Users.Universe
   Client: {fileID: 393411253}
---- !u!1 &1828419270
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1828419271}
-  - component: {fileID: 1828419272}
-  m_Layer: 0
-  m_Name: User
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!4 &1828419271
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1828419270}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1314589886}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1828419272
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1828419270}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a727f1b3128a12f40876251bd6a88bed, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PinionCore.Project2.Users::PinionCore.Project2.Users.User
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 393411254}
-  - {fileID: 1314589886}
+  - {fileID: 633939014}

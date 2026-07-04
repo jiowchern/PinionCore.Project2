@@ -1,0 +1,50 @@
+flowchart LR
+    subgraph SceneClient["Scene: Client"]
+        GC["GatewayClient
+        (GatewayClient + TcpConnector + WebConnector + Standalone.Connector)"]
+    end
+
+    subgraph SceneGateway["Scene: Gateway"]
+        GR["GatewayRouter"]
+        SE["SessionEndpoint
+        (TcpListener + WebListener + Standalone.Listener)"]
+        RE["RegistryEndpoint
+        (TcpListener + Standalone.Listener)"]
+        SE -->|"Session Join/Leave"| GR
+        RE -->|"Registry Join/Leave"| GR
+    end
+
+    subgraph SceneUser["Scene: User"]
+        GS["GatewayService
+        (Server + GatewayRegistry Group=1 + TcpConnector)"]
+        WA["WorldAgent
+        (NetSync.Client + TcpConnector)"]
+        UH["Handlers
+        (Users.Universe)"]
+        UH -->|"Client 參照"| WA
+    end
+
+    subgraph SceneWorld["Scene: World"]
+        WS["WorldService
+        (Server + UserProvider + TcpListener + Standalone.Listener)"]
+        WU["User
+        (Worlds.User, UserPrefab)"]
+        UV["Universe
+        (Worlds.Universe : IUniverse)"]
+        WS -.->|"每連線 spawn"| WU
+        WU -->|"Universe 參照"| UV
+    end
+
+    GC ==>|"TCP: GatewaySessionTcp
+    WebSocket: GatewaySessionWeb"| SE
+    GS ==>|"TCP: GatewayRegistryTcp
+    (服務註冊)"| RE
+    GR -.->|"RoundRobin 路由
+    client session → 已註冊服務"| GS
+    WA ==>|"TCP: LocalTcpWorld"| WS
+
+    PP(["Project2Protocol (ProtocolProvider)"])
+    PP -.- GC
+    PP -.- GS
+    PP -.- WA
+    PP -.- WS
