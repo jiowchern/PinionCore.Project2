@@ -1,7 +1,7 @@
 ﻿using System;
 
 
-namespace PinionCore.Project2.Protocols
+namespace PinionCore.Project2.Shared
 {
     
     public interface IGame : Remote.Protocolable

@@ -78,7 +78,7 @@ flowchart LR
 | 層 | 專案位置 (現況) | 相依 | 負責 | 不負責 |
 |---|---|---|---|---|
 | **後端 World (DOTS)** | `PinionCore.Project2.Worlds` | Entities、Unity.Physics、Transforms | 讀 prefab 取碰撞、建實體、跑權威模擬與碰撞判定 | 渲染、輸入、UI |
-| **協定 (共用契約)** | `PinionCore.Project2.Protocols` | 只依賴 PinionCore.Remote | 定義 `IWorld`/`ICharacter` 等介面與可序列化資料型別 | 任何實作、任何引擎型別 |
+| **協定 (共用契約)** | `PinionCore.Project2.Shared` | 只依賴 PinionCore.Remote | 定義 `IWorld`/`ICharacter` 等介面與可序列化資料型別 | 任何實作、任何引擎型別 |
 | **前端 (WebGL 呈現)** | 尚未建立(建議 `PinionCore.Project2.View`) | 一般 UnityEngine、PinionCore.Remote client | 讀 prefab 建 GameObject、依 ghost 同步位置/生成銷毀、處理輸入 | 任何權威判定、物理模擬 |
 
 > 重點:**後端 World 應該移除 `Unity.Entities.Graphics` 參考**(那是渲染,前端才需要),改加 `Unity.Physics`。目前 asmdef 裡先前加的 graphics 在這個分工下是多餘的。
@@ -131,10 +131,10 @@ PinionCore.Remote 的三個同步原語,對應到遊戲語意:
 | `Property<T>` | 連續狀態,值變更會同步到 ghost | 角色位置、血量、狀態 |
 | `Notifier<T>`(Supply/Unsupply) | 物件生成/銷毀 | 角色上線/離線 → 前端生成/銷毀 GameObject |
 
-**協定介面(放在 `PinionCore.Project2.Protocols`,照 PinionCore.Remote 的 Chat1 慣例):**
+**協定介面(放在 `PinionCore.Project2.Shared`,照 PinionCore.Remote 的 Chat1 慣例):**
 
 ```csharp
-namespace PinionCore.Project2.Protocols.Worlds
+namespace PinionCore.Project2.Shared.Worlds
 {
     // 伺服器權威世界。前端透過 Agent.QueryNotifier<IWorld>().Supply 取得其 ghost。
     public interface IWorld : PinionCore.Remote.Protocolable
@@ -216,7 +216,7 @@ Agent.QueryNotifier<IWorld>().Supply += world =>
 
 | Assembly | references | 說明 |
 |---|---|---|
-| `PinionCore.Project2.Protocols` | 只有 PinionCore.Remote | 純介面 + 資料型別,兩邊共用,不碰引擎 |
+| `PinionCore.Project2.Shared` | 只有 PinionCore.Remote | 純介面 + 資料型別,兩邊共用,不碰引擎 |
 | `PinionCore.Project2.Worlds`(後端) | Unity.Entities、**Unity.Physics**、Unity.Transforms、Unity.Collections、Unity.Mathematics、Unity.Burst | **移除 Unity.Entities.Graphics**;只做碰撞/模擬 |
 | `PinionCore.Project2.View`(前端,新建) | UnityEngine、PinionCore.Remote client、Protocols | GameObject 呈現 + 輸入;不碰 Physics/Entities |
 
@@ -312,7 +312,7 @@ Agent.QueryNotifier<IWorld>().Supply += world =>
 **建議命名(能力命名 + namespace 分層):**
 
 ```
-PinionCore.Project2.Protocols          // 共用契約
+PinionCore.Project2.Shared          // 共用契約
   IWorld                 // 世界的可觀察/唯讀面(Name、地形資訊、Notifier<IActor> 角色清單)
   IWorldControl : IWorld // 需要時再疊上權威指令(可選,若前端只給唯讀)
   IActor, Path

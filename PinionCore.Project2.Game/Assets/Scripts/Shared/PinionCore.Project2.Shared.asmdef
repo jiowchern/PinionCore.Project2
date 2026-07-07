@@ -1,5 +1,5 @@
 {
-    "name": "PinionCore.Project2.Protocols",
+    "name": "PinionCore.Project2.Shared",
     "rootNamespace": "",
     "references": [
         "PinionCore.NetSync",

@@ -1,4 +1,4 @@
-using PinionCore.Project2.Protocols;
+using PinionCore.Project2.Shared;
 using PinionCore.Remote;
 using PinionCore.Utility;
 using System;
@@ -8,7 +8,7 @@ using UnityEngine;
 namespace PinionCore.Project2.Worlds
 {
     // 管理所有 world 的类
-    public class Universe : MonoBehaviour , PinionCore.Project2.Protocols.IUniverse
+    public class Universe : MonoBehaviour , PinionCore.Project2.Shared.IUniverse
     {
         public WorldConfig[] WorldConfigs;
         public ActorConfig[] ActorConfigs;

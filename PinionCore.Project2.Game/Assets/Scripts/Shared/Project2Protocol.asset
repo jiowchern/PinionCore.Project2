@@ -11,4 +11,4 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9fb183dc0e83942409a4a23f89477ee4, type: 3}
   m_Name: Project2Protocol
-  m_EditorClassIdentifier: Assembly-CSharp::PinionCore.Project2.Protocols.Project2ProtocolProvider
+  m_EditorClassIdentifier: PinionCore.Project2.Shared::PinionCore.Project2.Shared.Project2ProtocolProvider

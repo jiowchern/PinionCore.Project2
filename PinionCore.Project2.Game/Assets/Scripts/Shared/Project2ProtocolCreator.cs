@@ -1,4 +1,4 @@
-namespace PinionCore.Project2.Protocols
+namespace PinionCore.Project2.Shared
 {
     // 由 PinionCore.Remote.Tools.Protocol.Sources Source Generator 在「本組件內」
     // 掃描所有繼承 IObject 的介面,生成完整 protocol。

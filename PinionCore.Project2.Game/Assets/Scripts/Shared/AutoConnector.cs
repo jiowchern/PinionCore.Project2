@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace PinionCore.Project2.Protocols
+namespace PinionCore.Project2.Shared
 {
     /// <summary>
     /// Start 時依 Type 自動連線;搭配同物件上掛有 IConnectableAgent

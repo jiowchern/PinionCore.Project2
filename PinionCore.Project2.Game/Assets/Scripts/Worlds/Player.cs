@@ -1,5 +1,5 @@
 using System;
-using PinionCore.Project2.Protocols;
+using PinionCore.Project2.Shared;
 using PinionCore.Remote;
 using UnityEngine;
 

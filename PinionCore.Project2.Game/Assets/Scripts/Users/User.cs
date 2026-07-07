@@ -32,7 +32,7 @@ namespace PinionCore.Project2.Users
             _StatusMachine.Push(status);
         }
 
-        private void _ToGame(Protocols.ActorInfo actor)
+        private void _ToGame(Shared.ActorInfo actor)
         {
             var status = new UserGame(_Binder, _WorldNotifer, actor);
             status.DoneEvent += () =>

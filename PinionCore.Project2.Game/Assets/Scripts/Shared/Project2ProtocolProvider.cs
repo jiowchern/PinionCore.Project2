@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace PinionCore.Project2.Protocols
+namespace PinionCore.Project2.Shared
 {
     [CreateAssetMenu(menuName = "PinionCore/NetSync/Project2 Protocol Provider", fileName = "Project2Protocol")]
     public class Project2ProtocolProvider : PinionCore.NetSync.ProtocolProvider

@@ -241,7 +241,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 57792f213b1141e4db6d2c026a481935, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PinionCore.Project2.Protocols::PinionCore.Project2.Protocols.AutoConnector
+  m_EditorClassIdentifier: PinionCore.Project2.Shared::PinionCore.Project2.Shared.AutoConnector
   TcpConnector: {fileID: 633939011}
   WebConnector: {fileID: 0}
   Connecter: {fileID: 633939015}
@@ -445,7 +445,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 57792f213b1141e4db6d2c026a481935, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PinionCore.Project2.Protocols::PinionCore.Project2.Protocols.AutoConnector
+  m_EditorClassIdentifier: PinionCore.Project2.Shared::PinionCore.Project2.Shared.AutoConnector
   TcpConnector: {fileID: 393411252}
   WebConnector: {fileID: 0}
   Connecter: {fileID: 393411255}

@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using PinionCore.NetSync.UniRx;    // SupplyEvent():把 INotifier<T> 轉成 IObservable<T>
-using PinionCore.Project2.Protocols;
+using PinionCore.Project2.Shared;
 
 namespace PinionCore.Project2.Tests
 {

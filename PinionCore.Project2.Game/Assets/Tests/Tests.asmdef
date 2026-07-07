@@ -6,7 +6,7 @@
         "UnityEditor.TestRunner",
         "PinionCore.Project2.Worlds",
         "PinionCore.NetSync",
-        "PinionCore.Project2.Protocols",
+        "PinionCore.Project2.Shared",
         "PinionCore.NetSync.UniRx",
         "UniRx",
         "Unity.Entities",

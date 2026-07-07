@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using PinionCore.Project2.Protocols;
+using PinionCore.Project2.Shared;
 
 namespace PinionCore.Project2.Tests
 {

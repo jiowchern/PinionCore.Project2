@@ -1,4 +1,4 @@
-﻿namespace PinionCore.Project2.Protocols
+﻿namespace PinionCore.Project2.Shared
 {
     /// <summary>
     /// 抽象的視圖介面

@@ -1,5 +1,5 @@
 ﻿using PinionCore.NetSync.UniRx;
-using PinionCore.Project2.Protocols;
+using PinionCore.Project2.Shared;
 using PinionCore.Remote;
 using PinionCore.Utility;
 using System;
@@ -19,22 +19,22 @@ namespace PinionCore.Project2.Users
         Property<string> _WorldName;
         Property<string> IGame.WorldName => _WorldName;
 
-        PinionCore.Remote.Depot<PinionCore.Project2.Protocols.IActor> _Actors;
+        PinionCore.Remote.Depot<PinionCore.Project2.Shared.IActor> _Actors;
         
         Remote.Notifier<IActor> _ActorsNotifier;
         Remote.Notifier<IActor> IGame.Actors => _ActorsNotifier;
 
-        PinionCore.Remote.Depot<PinionCore.Project2.Protocols.IPlayer> _Players;
+        PinionCore.Remote.Depot<PinionCore.Project2.Shared.IPlayer> _Players;
         Remote.Notifier<IPlayer> _PlayersNotifier;        
         Remote.Notifier<IPlayer> IGame.Players => _PlayersNotifier;
 
         public event System.Action DoneEvent;
         public UserGame(ISessionBinder binder, INotifierQueryable worldNotifer, ActorInfo actor)
         {
-            _Players = new PinionCore.Remote.Depot<PinionCore.Project2.Protocols.IPlayer>();
+            _Players = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.IPlayer>();
             _PlayersNotifier = _Players.ToNotifier<IPlayer>();
 
-            _Actors = new PinionCore.Remote.Depot<PinionCore.Project2.Protocols.IActor>();
+            _Actors = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.IActor>();
             _ActorsNotifier = _Actors.ToNotifier<IActor>();
             _WorldName = new Property<string>(string.Empty);
             _DisposeHandlers = new System.Collections.Generic.List<System.Action>();            

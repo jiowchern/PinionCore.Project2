@@ -1,16 +1,16 @@
-using PinionCore.Project2.Protocols.Users;
+using PinionCore.Project2.Shared.Users;
 using PinionCore.Remote;
 using PinionCore.Utility;
 using System;
 namespace PinionCore.Project2.Users
 {
-    class UserVerifier : PinionCore.Utility.IStatus , PinionCore.Project2.Protocols.Users.IVerifiable
+    class UserVerifier : PinionCore.Utility.IStatus , PinionCore.Project2.Shared.Users.IVerifiable
     {
         private readonly ISessionBinder _Binder;
         readonly System.Collections.Generic.List<ISoul> _Souls;
         private readonly Roster _Roster;
 
-        public event Action<Protocols.ActorInfo> OnVerified;
+        public event Action<Shared.ActorInfo> OnVerified;
 
         public UserVerifier(ISessionBinder binder, Roster roster)
         {

@@ -3,7 +3,7 @@ using System.Linq;
 using System.Collections.Generic;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
-using PinionCore.Project2.Protocols;
+using PinionCore.Project2.Shared;
 
 namespace PinionCore.Project2.Worlds
 {

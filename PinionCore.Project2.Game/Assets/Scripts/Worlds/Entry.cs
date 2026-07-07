@@ -1,5 +1,5 @@
 using PinionCore.NetSync;
-using PinionCore.Project2.Protocols;
+using PinionCore.Project2.Shared;
 using PinionCore.Project2.Worlds;
 using PinionCore.Remote;
 using System.Reflection;

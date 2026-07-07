@@ -1,4 +1,4 @@
-﻿namespace PinionCore.Project2.Protocols.Users
+﻿namespace PinionCore.Project2.Shared.Users
 {
     public interface IVerifiable : Remote.Protocolable
     {

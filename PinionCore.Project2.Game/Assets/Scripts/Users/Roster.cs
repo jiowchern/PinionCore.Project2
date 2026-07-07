@@ -4,17 +4,17 @@ namespace PinionCore.Project2.Users
     class Roster
     {
         
-        readonly System.Collections.Generic.Dictionary<string, Protocols.ActorInfo> _Actors = new System.Collections.Generic.Dictionary<string, Protocols.ActorInfo>();
+        readonly System.Collections.Generic.Dictionary<string, Shared.ActorInfo> _Actors = new System.Collections.Generic.Dictionary<string, Shared.ActorInfo>();
         public Roster()
         {
 
         }
-        internal Protocols.ActorInfo? Register(string name)
+        internal Shared.ActorInfo? Register(string name)
         {
             // 如果存在則返回空
             if (_Actors.ContainsKey(name))
                 return null;
-            var actor = new Protocols.ActorInfo();
+            var actor = new Shared.ActorInfo();
             actor.DisplayName = name;
             actor.ModelName = "Test1";
 

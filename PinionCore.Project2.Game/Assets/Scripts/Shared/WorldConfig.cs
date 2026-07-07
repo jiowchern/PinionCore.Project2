@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 
-namespace PinionCore.Project2.Protocols
+namespace PinionCore.Project2.Shared
 {
 
     [CreateAssetMenu(fileName = "WorldConfig", menuName = "PinionCore/WorldConfig", order = 1)]

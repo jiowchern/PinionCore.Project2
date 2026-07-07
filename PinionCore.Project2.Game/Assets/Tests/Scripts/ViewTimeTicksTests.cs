@@ -6,8 +6,8 @@ using UniRx;                       // First/Timeout/ToYieldInstruction 等 UniRx
 using UnityEngine;
 using UnityEngine.TestTools;
 using PinionCore.NetSync.UniRx;    // SupplyEvent()/RemoteValue():把 INotifier<T>/Value<T> 轉成 IObservable
-using PinionCore.Project2.Protocols;
-using PinionCore.Project2.Protocols.Users;
+using PinionCore.Project2.Shared;
+using PinionCore.Project2.Shared.Users;
 
 namespace PinionCore.Project2.Tests
 {

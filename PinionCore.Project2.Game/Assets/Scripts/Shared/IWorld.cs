@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace PinionCore.Project2.Protocols
+namespace PinionCore.Project2.Shared
 {
 
     /// <summary>
