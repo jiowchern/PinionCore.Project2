@@ -119,6 +119,52 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &384217293
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 384217294}
+  - component: {fileID: 384217295}
+  m_Layer: 0
+  m_Name: Entry
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &384217294
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 384217293}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &384217295
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 384217293}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 72fadd15fdd8aaf47b727f370d8d3138, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.Project2.Worlds::Entry
+  Universe: {fileID: 2137534725}
+  Server: {fileID: 1443965422}
 --- !u!1 &418914038
 GameObject:
   m_ObjectHideFlags: 0
@@ -178,51 +224,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Kits.StandaloneStartToBind
   Listener: {fileID: 1443965424}
---- !u!1 &1185084307
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1185084310}
-  - component: {fileID: 1185084308}
-  m_Layer: 0
-  m_Name: User
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!114 &1185084308
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1185084307}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f30c862ef727323459647a0ae441abcb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PinionCore.Project2.Worlds::PinionCore.Project2.Worlds.User
-  Universe: {fileID: 2137534725}
---- !u!4 &1185084310
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1185084307}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1443965420}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1443965419
 GameObject:
   m_ObjectHideFlags: 0
@@ -233,7 +234,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1443965420}
   - component: {fileID: 1443965422}
-  - component: {fileID: 1443965421}
   - component: {fileID: 1443965423}
   - component: {fileID: 1443965424}
   m_Layer: 0
@@ -256,24 +256,9 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1185084310}
   - {fileID: 418914039}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1443965421
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1443965419}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ebd32006c7fd2c046a546728e9efc2e2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Sessions.UserProvider
-  Server: {fileID: 1443965422}
-  UserPrefab: {fileID: 1185084308}
 --- !u!114 &1443965422
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -289,7 +274,19 @@ MonoBehaviour:
   Provider: {fileID: 11400000, guid: 2177ef7ad07432643b0fe35c896e0965, type: 2}
   BinderEvent:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 384217295}
+        m_TargetAssemblyTypeName: Entry, PinionCore.Project2.Worlds
+        m_MethodName: OnBinderCommand
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1443965423
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -367,3 +364,4 @@ SceneRoots:
   m_Roots:
   - {fileID: 1443965420}
   - {fileID: 2137534726}
+  - {fileID: 384217294}
