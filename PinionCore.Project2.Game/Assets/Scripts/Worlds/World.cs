@@ -35,15 +35,25 @@ namespace PinionCore.Project2.Worlds
 
         Property<Guid> IWorld.Id => new Property<Guid>(Id);
 
+
+        Depot<IPlayer> _Players ; 
+        Notifier<IPlayer> _PlayersNotifier;
+        Notifier<IPlayer> IWorld.Players => _PlayersNotifier;
+
         public readonly Guid Id;
 
 
 
         public World(Guid id,WorldConfig worldInfo)
         {
+            _Players = new Depot<IPlayer>();
+            _PlayersNotifier = _Players.ToNotifier();
+
             Id = id;
             _info = worldInfo;
             _dots = new Unity.Entities.World(_info.Name);
+
+
 
             _LoadTerrain();
         }
@@ -139,6 +149,16 @@ namespace PinionCore.Project2.Worlds
 
             // 讓「這顆是地形」成為可查詢的事實(供遊戲系統與測試使用)。
             em.AddComponent<TerrainTag>(entity);
+        }
+
+        Value<Guid> IWorld.Enter(ActorInfo actor)
+        {
+            throw new NotImplementedException();
+        }
+
+        Value<bool> IWorld.Leave(Guid actorId)
+        {
+            throw new NotImplementedException();
         }
     }
 }

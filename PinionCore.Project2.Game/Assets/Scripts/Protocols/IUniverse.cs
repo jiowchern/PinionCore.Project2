@@ -2,7 +2,7 @@
 {
     public interface IUniverse : Remote.Protocolable
     {
-        PinionCore.Remote.Value<System.Guid> CreateWorld(string name);
+        PinionCore.Remote.Value<System.Guid> QueryWorld(string name);
 
         PinionCore.Remote.Notifier<IWorld> WorldNotifier { get; }
 

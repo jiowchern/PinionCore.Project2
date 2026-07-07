@@ -15,14 +15,7 @@ public class Entry : MonoBehaviour
     public Entry()
     {
         _Binders = new System.Collections.Generic.Dictionary<ISessionBinder, PinionCore.Remote.ISoul>();
-    }
-
-    void Start()
-    {
-        
-        
-    }
-
+    }  
 
     public void OnBinderCommand(Server.BinderCommand command)
     {
