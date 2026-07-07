@@ -11,6 +11,7 @@ namespace PinionCore.Project2.Worlds
     public class Universe : MonoBehaviour , PinionCore.Project2.Protocols.IUniverse
     {
         public WorldConfig[] WorldConfigs;
+        public ActorConfig[] ActorConfigs;
 
         readonly PinionCore.Remote.Depot<World> _WorldsDepot;
         readonly PinionCore.Remote.Notifier<IWorld> _WorldsNotifier;
@@ -33,7 +34,7 @@ namespace PinionCore.Project2.Worlds
             }
 
             var worldId = Guid.NewGuid();
-            var world = new World(worldId, config);
+            var world = new World(worldId, config, ActorConfigs);
             _WorldsDepot.Items.Add(world);
 
             return new Value<Guid>(worldId);

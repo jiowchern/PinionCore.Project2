@@ -15,10 +15,19 @@ namespace PinionCore.Project2.Users
             if (_Actors.ContainsKey(name))
                 return null;
             var actor = new Protocols.ActorInfo();
-            actor.Name = name;
-            
+            actor.DisplayName = name;
+            actor.ModelName = "Test1";
+
+
             _Actors.Add(name, actor);
             return actor;
+        }
+
+        internal void Unregister(string name)
+        {
+            // 移除 info
+
+            _Actors.Remove(name);
         }
     }
 

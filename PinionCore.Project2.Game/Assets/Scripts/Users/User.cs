@@ -37,6 +37,7 @@ namespace PinionCore.Project2.Users
             var status = new UserGame(_Binder, _WorldNotifer, actor);
             status.DoneEvent += () =>
             {
+                _Roster.Unregister(actor.DisplayName);
                 _ToVerify();
             };
             _StatusMachine.Push(status);

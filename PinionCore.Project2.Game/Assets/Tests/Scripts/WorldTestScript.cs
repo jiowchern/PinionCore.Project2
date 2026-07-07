@@ -26,7 +26,7 @@ namespace PinionCore.Project2.Tests
             // TerrainPrefab 已改為 Addressable 參考;以 Terrain.prefab 的 GUID 建立 AssetReference。
             // (editor 測試以 AssetDatabase provider 解析,World 內部 WaitForCompletion 可同步取得。)
             worldInfo.TerrainPrefab = new UnityEngine.AddressableAssets.AssetReferenceGameObject("84e3641b69ee6b2419379df04933bb0d");
-            _world = new PinionCore.Project2.Worlds.World(System.Guid.NewGuid(), worldInfo);
+            _world = new PinionCore.Project2.Worlds.World(System.Guid.NewGuid(), worldInfo, new Worlds.ActorConfig[0]);
         }
 
         [TearDown]

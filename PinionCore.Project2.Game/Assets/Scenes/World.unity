@@ -343,6 +343,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: PinionCore.Project2.Worlds::PinionCore.Project2.Worlds.Universe
   WorldConfigs:
   - {fileID: 11400000, guid: 9e620929fa8025743bb57c3febb472c7, type: 2}
+  ActorConfigs:
+  - {fileID: 11400000, guid: 57239c638d804d7419b931f15445b1d1, type: 2}
 --- !u!4 &2137534726
 Transform:
   m_ObjectHideFlags: 0

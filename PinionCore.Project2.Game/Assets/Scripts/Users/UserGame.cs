@@ -46,7 +46,7 @@ namespace PinionCore.Project2.Users
         void IStatus.Enter()
         {
             var obs = from uni in _WorldNotifer.QueryNotifier<IUniverse>().SupplyEvent()
-                      from worldId in uni.QueryWorld("exampleWorldName").RemoteValue()
+                      from worldId in uni.QueryWorld("Test1").RemoteValue()
                       from world in uni.WorldNotifier.SupplyEvent().Where(w => w.Id == worldId).Take(1)
                       from actorId in world.Enter(_ActorInfo).RemoteValue()                      
                       select new {world, actorId };

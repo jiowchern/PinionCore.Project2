@@ -6,6 +6,7 @@
     /// </summary>
     public interface IView : Remote.Protocolable
     {
-        Remote.Property<string> Name { get; }
+        event System.Action<long> TimeTicks; // 地圖產生開始的時間戳記。 
+        Remote.Property<string> Name { get; } // 地圖名稱
     }
 }

@@ -3,6 +3,7 @@ using UnityEngine.AddressableAssets;
 
 namespace PinionCore.Project2.Worlds
 {
+
     [CreateAssetMenu(fileName = "WorldConfig", menuName = "PinionCore/WorldConfig", order = 1)]
     public class WorldConfig : ScriptableObject
     {
@@ -14,5 +15,6 @@ namespace PinionCore.Project2.Worlds
         /// 這是 WebGL 控制記憶體與下載體積的關鍵。
         /// </summary>
         public AssetReferenceGameObject TerrainPrefab;
+        public UnityEngine.Vector3 Entrance;
     }
 }

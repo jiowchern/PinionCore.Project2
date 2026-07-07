@@ -1,6 +1,7 @@
-using System;
 using PinionCore.Project2.Protocols;
 using PinionCore.Remote;
+using System;
+using System.Diagnostics;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Physics;      // MeshCollider / PhysicsCollider / CollisionFilter / Material
@@ -10,7 +11,6 @@ using UnityEngine.AddressableAssets;
 
 namespace PinionCore.Project2.Worlds
 {
-
     /// <summary>
     /// Unity DOTS 的封裝類:只負責「後端碰撞/模擬」。
     /// 內部自建一個獨立的 DOTS 世界(不注入預設世界);需要什麼系統再逐一加,
@@ -22,6 +22,7 @@ namespace PinionCore.Project2.Worlds
         // 內部持有、自建的 DOTS 世界。
         readonly Unity.Entities.World _dots;
         readonly WorldConfig _info;
+        private readonly ActorConfig[] actorConfigs;
 
         // 記住建立出來的 collider blob;blob 不隨 world 自動釋放,Dispose 時要手動釋放。
         Unity.Entities.BlobAssetReference<Unity.Physics.Collider> _terrainCollider;
@@ -36,21 +37,24 @@ namespace PinionCore.Project2.Worlds
         Property<Guid> IWorld.Id => new Property<Guid>(Id);
 
 
-        Depot<IPlayer> _Players ; 
+        Depot<Player> _Players ; 
         Notifier<IPlayer> _PlayersNotifier;
         Notifier<IPlayer> IWorld.Players => _PlayersNotifier;
 
         public readonly Guid Id;
 
+        // stopwatch 用來計算地圖產生開始的時間戳記。
+        readonly System.Diagnostics.Stopwatch _stopwatch ;
 
-
-        public World(Guid id,WorldConfig worldInfo)
+        public World(Guid id,WorldConfig worldInfo, ActorConfig[] actorConfigs)
         {
-            _Players = new Depot<IPlayer>();
-            _PlayersNotifier = _Players.ToNotifier();
+            _stopwatch = Stopwatch.StartNew();
+            _Players = new Depot<Player>();
+            _PlayersNotifier = _Players.ToNotifier<IPlayer>();
 
             Id = id;
             _info = worldInfo;
+            this.actorConfigs = actorConfigs;
             _dots = new Unity.Entities.World(_info.Name);
 
 
@@ -58,6 +62,21 @@ namespace PinionCore.Project2.Worlds
             _LoadTerrain();
         }
 
+        event Action<long> _TimeTicks;
+        event Action<long> IView.TimeTicks
+        {
+            add
+            {
+                value(_stopwatch.Elapsed.Ticks);
+                _TimeTicks += value;
+            }
+
+            remove
+            {
+                _TimeTicks -= value;
+            }
+        }
+       
 
         public void Dispose()
         {
@@ -79,7 +98,7 @@ namespace PinionCore.Project2.Worlds
             {
                 if (_info.TerrainPrefab == null || !_info.TerrainPrefab.RuntimeKeyIsValid())
                 {
-                    Debug.LogError("[World] WorldInfo.TerrainPrefab 未設定有效的 Addressable 參考");
+                    UnityEngine.Debug.LogError("[World] WorldInfo.TerrainPrefab 未設定有效的 Addressable 參考");
                     return false;
                 }
 
@@ -87,7 +106,7 @@ namespace PinionCore.Project2.Worlds
                 var prefab = loadHandle.WaitForCompletion();
                 if (prefab == null)
                 {
-                    Debug.LogError("[World] 地形 Addressable 載入失敗");
+                    UnityEngine.Debug.LogError("[World] 地形 Addressable 載入失敗");
                     return false;
                 }
 
@@ -101,7 +120,7 @@ namespace PinionCore.Project2.Worlds
                 }
                 if (mesh == null)
                 {
-                    Debug.LogError("[World] 地形 prefab 找不到可用的碰撞 Mesh(MeshCollider / MeshFilter)");
+                    UnityEngine.Debug.LogError("[World] 地形 prefab 找不到可用的碰撞 Mesh(MeshCollider / MeshFilter)");
                     return false;
                 }
 
@@ -111,14 +130,14 @@ namespace PinionCore.Project2.Worlds
             catch (Exception e)
             {
                 // 任何例外都視為載入失敗,回報 false,而不是讓例外往外拋。
-                Debug.LogException(e);
+                UnityEngine.Debug.LogException(e);
                 return false;
             }
             finally
             {
                 // mesh 幾何已烘進 collider blob,原 prefab 資源可釋放。
                 if (loadHandle.IsValid())
-                    Addressables.Release(loadHandle);
+                    UnityEngine.AddressableAssets.Addressables.Release(loadHandle);
             }
         }
 
@@ -153,6 +172,10 @@ namespace PinionCore.Project2.Worlds
 
         Value<Guid> IWorld.Enter(ActorInfo actor)
         {
+            // todo : 這裡應該要檢查 actorConfigs,確定 actorConfigs.Name 與 ActorInfo.ModelName 相符,才允許進入世界。
+            // 建立一個新的玩家實體(dots),並加入 Players 列表。
+            
+
             throw new NotImplementedException();
         }
 
