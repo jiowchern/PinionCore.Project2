@@ -26,7 +26,11 @@ namespace PinionCore.Project2.Tests
             // TerrainPrefab 已改為 Addressable 參考;以 Terrain.prefab 的 GUID 建立 AssetReference。
             // (editor 測試以 AssetDatabase provider 解析,World 內部 WaitForCompletion 可同步取得。)
             worldInfo.TerrainPrefab = new UnityEngine.AddressableAssets.AssetReferenceGameObject("84e3641b69ee6b2419379df04933bb0d");
-            _world = new PinionCore.Project2.Worlds.World(System.Guid.NewGuid(), worldInfo, new Worlds.ActorConfig[0]);
+
+            // Enter 驗證用的 actor 設定:ModelName 必須對得上 ActorConfig.Name 才能進入世界。
+            var actorConfig = ScriptableObject.CreateInstance<PinionCore.Project2.Worlds.ActorConfig>();
+            actorConfig.Name = "TestActor";
+            _world = new PinionCore.Project2.Worlds.World(System.Guid.NewGuid(), worldInfo, new[] { actorConfig });
         }
 
         [TearDown]
@@ -58,6 +62,64 @@ namespace PinionCore.Project2.Tests
                     "Terrain 缺少 LocalTransform");
                 Assert.IsTrue(em.HasComponent<Unity.Physics.PhysicsCollider>(terrain),
                     "Terrain 缺少碰撞資料 PhysicsCollider");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator EnterAndLeaveTest()
+        {
+            IWorld world = _world;
+            yield return null;
+
+            IPlayer supplied = null;
+            IPlayer unsupplied = null;
+            world.Players.Base.Supply += p => supplied = p;
+            world.Players.Base.Unsupply += p => unsupplied = p;
+
+            // Enter:ModelName 不在 actorConfigs 內 → 拒絕,回 Guid.Empty,無任何 Supply。
+            var invalidEnterId = System.Guid.NewGuid();
+            world.Enter(new ActorInfo { ModelName = "Unknown", DisplayName = "Nobody" })
+                .RemoteValue().Subscribe(id => invalidEnterId = id);
+            Assert.AreEqual(System.Guid.Empty, invalidEnterId, "不合法的 ModelName 應回傳 Guid.Empty");
+            Assert.IsNull(supplied, "不合法的 Enter 不應加入玩家");
+
+            // Enter:合法 ModelName → 取得 actorId,Players 發出 Supply,DOTS 世界多一顆玩家實體。
+            var actorId = System.Guid.Empty;
+            world.Enter(new ActorInfo { ModelName = "TestActor", DisplayName = "Tester" })
+                .RemoteValue().Subscribe(id => actorId = id);
+            Assert.AreNotEqual(System.Guid.Empty, actorId, "合法的 Enter 應回傳 actorId");
+            Assert.IsNotNull(supplied, "Enter 後 Players 應發出 Supply");
+            System.Guid suppliedActorId = supplied.ActorId;
+            Assert.AreEqual(actorId, suppliedActorId, "Supply 的玩家 ActorId 應與 Enter 回傳一致");
+            string suppliedModelName = supplied.ModelName;
+            Assert.AreEqual("TestActor", suppliedModelName);
+            string suppliedDisplayName = supplied.DisplayName;
+            Assert.AreEqual("Tester", suppliedDisplayName);
+
+            var em = _world.Dots.EntityManager;
+            using (var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.Exclude<PinionCore.Project2.Worlds.TerrainTag>()))
+            {
+                Assert.AreEqual(1, query.CalculateEntityCount(), "Enter 後應有一顆玩家實體");
+            }
+
+            // Leave:無效 id → false,不影響現有玩家。
+            var invalidLeaveResult = true;
+            world.Leave(System.Guid.NewGuid()).RemoteValue().Subscribe(r => invalidLeaveResult = r);
+            Assert.IsFalse(invalidLeaveResult, "無效的 actorId 應回傳 false");
+            Assert.IsNull(unsupplied, "無效的 Leave 不應移除玩家");
+
+            // Leave:有效 id → true,Unsupply 觸發,玩家實體銷毀。
+            var leaveResult = false;
+            world.Leave(actorId).RemoteValue().Subscribe(r => leaveResult = r);
+            Assert.IsTrue(leaveResult, "有效的 actorId 應回傳 true");
+            Assert.IsNotNull(unsupplied, "Leave 後 Players 應發出 Unsupply");
+            using (var query = em.CreateEntityQuery(
+                ComponentType.ReadOnly<LocalTransform>(),
+                ComponentType.Exclude<PinionCore.Project2.Worlds.TerrainTag>()))
+            {
+                Assert.AreEqual(0, query.CalculateEntityCount(), "Leave 後玩家實體應被銷毀");
             }
         }
     }

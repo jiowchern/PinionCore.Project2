@@ -2,6 +2,7 @@ using PinionCore.Project2.Protocols;
 using PinionCore.Remote;
 using System;
 using System.Diagnostics;
+using System.Linq;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Physics;      // MeshCollider / PhysicsCollider / CollisionFilter / Material
@@ -15,7 +16,7 @@ namespace PinionCore.Project2.Worlds
     /// Unity DOTS 的封裝類:只負責「後端碰撞/模擬」。
     /// 內部自建一個獨立的 DOTS 世界(不注入預設世界);需要什麼系統再逐一加,
     /// 目前的 LoadTerrain 直接對 EntityManager 建實體,尚不需要任何 system。
-    /// 渲染不在這裡 —— 那是前端 WebGL 的事。
+    /// 渲染不在這裡 —— 那是前端 WebGL 的事。    
     /// </summary>
     public class World : IWorld, IDisposable
     {
@@ -80,6 +81,8 @@ namespace PinionCore.Project2.Worlds
 
         public void Dispose()
         {
+            // 先清掉殘留玩家讓 Unsupply 通知送出;entity 隨 _dots.Dispose() 一併銷毀。
+            _Players.Items.Clear();
             if (_terrainCollider.IsCreated)
                 _terrainCollider.Dispose();
             if (_dots.IsCreated)
@@ -172,16 +175,30 @@ namespace PinionCore.Project2.Worlds
 
         Value<Guid> IWorld.Enter(ActorInfo actor)
         {
-            // todo : 這裡應該要檢查 actorConfigs,確定 actorConfigs.Name 與 ActorInfo.ModelName 相符,才允許進入世界。
-            // 建立一個新的玩家實體(dots),並加入 Players 列表。
-            
+            // ModelName 必須存在於 actorConfigs 才允許進入;Value<T> 沒有錯誤通道,失敗以 Guid.Empty 表示。
+            var config = actorConfigs.FirstOrDefault(c => c.Name == actor.ModelName);
+            if (config == null)
+                return Guid.Empty;
 
-            throw new NotImplementedException();
+            var em = _dots.EntityManager;
+            var entity = em.CreateEntity();
+            em.AddComponentData(entity, LocalTransform.FromPosition(_info.Entrance));
+
+            var actorId = Guid.NewGuid();
+            var player = new Player(actorId, actor, entity);
+            _Players.Items.Add(player);
+            return actorId;
         }
 
         Value<bool> IWorld.Leave(Guid actorId)
         {
-            throw new NotImplementedException();
+            var player = _Players.Items.FirstOrDefault(p => p.ActorId == actorId);
+            if (player == null)
+                return false;
+
+            _Players.Items.Remove(player);
+            _dots.EntityManager.DestroyEntity(player.Entity);
+            return true;
         }
     }
 }
