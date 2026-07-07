@@ -1,0 +1,15 @@
+<linker>
+  <!-- Console(PinionCore.NetSync.Consoles)與 PinionCore 協議層大量使用反射:
+       QueryNotifier<T> MakeGenericMethod、ghost 方法 Invoke、Property<T>.Value 讀取,
+       IL2CPP managed stripping 較高等級時需保留成員。 -->
+  <assembly fullname="PinionCore.Remote" preserve="all" />
+  <assembly fullname="PinionCore.Utility" preserve="all" />
+  <assembly fullname="PinionCore.Remote.Ghost" preserve="all" />
+
+  <!-- Command.TryConversion 透過 TypeDescriptor.GetConverter 做字串轉型,
+       轉換器(Int32Converter 等)由反射查找,避免被剝離。 -->
+  <assembly fullname="System" ignoreIfMissing="1">
+    <namespace fullname="System.ComponentModel" preserve="all" />
+  </assembly>
+  <assembly fullname="System.ComponentModel.TypeConverter" ignoreIfMissing="1" preserve="all" />
+</linker>
