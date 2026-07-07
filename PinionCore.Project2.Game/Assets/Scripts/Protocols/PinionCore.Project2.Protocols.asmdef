@@ -2,7 +2,9 @@
     "name": "PinionCore.Project2.Protocols",
     "rootNamespace": "",
     "references": [
-        "PinionCore.NetSync"
+        "PinionCore.NetSync",
+        "Unity.Addressables",
+        "Unity.ResourceManager"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

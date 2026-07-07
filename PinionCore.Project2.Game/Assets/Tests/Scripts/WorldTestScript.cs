@@ -20,7 +20,7 @@ namespace PinionCore.Project2.Tests
         [SetUp]
         public void SetUp()
         {
-            var worldInfo = ScriptableObject.CreateInstance<PinionCore.Project2.Worlds.WorldConfig>();
+            var worldInfo = ScriptableObject.CreateInstance<WorldConfig>();
             worldInfo.Name = "TestWorld";
 
             // TerrainPrefab 已改為 Addressable 參考;以 Terrain.prefab 的 GUID 建立 AssetReference。
@@ -28,7 +28,7 @@ namespace PinionCore.Project2.Tests
             worldInfo.TerrainPrefab = new UnityEngine.AddressableAssets.AssetReferenceGameObject("84e3641b69ee6b2419379df04933bb0d");
 
             // Enter 驗證用的 actor 設定:ModelName 必須對得上 ActorConfig.Name 才能進入世界。
-            var actorConfig = ScriptableObject.CreateInstance<PinionCore.Project2.Worlds.ActorConfig>();
+            var actorConfig = ScriptableObject.CreateInstance<ActorConfig>();
             actorConfig.Name = "TestActor";
             _world = new PinionCore.Project2.Worlds.World(System.Guid.NewGuid(), worldInfo, new[] { actorConfig });
         }

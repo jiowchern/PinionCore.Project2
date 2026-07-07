@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 
-namespace PinionCore.Project2.Worlds
+namespace PinionCore.Project2.Protocols
 {
     [CreateAssetMenu(fileName = "ActorConfig", menuName = "PinionCore/ActorConfig", order = 2)]
     public class ActorConfig : ScriptableObject
