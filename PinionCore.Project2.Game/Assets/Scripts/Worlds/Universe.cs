@@ -52,5 +52,13 @@ namespace PinionCore.Project2.Worlds
 
 
         }
+
+        public void Update()
+        {
+            foreach (var world in _WorldsDepot.ReadOnlyItems)
+            {
+                world.Update();
+            }
+        }
     }
 }

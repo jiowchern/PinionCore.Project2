@@ -10,13 +10,13 @@ namespace PinionCore.Project2.Protocols
         PinionCore.Remote.Property<string> ModelName { get; }
         PinionCore.Remote.Property<System.Guid> ActorId { get; }
 
-        event System.Action<Vector2[]> PathEvent;
+        event System.Action<Vector3[]> PathEvent;
 
     }
     public interface IPlayer : IActor
     {
 
-        PinionCore.Remote.Value<bool> Move(Vector2 target);
+        PinionCore.Remote.Value<bool> Move(Vector3 target);
 
 
 

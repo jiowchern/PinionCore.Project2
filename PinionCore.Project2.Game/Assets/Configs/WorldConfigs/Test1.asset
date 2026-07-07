@@ -19,3 +19,5 @@ MonoBehaviour:
     m_SubObjectType: 
     m_SubObjectGUID: 
     m_EditorAssetChanged: 0
+  Entrance: {x: 0, y: 0, z: 0}
+  TimeUpdateInterval: 5

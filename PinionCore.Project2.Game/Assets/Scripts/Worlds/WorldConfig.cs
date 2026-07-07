@@ -15,6 +15,8 @@ namespace PinionCore.Project2.Worlds
         /// 這是 WebGL 控制記憶體與下載體積的關鍵。
         /// </summary>
         public AssetReferenceGameObject TerrainPrefab;
+
         public UnityEngine.Vector3 Entrance;
+        public float TimeUpdateInterval;
     }
 }

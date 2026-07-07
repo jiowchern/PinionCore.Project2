@@ -46,10 +46,12 @@ namespace PinionCore.Project2.Worlds
 
         // stopwatch 用來計算地圖產生開始的時間戳記。
         readonly System.Diagnostics.Stopwatch _stopwatch ;
+        readonly System.Diagnostics.Stopwatch _UpdateWatch ;
 
         public World(Guid id,WorldConfig worldInfo, ActorConfig[] actorConfigs)
         {
             _stopwatch = Stopwatch.StartNew();
+            _UpdateWatch = Stopwatch.StartNew();
             _Players = new Depot<Player>();
             _PlayersNotifier = _Players.ToNotifier<IPlayer>();
 
@@ -63,18 +65,19 @@ namespace PinionCore.Project2.Worlds
             _LoadTerrain();
         }
 
-        event Action<long> _TimeTicks;
-        event Action<long> IView.TimeTicks
+        event Action<long> _TimeTicksEvent;
+        event Action<long> IView.TimeTicksEvent
         {
             add
             {
+                
+                _TimeTicksEvent += value;
                 value(_stopwatch.Elapsed.Ticks);
-                _TimeTicks += value;
             }
 
             remove
             {
-                _TimeTicks -= value;
+                _TimeTicksEvent -= value;
             }
         }
        
@@ -199,6 +202,16 @@ namespace PinionCore.Project2.Worlds
             _Players.Items.Remove(player);
             _dots.EntityManager.DestroyEntity(player.Entity);
             return true;
+        }
+
+        internal void Update()
+        {
+            // 每 _info.TimeUpdateInterval 秒送一次時間戳給前端,讓前端知道後端的時間進度。
+            if (_TimeTicksEvent != null && _UpdateWatch.ElapsedMilliseconds > _info.TimeUpdateInterval * 1000)
+            {
+                _TimeTicksEvent(_stopwatch.Elapsed.Ticks);
+                _UpdateWatch.Restart();
+            }
         }
     }
 }

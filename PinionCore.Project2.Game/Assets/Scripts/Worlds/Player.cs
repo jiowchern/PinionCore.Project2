@@ -26,8 +26,8 @@ namespace PinionCore.Project2.Worlds
             ModelName = new Property<string>(info.ModelName);
         }
 
-        event Action<Vector2[]> _PathEvent;
-        event Action<Vector2[]> IActor.PathEvent
+        event Action<Vector3[]> _PathEvent;
+        event Action<Vector3[]> IActor.PathEvent
         {
             add
             {
@@ -40,7 +40,7 @@ namespace PinionCore.Project2.Worlds
 
         }
 
-        Value<bool> IPlayer.Move(Vector2 target)
+        Value<bool> IPlayer.Move(Vector3 target)
         {
             throw new NotImplementedException();
         }

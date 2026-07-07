@@ -65,6 +65,9 @@ namespace PinionCore.Project2.Users
             var gameSoul = _Binder.Bind<IGame>(this);
             _DisposeHandlers.Add(() => _Binder.Unbind(gameSoul));
 
+            var viewSoul = _Binder.Bind<IView>(world);
+            _DisposeHandlers.Add(() => _Binder.Unbind(viewSoul));
+
             var playersAddObs = world.Players.SupplyEvent().Where(p => p.ActorId == actorId).Take(1);
             var disposablePlayersAddObs = playersAddObs.Subscribe(_Players.Items.Add);
             _DisposeHandlers.Add(() => disposablePlayersAddObs.Dispose());
