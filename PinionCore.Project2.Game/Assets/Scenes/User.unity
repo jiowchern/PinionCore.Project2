@@ -242,10 +242,12 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 57792f213b1141e4db6d2c026a481935, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PinionCore.Project2.Users::PinionCore.Project2.Users.AutoConnector
-  WorldAgent: {fileID: 0}
-  TcpConnector: {fileID: 0}
-  Connecter: {fileID: 0}
+  m_EditorClassIdentifier: PinionCore.Project2.Protocols::PinionCore.Project2.Protocols.AutoConnector
+  TcpConnector: {fileID: 633939011}
+  Connecter: {fileID: 633939015}
+  StandaloneListener: {fileID: 0}
+  StandaloneSceneName: Gateway
+  StandaloneObjectName: RegistryEndpoint
   ConnectBreakEvent:
     m_PersistentCalls:
       m_Calls: []
@@ -256,8 +258,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   ReconnectInterval: 5
-  WorldSceneName: World
-  Type: 0
+  Type: 2
 --- !u!1 &633939010
 GameObject:
   m_ObjectHideFlags: 0
@@ -444,10 +445,12 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 57792f213b1141e4db6d2c026a481935, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PinionCore.Project2.Users::PinionCore.Project2.Users.AutoConnector
-  WorldAgent: {fileID: 393411253}
+  m_EditorClassIdentifier: PinionCore.Project2.Protocols::PinionCore.Project2.Protocols.AutoConnector
   TcpConnector: {fileID: 393411252}
   Connecter: {fileID: 393411255}
+  StandaloneListener: {fileID: 0}
+  StandaloneSceneName: World
+  StandaloneObjectName:
   ConnectBreakEvent:
     m_PersistentCalls:
       m_Calls: []
@@ -458,7 +461,6 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   ReconnectInterval: 5
-  WorldSceneName: World
   Type: 2
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

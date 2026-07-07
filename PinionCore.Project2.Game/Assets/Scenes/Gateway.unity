@@ -134,6 +134,7 @@ GameObject:
   - component: {fileID: 1297742552}
   - component: {fileID: 1297742551}
   - component: {fileID: 1297742550}
+  - component: {fileID: 1297742556}
   m_Layer: 0
   m_Name: SessionEndpoint
   m_TagString: Untagged
@@ -234,6 +235,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Gateways.GatewayRouterEndpoint
   Router: {fileID: 2042590783}
   Endpoint: 1
+--- !u!114 &1297742556
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1297742548}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fb93e0cf694e31b4488623eb8aca7aac, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Kits.StandaloneStartToBind
+  Listener: {fileID: 1297742552}
 --- !u!1 &2007180242
 GameObject:
   m_ObjectHideFlags: 0
@@ -247,6 +261,7 @@ GameObject:
   - component: {fileID: 2007180246}
   - component: {fileID: 2007180245}
   - component: {fileID: 2007180244}
+  - component: {fileID: 2007180248}
   m_Layer: 0
   m_Name: RegistryEndpoint
   m_TagString: Untagged
@@ -321,6 +336,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Gateways.GatewayRouterEndpoint
   Router: {fileID: 2042590783}
   Endpoint: 0
+--- !u!114 &2007180248
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2007180242}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fb93e0cf694e31b4488623eb8aca7aac, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Kits.StandaloneStartToBind
+  Listener: {fileID: 2007180244}
 --- !u!1 &2042590782
 GameObject:
   m_ObjectHideFlags: 0

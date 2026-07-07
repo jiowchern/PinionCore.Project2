@@ -1,24 +1,27 @@
 flowchart LR
     subgraph SceneClient["Scene: Client"]
         GC["GatewayClient
-        (GatewayClient + TcpConnector + WebConnector + Standalone.Connector)"]
+        (GatewayClient + TcpConnector + WebConnector + Standalone.Connector
+        + AutoConnector → Gateway/SessionEndpoint)"]
     end
 
     subgraph SceneGateway["Scene: Gateway"]
         GR["GatewayRouter"]
         SE["SessionEndpoint
-        (TcpListener + WebListener + Standalone.Listener)"]
+        (TcpListener + WebListener + Standalone.Listener + StandaloneStartToBind)"]
         RE["RegistryEndpoint
-        (TcpListener + Standalone.Listener)"]
+        (TcpListener + Standalone.Listener + StandaloneStartToBind)"]
         SE -->|"Session Join/Leave"| GR
         RE -->|"Registry Join/Leave"| GR
     end
 
     subgraph SceneUser["Scene: User"]
         GS["GatewayService
-        (Server + GatewayRegistry Group=1 + TcpConnector)"]
+        (Server + GatewayRegistry Group=1 + TcpConnector + Standalone.Connector
+        + AutoConnector → Gateway/RegistryEndpoint)"]
         WA["WorldAgent
-        (NetSync.Client + TcpConnector)"]
+        (NetSync.Client + TcpConnector + Standalone.Connector
+        + AutoConnector → World)"]
         UH["Handlers
         (Users.Universe)"]
         UH -->|"Client 參照"| WA
@@ -26,7 +29,7 @@ flowchart LR
 
     subgraph SceneWorld["Scene: World"]
         WS["WorldService
-        (Server + UserProvider + TcpListener + Standalone.Listener)"]
+        (Server + UserProvider + TcpListener + Standalone.Listener + StandaloneStartToBind)"]
         WU["User
         (Worlds.User, UserPrefab)"]
         UV["Universe
@@ -35,13 +38,23 @@ flowchart LR
         WU -->|"Universe 參照"| UV
     end
 
-    GC ==>|"TCP: GatewaySessionTcp
-    WebSocket: GatewaySessionWeb"| SE
-    GS ==>|"TCP: GatewayRegistryTcp
+    GC ==>|"Tcp: GatewaySessionTcp
+    Web: GatewaySessionWeb
+    Standalone: SessionEndpoint"| SE
+    GS ==>|"Tcp: GatewayRegistryTcp
+    Standalone: RegistryEndpoint
     (服務註冊)"| RE
     GR -.->|"RoundRobin 路由
     client session → 已註冊服務"| GS
-    WA ==>|"TCP: LocalTcpWorld"| WS
+    WA ==>|"Tcp: LocalTcpWorld
+    Standalone: World scene"| WS
+
+    AC(["Protocols.AutoConnector (共用):依 Type 於 Start 自動連線
+    Tcp → TcpConnector / Web → WebConnector / Standalone → 指派 Listener 或場景名+物件名查找
+    失敗或斷線每隔 ReconnectInterval 秒重試"])
+    AC -.- GC
+    AC -.- GS
+    AC -.- WA
 
     PP(["Project2Protocol (ProtocolProvider)"])
     PP -.- GC

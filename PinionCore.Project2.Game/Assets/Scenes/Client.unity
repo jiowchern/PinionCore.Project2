@@ -211,6 +211,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Web.WebConnector
   Config: {fileID: 11400000, guid: fd390f6659a1ddf4bbbbd60834a23c2a, type: 2}
+  ConnectResultEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  ConnectBreakEvent:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &1640811266
 GameObject:
   m_ObjectHideFlags: 0
