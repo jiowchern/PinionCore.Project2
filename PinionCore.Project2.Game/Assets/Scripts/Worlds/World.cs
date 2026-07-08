@@ -42,17 +42,21 @@ namespace PinionCore.Project2.Worlds
         Notifier<IPlayer> _PlayersNotifier;
         Notifier<IPlayer> IWorld.Players => _PlayersNotifier;
 
+        // TimeSpan ticks(100ns),與 TimeTicksEvent / 前端 WorldTimeHandler.CurrentTime 同單位;
+        // 不可用 Stopwatch.ElapsedTicks(原始計數,頻率依平台)。
+        public long ElapsedTicks { get => _elapsedWatch.Elapsed.Ticks; }
+
         public readonly Guid Id;
 
         // stopwatch 用來計算地圖產生開始的時間戳記。
-        readonly System.Diagnostics.Stopwatch _stopwatch ;
+        readonly System.Diagnostics.Stopwatch _elapsedWatch ;
         readonly System.Diagnostics.Stopwatch _UpdateWatch ;
         // 計算兩次 Update 之間的間隔,供玩家移動推進使用。
         readonly System.Diagnostics.Stopwatch _MoveWatch ;
 
         public World(Guid id,WorldConfig worldInfo, ActorConfig[] actorConfigs)
         {
-            _stopwatch = Stopwatch.StartNew();
+            _elapsedWatch = Stopwatch.StartNew();
             _UpdateWatch = Stopwatch.StartNew();
             _MoveWatch = Stopwatch.StartNew();
             _Players = new Depot<Player>();
@@ -75,7 +79,7 @@ namespace PinionCore.Project2.Worlds
             {
                 
                 _TimeTicksEvent += value;
-                value(_stopwatch.Elapsed.Ticks);
+                value(_elapsedWatch.Elapsed.Ticks);
             }
 
             remove
@@ -191,7 +195,7 @@ namespace PinionCore.Project2.Worlds
             em.AddComponentData(entity, LocalTransform.FromPosition(_info.Entrance));
 
             var actorId = Guid.NewGuid();
-            var player = new Player(actorId, actor, entity, em, config.MoveSpeed, _info.Entrance);
+            var player = new Player(actorId, actor, entity, em, config.MoveSpeed, _info.Entrance, this);
             _Players.Items.Add(player);
             return actorId;
         }
@@ -212,7 +216,7 @@ namespace PinionCore.Project2.Worlds
             // 每 _info.TimeUpdateInterval 秒送一次時間戳給前端,讓前端知道後端的時間進度。
             if (_TimeTicksEvent != null && _UpdateWatch.ElapsedMilliseconds > _info.TimeUpdateInterval * 1000)
             {
-                _TimeTicksEvent(_stopwatch.Elapsed.Ticks);
+                _TimeTicksEvent(_elapsedWatch.Elapsed.Ticks);
                 _UpdateWatch.Restart();
             }
 

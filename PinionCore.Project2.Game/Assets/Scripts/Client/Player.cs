@@ -33,6 +33,17 @@ namespace PinionCore.Project2.Client
             _Disposable.Add(disp);
         }
 
+        public void Stop()
+        {
+            _Disposable.Clear();
+
+            var obs = from player in GatewayClient.Queryer.QueryNotifier<Shared.IPlayer>().SupplyEvent().Take(1)
+                      from result in player.Stop().RemoteValue()
+                      select result;
+            var disp = obs.Subscribe();
+            _Disposable.Add(disp);
+        }
+
         void OnDestroy()
         {
             _Disposable.Dispose();

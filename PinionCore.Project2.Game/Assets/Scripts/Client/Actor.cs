@@ -17,54 +17,83 @@ namespace PinionCore.Project2.Client
         // 對應伺服器端的身分,讓外部(鏡頭跟隨、測試)能辨識這個殼屬於哪個 actor
         public System.Guid ActorId { get; private set; }
 
+        // 取樣時間來源:與伺服器同步的 world time,由 ActorProvider 於 Setup 傳入
+        public WorldTimeHandler WorldTime { get; private set; }
+
         // 模型是表現層,由 Actor 自行透過 Addressables 載入;
         // 載入失敗或載入中被銷毀都不影響殼(邏輯層)的生命週期
         AsyncOperationHandle<GameObject> _modelHandle;
         bool _destroyed;
 
-        // 待播放的路徑段;收到新 PathEvent 時整批取代
-        readonly System.Collections.Generic.Queue<Path> _Segments = new System.Collections.Generic.Queue<Path>();
+        // 位置唯一來源:伺服器的時間戳路徑,每幀以 world time 取樣;
+        // 收到第一個 MoveEvent(訂閱時必有 replay)前殼保持隱藏。
+        MoveInfo? _MoveInfo;
 
         void Awake()
         {
+            // 全域 dispatcher:GameObject inactive 時仍會執行,隱藏期間照常取樣定位
             Observable.EveryUpdate().Subscribe(_ => _Step()).AddTo(this);
         }
 
         // 快照 ghost 資料;Unsupply 後 ghost 失效,之後不再讀取
-        public void Setup(IActor actor)
+        public void Setup(IActor actor, WorldTimeHandler worldTime)
         {
             ActorId = actor.ActorId;
             DisplayName.text = actor.DisplayName;
-            Target.position = actor.Position;
+            WorldTime = worldTime;
 
+            // 事件 replay 需一個網路往返才到,期間沒有位置資訊,先隱藏避免閃現在原點
+            gameObject.SetActive(false);
             _Move(actor);
         }
 
         private void _Move(IActor actor)
         {
-            var obs = from paths in UniRx.Observable.FromEvent<Path[]>(h=> actor.PathEvent += h, h => actor.PathEvent -= h)  
-                      select paths;
-            obs.Subscribe(_OnPathEvent).AddTo(this);
+            var obs = from moveInfo in UniRx.Observable.FromEvent<MoveInfo>(h=> actor.MoveEvent += h, h => actor.MoveEvent -= h)
+                      select moveInfo;
+            obs.Subscribe(_OnMoveEvent).AddTo(this);
         }
 
-        private void _OnPathEvent(Path[] paths)
+        private void _OnMoveEvent(MoveInfo moveInfo)
         {
-            _Segments.Clear();
-            foreach (var path in paths)
-                _Segments.Enqueue(path);
+            var first = !_MoveInfo.HasValue;
+            _MoveInfo = moveInfo;
+            if (first)
+            {
+                _Step();
+                gameObject.SetActive(true);
+            }
         }
 
-        // 沿路徑段以 Path.Speed 推進;Path 為 XZ 平面座標,Y 維持現值
+        // 以 world time 對時間戳路徑取樣位置;Path 為 XZ 平面座標,Y 維持現值。
+        // 駐留(Start==End)段長為零,自然落在 End,停止與移動共用同一條邏輯。
         private void _Step()
         {
-            if (_Segments.Count == 0)
+            if (!_MoveInfo.HasValue || WorldTime == null)
                 return;
 
-            var path = _Segments.Peek();
-            var dest = new Vector3(path.End.x, Target.position.y, path.End.y);
-            Target.position = Vector3.MoveTowards(Target.position, dest, path.Speed * Time.deltaTime);
-            if ((Target.position - dest).sqrMagnitude <= 1e-6f)
-                _Segments.Dequeue();
+            var info = _MoveInfo.Value;
+            if (info.Paths == null || info.Paths.Length == 0)
+                return;
+
+            // client 時間可能落後 StartTicks(延遲/尚未收到 tick),clamp 為 0 站在起點等時間追上
+            var elapsed = (WorldTime.CurrentTime.Ticks - info.StartTicks) / (double)TimeSpan.TicksPerSecond;
+            if (elapsed < 0)
+                elapsed = 0;
+
+            var position = info.Paths[info.Paths.Length - 1].End;
+            foreach (var path in info.Paths)
+            {
+                var duration = path.Speed > 0f ? Vector2.Distance(path.Start, path.End) / path.Speed : 0f;
+                if (elapsed < duration)
+                {
+                    position = Vector2.Lerp(path.Start, path.End, (float)(elapsed / duration));
+                    break;
+                }
+                elapsed -= duration;
+            }
+
+            Target.position = new Vector3(position.x, Target.position.y, position.y);
         }
 
         public void LoadModel(AssetReferenceGameObject modelPrefab)

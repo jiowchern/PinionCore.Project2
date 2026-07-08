@@ -340,6 +340,7 @@ MonoBehaviour:
   ActorRoot: {fileID: 1932123267}
   ShellPrefab: {fileID: 8405657415622340701, guid: 1223cc201130de145ada9412cca47bc1, type: 3}
   Client: {fileID: 497929653}
+  WorldTime: {fileID: 800024548}
 --- !u!114 &800024548
 MonoBehaviour:
   m_ObjectHideFlags: 0

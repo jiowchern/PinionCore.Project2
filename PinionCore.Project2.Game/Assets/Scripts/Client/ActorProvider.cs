@@ -18,6 +18,9 @@ namespace PinionCore.Project2.Client
 
         public GatewayClient Client;
 
+        // 殼取樣位置用的同步時間來源
+        public WorldTimeHandler WorldTime;
+
         readonly CompositeDisposable _disposables;
 
         // Supply 時同步插入,配合事件有序(Supply 必先於 Unsupply),
@@ -61,7 +64,7 @@ namespace PinionCore.Project2.Client
 
             var shell = Instantiate(ShellPrefab, ActorRoot.transform);
             _actors.Add(actorId, shell);
-            shell.Setup(actor);
+            shell.Setup(actor, WorldTime);
 
             var config = ActorConfigs.FirstOrDefault(c => c.Name == actor.ModelName);
             if (config == null)

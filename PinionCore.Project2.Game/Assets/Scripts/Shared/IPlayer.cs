@@ -8,7 +8,7 @@ namespace PinionCore.Project2.Shared
 
         PinionCore.Remote.Value<bool> Move(Vector3 target);
 
-
+        PinionCore.Remote.Value<bool> Stop();
 
     }
 }

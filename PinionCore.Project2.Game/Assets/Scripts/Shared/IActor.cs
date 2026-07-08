@@ -2,15 +2,20 @@
 
 namespace PinionCore.Project2.Shared
 {
+    public struct MoveInfo
+    {
+        public Path[] Paths;
+        public long StartTicks;
+    }
     public interface IActor : Remote.Protocolable
     {
         PinionCore.Remote.Property<string> DisplayName { get; }
         PinionCore.Remote.Property<string> ModelName { get; }
         PinionCore.Remote.Property<System.Guid> ActorId { get; }
 
-        PinionCore.Remote.Property<Vector3> Position { get; }
-
-        event System.Action<Path[]> PathEvent; 
+        // 位置完全由 MoveEvent 推導:訂閱時 replay 當下 MoveInfo(駐留或移動中),
+        // 以 StartTicks + world time 取樣即得任意時刻位置,故不需要 Position 屬性。
+        event System.Action<MoveInfo> MoveEvent;
 
     }
 }

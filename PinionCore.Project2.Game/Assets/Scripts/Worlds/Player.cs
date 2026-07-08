@@ -17,43 +17,60 @@ namespace PinionCore.Project2.Worlds
 
         readonly Unity.Entities.EntityManager _EntityManager;
         readonly float _MoveSpeed;
+        readonly World _World;
 
         public Property<Guid> ActorId { get; private set; }
         public Property<string> DisplayName { get; private set; }
         public Property<string> ModelName { get; private set; }
 
-        public Property<Vector3> Position { get; private set; }
-
-        // 移動狀態:權威位置在 LocalTransform,Position 屬性只在出生與到達時更新,
-        // 進行中的移動由 PathEvent 交給前端播放。
+        // 權威位置在 LocalTransform;對外的位置狀態只有 _MoveInfo:
+        // 駐留(Start==End)或移動中的時間戳路徑,前端以 world time 取樣。
         bool _Moving;
         Vector3 _MoveTarget;
-        Path[] _CurrentPaths;
+        MoveInfo _MoveInfo;
 
-        public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveSpeed, Vector3 spawnPosition)
+        public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveSpeed, Vector3 spawnPosition, World world)
         {
+            _World = world;
             Entity = entity;
             _EntityManager = entityManager;
             _MoveSpeed = moveSpeed;
             ActorId = new Property<Guid>(actorId);
             DisplayName = new Property<string>(info.DisplayName);
             ModelName = new Property<string>(info.ModelName);
-            Position = new Property<Vector3>(spawnPosition);
+            _MoveInfo = _Stand(spawnPosition);
         }
 
-        event Action<Path[]> _PathEvent;
-        event Action<Path[]> IActor.PathEvent
+        // 駐留 = Start==End 的退化路徑;取樣結果恆為該點,與移動共用同一條前端邏輯。
+        MoveInfo _Stand(Vector3 position)
+        {
+            return new MoveInfo
+            {
+                Paths = new[]
+                {
+                    new Path
+                    {
+                        Start = new Vector2(position.x, position.z),
+                        End = new Vector2(position.x, position.z),
+                        Speed = _MoveSpeed
+                    }
+                },
+                StartTicks = _World.ElapsedTicks
+            };
+        }
+
+        event Action<MoveInfo> _MoveEvent;
+        event Action<MoveInfo> IActor.MoveEvent
         {
             add
             {
-                _PathEvent += value;
-                // 移動中才訂閱的殼也要收到進行中的路徑
-                if (_Moving)
-                    value(_CurrentPaths);
+                _MoveEvent += value;
+                // 駐留與移動中都是有效狀態,一律 replay:晚訂閱的殼取樣即得正確位置。
+                value(_MoveInfo);
             }
             remove
             {
-                _PathEvent -= value;
+                _MoveEvent -= value;
             }
 
         }
@@ -70,17 +87,33 @@ namespace PinionCore.Project2.Worlds
                 return false;
 
             _MoveTarget = destination;
-            _CurrentPaths = new[]
+            _MoveInfo = new MoveInfo
             {
-                new Path
+                Paths = new[]
                 {
-                    Start = new Vector2(current.x, current.z),
-                    End = new Vector2(destination.x, destination.z),
-                    Speed = _MoveSpeed
-                }
+                    new Path
+                    {
+                        Start = new Vector2(current.x, current.z),
+                        End = new Vector2(destination.x, destination.z),
+                        Speed = _MoveSpeed
+                    }
+                },
+                StartTicks = _World.ElapsedTicks
             };
             _Moving = true;
-            _PathEvent?.Invoke(_CurrentPaths);
+            _MoveEvent?.Invoke(_MoveInfo);
+            return true;
+        }
+
+        Value<bool> IPlayer.Stop()
+        {
+            if (!_Moving)
+                return false;
+
+            Vector3 current = _EntityManager.GetComponentData<LocalTransform>(Entity).Position;
+            _Moving = false;
+            _MoveInfo = _Stand(current);
+            _MoveEvent?.Invoke(_MoveInfo);
             return true;
         }
 
@@ -100,8 +133,7 @@ namespace PinionCore.Project2.Worlds
             if ((next - _MoveTarget).sqrMagnitude <= 1e-6f)
             {
                 _Moving = false;
-                _CurrentPaths = null;
-                Position.Value = _MoveTarget;
+                _MoveInfo = _Stand(_MoveTarget);
             }
         }
     }
