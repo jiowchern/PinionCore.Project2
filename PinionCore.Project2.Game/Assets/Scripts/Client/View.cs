@@ -4,11 +4,15 @@ using System.Collections.Generic;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using PinionCore.Project2.Shared;
-
+using PinionCore.NetSync.Gateways;
+using UniRx;
+using System.Linq;
+using PinionCore.NetSync.UniRx;
 namespace PinionCore.Project2.Client
 {
     public class View : MonoBehaviour
     {
+        public GatewayClient Gateway;
         public WorldConfig[] WorldInfos;
 
         // 追蹤已實例化的 Addressable handle,離場時釋放,避免 WebGL 記憶體洩漏。
@@ -19,7 +23,14 @@ namespace PinionCore.Project2.Client
 
         }
 
-        public void Setup(IView view)
+        public void Start()
+        {
+            var obs = from view in Gateway.Queryer.QueryNotifier<IView>().SupplyEvent()                      
+                      select view;
+            obs.Subscribe(_Setup).AddTo(this);
+        }
+
+        void _Setup(IView view)
         {
             var info = WorldInfos.FirstOrDefault(x => x.Name == view.Name.Value);
             if (info == null)

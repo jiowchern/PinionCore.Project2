@@ -1,11 +1,13 @@
+
+using PinionCore.NetSync.UniRx;
 using PinionCore.Project2.Shared;
+using System;
+using System.Linq;
+
+using UniRx;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
-using PinionCore.NetSync.UniRx;
-using System.Linq;
-using UniRx;
-using System;
 
 namespace PinionCore.Project2.Client
 {
@@ -29,6 +31,8 @@ namespace PinionCore.Project2.Client
         // 收到第一個 MoveEvent(訂閱時必有 replay)前殼保持隱藏。
         MoveInfo? _MoveInfo;
 
+        IActor _Actor;
+
         void Awake()
         {
             // 全域 dispatcher:GameObject inactive 時仍會執行,隱藏期間照常取樣定位
@@ -38,31 +42,46 @@ namespace PinionCore.Project2.Client
         // 快照 ghost 資料;Unsupply 後 ghost 失效,之後不再讀取
         public void Setup(IActor actor, WorldTimeHandler worldTime)
         {
+            _Actor = actor;
             ActorId = actor.ActorId;
             DisplayName.text = actor.DisplayName;
             WorldTime = worldTime;
 
             // 事件 replay 需一個網路往返才到,期間沒有位置資訊,先隱藏避免閃現在原點
             gameObject.SetActive(false);
-            _Move(actor);
+            _MoveFirst(actor);
+        }
+
+        private void _MoveFirst(IActor actor)
+        {
+            var obs = from moveInfo in UniRx.Observable.FromEvent<MoveInfo>(h => actor.MoveEvent += h, h => actor.MoveEvent -= h).Take(1)
+                      select moveInfo;
+            obs.Subscribe(_OnFirstMoveEvent).AddTo(this);
+        }
+
+        private void _OnFirstMoveEvent(MoveInfo info)
+        {
+            // StartTicks 是伺服器時間戳,先讓時鐘有機會往前校正再取樣
+            WorldTime.ObserveServerTicks(info.StartTicks);
+            _MoveInfo = info;
+            _Step();
+            gameObject.SetActive(true);
+
+            _Move(_Actor);
         }
 
         private void _Move(IActor actor)
         {
-            var obs = from moveInfo in UniRx.Observable.FromEvent<MoveInfo>(h=> actor.MoveEvent += h, h => actor.MoveEvent -= h)
+            var obs = 
+                        from moveInfo in UniRx.Observable.FromEvent<MoveInfo>(h=> actor.MoveEvent += h, h => actor.MoveEvent -= h)
                       select moveInfo;
             obs.Subscribe(_OnMoveEvent).AddTo(this);
         }
 
         private void _OnMoveEvent(MoveInfo moveInfo)
         {
-            var first = !_MoveInfo.HasValue;
+            WorldTime.ObserveServerTicks(moveInfo.StartTicks);
             _MoveInfo = moveInfo;
-            if (first)
-            {
-                _Step();
-                gameObject.SetActive(true);
-            }
         }
 
         // 以 world time 對時間戳路徑取樣位置;Path 為 XZ 平面座標,Y 維持現值。

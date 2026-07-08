@@ -256,6 +256,18 @@ namespace PinionCore.Project2.Tests
             var standPath = lastMove.Value.Paths[0];
             Assert.Less(Vector2.Distance(standPath.Start, standPath.End), 0.001f, "Stop 後應收到駐留路徑(Start==End)");
 
+            // 殼的取樣位置可能落後 server(時鐘偏差),且殼的 IActor ghost 與測試訂閱的
+            // IPlayer ghost 事件抵達幀序不同;駐留一到殼會先瞬移吸附到 server 停點,
+            // 這段吸附不屬於「Stop 後的移動」——先等殼停到駐留點再開始量
+            deadline = Time.realtimeSinceStartup + 5f;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                var pos = _Shell.Target.position;
+                if (Vector2.Distance(new Vector2(pos.x, pos.z), standPath.End) < 0.1f)
+                    break;
+                yield return null;
+            }
+
             // 確認殼真的停住:1 秒內位置不再變化
             var stopPos = _Shell.Target.position;
             var holdUntil = Time.realtimeSinceStartup + 1f;
