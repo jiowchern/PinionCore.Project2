@@ -8,5 +8,6 @@ namespace PinionCore.Project2.Shared
     {
         public string Name;
         public AssetReferenceGameObject ModelPrefab;
+        public float MoveSpeed = 1.0f;
     }
 }

@@ -47,11 +47,14 @@ namespace PinionCore.Project2.Worlds
         // stopwatch 用來計算地圖產生開始的時間戳記。
         readonly System.Diagnostics.Stopwatch _stopwatch ;
         readonly System.Diagnostics.Stopwatch _UpdateWatch ;
+        // 計算兩次 Update 之間的間隔,供玩家移動推進使用。
+        readonly System.Diagnostics.Stopwatch _MoveWatch ;
 
         public World(Guid id,WorldConfig worldInfo, ActorConfig[] actorConfigs)
         {
             _stopwatch = Stopwatch.StartNew();
             _UpdateWatch = Stopwatch.StartNew();
+            _MoveWatch = Stopwatch.StartNew();
             _Players = new Depot<Player>();
             _PlayersNotifier = _Players.ToNotifier<IPlayer>();
 
@@ -188,7 +191,7 @@ namespace PinionCore.Project2.Worlds
             em.AddComponentData(entity, LocalTransform.FromPosition(_info.Entrance));
 
             var actorId = Guid.NewGuid();
-            var player = new Player(actorId, actor, entity);
+            var player = new Player(actorId, actor, entity, em, config.MoveSpeed, _info.Entrance);
             _Players.Items.Add(player);
             return actorId;
         }
@@ -212,6 +215,12 @@ namespace PinionCore.Project2.Worlds
                 _TimeTicksEvent(_stopwatch.Elapsed.Ticks);
                 _UpdateWatch.Restart();
             }
+
+            // 推進所有移動中的玩家。
+            var delta = (float)_MoveWatch.Elapsed.TotalSeconds;
+            _MoveWatch.Restart();
+            foreach (var player in _Players.Items)
+                player.Update(delta);
         }
     }
 }

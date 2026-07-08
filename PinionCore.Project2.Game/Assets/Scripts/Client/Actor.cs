@@ -2,6 +2,10 @@ using PinionCore.Project2.Shared;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using PinionCore.NetSync.UniRx;
+using System.Linq;
+using UniRx;
+using System;
 
 namespace PinionCore.Project2.Client
 {
@@ -10,16 +14,57 @@ namespace PinionCore.Project2.Client
         public TMPro.TextMeshPro DisplayName;
         public Transform Target;
 
+        // 對應伺服器端的身分,讓外部(鏡頭跟隨、測試)能辨識這個殼屬於哪個 actor
+        public System.Guid ActorId { get; private set; }
+
         // 模型是表現層,由 Actor 自行透過 Addressables 載入;
         // 載入失敗或載入中被銷毀都不影響殼(邏輯層)的生命週期
         AsyncOperationHandle<GameObject> _modelHandle;
         bool _destroyed;
 
+        // 待播放的路徑段;收到新 PathEvent 時整批取代
+        readonly System.Collections.Generic.Queue<Path> _Segments = new System.Collections.Generic.Queue<Path>();
+
+        void Awake()
+        {
+            Observable.EveryUpdate().Subscribe(_ => _Step()).AddTo(this);
+        }
+
         // 快照 ghost 資料;Unsupply 後 ghost 失效,之後不再讀取
         public void Setup(IActor actor)
         {
+            ActorId = actor.ActorId;
             DisplayName.text = actor.DisplayName;
             Target.position = actor.Position;
+
+            _Move(actor);
+        }
+
+        private void _Move(IActor actor)
+        {
+            var obs = from paths in UniRx.Observable.FromEvent<Path[]>(h=> actor.PathEvent += h, h => actor.PathEvent -= h)  
+                      select paths;
+            obs.Subscribe(_OnPathEvent).AddTo(this);
+        }
+
+        private void _OnPathEvent(Path[] paths)
+        {
+            _Segments.Clear();
+            foreach (var path in paths)
+                _Segments.Enqueue(path);
+        }
+
+        // 沿路徑段以 Path.Speed 推進;Path 為 XZ 平面座標,Y 維持現值
+        private void _Step()
+        {
+            if (_Segments.Count == 0)
+                return;
+
+            var path = _Segments.Peek();
+            var dest = new Vector3(path.End.x, Target.position.y, path.End.y);
+            Target.position = Vector3.MoveTowards(Target.position, dest, path.Speed * Time.deltaTime);
+            if ((Target.position - dest).sqrMagnitude <= 1e-6f)
+                _Segments.Dequeue();
         }
 
         public void LoadModel(AssetReferenceGameObject modelPrefab)
