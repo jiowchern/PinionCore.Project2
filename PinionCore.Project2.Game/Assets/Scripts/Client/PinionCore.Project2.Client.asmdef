@@ -5,7 +5,10 @@
         "GUID:5130fd88bf7f8dc4f88f641245629de5",
         "GUID:3c7bfc5e6dae22445a733e0b540c9813",
         "GUID:317e25162d14445386b80456e5f3b502",
-        "GUID:560b04d1a97f54a4e82edc0cbbb69285"
+        "GUID:560b04d1a97f54a4e82edc0cbbb69285",
+        "GUID:6055be8ebefd69e48b49212b09b47b2f",
+        "GUID:9e24947de15b9834991c9d8411ea37cf",
+        "Unity.ResourceManager"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -60,5 +60,16 @@ namespace PinionCore.Project2.Worlds
                 world.Update();
             }
         }
+
+        private void OnDestroy()
+        {
+            // World 持有 Persistent 原生資源(DOTS world、collider blob),
+            // 場景卸載/停止 Play Mode 時必須逐一 Dispose,否則觸發 native leak 警告。
+            foreach (var world in _WorldsDepot.ReadOnlyItems.ToArray())
+            {
+                world.Dispose();
+            }
+            _WorldsDepot.Items.Clear();
+        }
     }
 }

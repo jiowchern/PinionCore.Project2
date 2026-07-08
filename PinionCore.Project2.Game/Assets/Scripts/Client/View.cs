@@ -5,7 +5,7 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using PinionCore.Project2.Shared;
 
-namespace PinionCore.Project2.Worlds
+namespace PinionCore.Project2.Client
 {
     public class View : MonoBehaviour
     {

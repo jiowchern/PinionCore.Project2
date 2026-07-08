@@ -18,16 +18,19 @@ namespace PinionCore.Project2.Worlds
         public Property<string> DisplayName { get; private set; }
         public Property<string> ModelName { get; private set; }
 
+        public Property<Vector3> Position { get; private set; }
+
         public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity)
         {
             Entity = entity;
             ActorId = new Property<Guid>(actorId);
             DisplayName = new Property<string>(info.DisplayName);
             ModelName = new Property<string>(info.ModelName);
-        }
+            Position = new Property<Vector3>(Vector3.zero);
+        } 
 
-        event Action<Vector3[]> _PathEvent;
-        event Action<Vector3[]> IActor.PathEvent
+        event Action<Path[]> _PathEvent;
+        event Action<Path[]> IActor.PathEvent
         {
             add
             {
@@ -44,5 +47,7 @@ namespace PinionCore.Project2.Worlds
         {
             throw new NotImplementedException();
         }
+
+
     }
 }

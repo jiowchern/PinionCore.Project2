@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PinionCore.Project2.Worlds::PinionCore.Project2.Worlds.ActorConfig
   Name: Test1
   ModelPrefab:
-    m_AssetGUID: 84e3641b69ee6b2419379df04933bb0d
+    m_AssetGUID: 8ccc17588b83b2e4a897e8595e662580
     m_SubObjectName: 
     m_SubObjectType: 
     m_SubObjectGUID: 

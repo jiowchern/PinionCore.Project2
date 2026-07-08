@@ -16,7 +16,9 @@
         "Unity.Mathematics",
         "Unity.Addressables",
         "Unity.ResourceManager",
-        "PinionCore.Project2.Users"
+        "PinionCore.Project2.Users",
+        "PinionCore.Project2.Client",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
