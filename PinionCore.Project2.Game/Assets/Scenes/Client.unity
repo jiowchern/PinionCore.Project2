@@ -298,6 +298,7 @@ GameObject:
   m_Component:
   - component: {fileID: 800024546}
   - component: {fileID: 800024547}
+  - component: {fileID: 800024548}
   m_Layer: 0
   m_Name: Handlers
   m_TagString: Untagged
@@ -337,6 +338,19 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 57239c638d804d7419b931f15445b1d1, type: 2}
   ActorRoot: {fileID: 1932123267}
   ShellPrefab: {fileID: 8405657415622340701, guid: 1223cc201130de145ada9412cca47bc1, type: 3}
+  Client: {fileID: 497929653}
+--- !u!114 &800024548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 800024545}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4eac9dc1fa958754fbd92d9aba38a02f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.WorldTimeHandler
   Client: {fileID: 497929653}
 --- !u!1 &1640811266
 GameObject:
