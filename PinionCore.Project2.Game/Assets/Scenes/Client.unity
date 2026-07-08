@@ -336,6 +336,7 @@ MonoBehaviour:
   ActorConfigs:
   - {fileID: 11400000, guid: 57239c638d804d7419b931f15445b1d1, type: 2}
   ActorRoot: {fileID: 1932123267}
+  ShellPrefab: {fileID: 8405657415622340701, guid: 1223cc201130de145ada9412cca47bc1, type: 3}
   Client: {fileID: 497929653}
 --- !u!1 &1640811266
 GameObject:

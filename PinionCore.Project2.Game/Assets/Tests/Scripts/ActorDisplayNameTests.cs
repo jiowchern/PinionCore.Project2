@@ -109,9 +109,8 @@ namespace PinionCore.Project2.Tests
             yield return actorSupply;
             Assert.IsFalse(actorSupply.HasError, "Verify 通過後 client 應收到 IActor");
 
-            // 4. Client 場景的 ActorProvider 收到 Supply 後,
-            //    依 ActorConfig 從 Addressables 非同步實例化 Actor 並 Setup;
-            //    輪詢直到名牌文字就緒(實例化與 Setup 都是非同步完成)
+            // 4. Client 場景的 ActorProvider 收到 Supply 後同步建立殼(Actor + 名牌),
+            //    輪詢直到名牌文字就緒(殼建立與 Setup 皆同步,但 Supply 事件本身跨 frame)
             PinionCore.Project2.Client.Actor actorComponent = null;
             var deadline = Time.realtimeSinceStartup + 15f;
             while (Time.realtimeSinceStartup < deadline)
@@ -127,6 +126,19 @@ namespace PinionCore.Project2.Tests
             Assert.NotNull(actorComponent, "ActorProvider 應在 Client 場景實例化出 Client.Actor");
             Assert.NotNull(actorComponent.DisplayName, "Actor prefab 應已設定 DisplayName 的 TMP 參考");
             Assert.AreEqual(PlayerName, actorComponent.DisplayName.text, "Actor 名牌應顯示 Verify 時的 DisplayName");
+
+            // 5. 模型由 Actor 內部從 Addressables 非同步載入,掛在 Target 底下;
+            //    以 CapsuleCollider 辨識模型實例(殼與 TMP 名牌都沒有 collider)
+            CapsuleCollider model = null;
+            deadline = Time.realtimeSinceStartup + 15f;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                model = actorComponent.GetComponentInChildren<CapsuleCollider>(true);
+                if (model != null)
+                    break;
+                yield return null;
+            }
+            Assert.NotNull(model, "Actor 應從 Addressables 載入模型並掛在殼底下");
         }
 
         // 從 Client 場景搜出第一個 Client.Actor;實例名稱是 "(Clone)" 結尾,不能靠物件名找
