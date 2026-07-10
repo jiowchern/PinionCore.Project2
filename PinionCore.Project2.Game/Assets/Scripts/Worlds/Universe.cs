@@ -18,6 +18,9 @@ namespace PinionCore.Project2.Worlds
 
         PinionCore.Remote.Notifier<IWorld> IUniverse.WorldNotifier => _WorldsNotifier;
 
+        // 供 editor 除錯繪製(WorldDebugDrawer)走訪現存 world
+        internal System.Collections.Generic.IEnumerable<World> Worlds => _WorldsDepot.ReadOnlyItems;
+
         public Universe()
         {
             _WorldsDepot = new PinionCore.Remote.Depot<World>();

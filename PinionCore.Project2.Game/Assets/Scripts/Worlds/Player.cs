@@ -28,6 +28,9 @@ namespace PinionCore.Project2.Worlds
         // entity 的 LocalTransform 只是取樣結果的投影(供未來碰撞查詢使用)。
         MoveInfo _MoveInfo;
 
+        // 供 editor 除錯繪製(WorldDebugDrawer)讀取當前弧線
+        internal MoveInfo CurrentMoveInfo => _MoveInfo;
+
         public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveSpeed, Vector3 spawnPosition, World world)
         {
             _World = world;

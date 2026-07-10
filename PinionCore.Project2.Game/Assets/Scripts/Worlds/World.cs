@@ -38,9 +38,12 @@ namespace PinionCore.Project2.Worlds
         Property<Guid> IWorld.Id => new Property<Guid>(Id);
 
 
-        Depot<Player> _Players ; 
+        Depot<Player> _Players ;
         Notifier<IPlayer> _PlayersNotifier;
         Notifier<IPlayer> IWorld.Players => _PlayersNotifier;
+
+        // 供 editor 除錯繪製(WorldDebugDrawer)走訪權威玩家狀態
+        internal System.Collections.Generic.IEnumerable<Player> PlayerItems => _Players.Items;
 
         // TimeSpan ticks(100ns),與 TimeTicksEvent / 前端 WorldTimeHandler.CurrentTime 同單位;
         // 不可用 Stopwatch.ElapsedTicks(原始計數,頻率依平台)。

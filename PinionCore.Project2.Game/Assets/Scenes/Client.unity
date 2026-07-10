@@ -508,6 +508,7 @@ GameObject:
   - component: {fileID: 800024549}
   - component: {fileID: 800024550}
   - component: {fileID: 800024551}
+  - component: {fileID: 800024552}
   m_Layer: 0
   m_Name: Handlers
   m_TagString: Untagged
@@ -606,6 +607,27 @@ MonoBehaviour:
   Client: {fileID: 497929653}
   Provider: {fileID: 800024547}
   FollowCamera: {fileID: 125214426}
+--- !u!114 &800024552
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 800024545}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18c8e3f6b78a7d546ae446318dc0af4c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.PlayerInputHandler
+  Client: {fileID: 497929653}
+  Provider: {fileID: 800024547}
+  ClientPlayer: {fileID: 800024549}
+  CameraTransform: {fileID: 1829177393}
+  MoveAction: {fileID: -1680190386980627800, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  ResendInterval: 0.1
+  RedirectAngleThreshold: 10
+  MinSendInterval: 0.05
+  DeadZone: 0.2
 --- !u!1 &1640811266
 GameObject:
   m_ObjectHideFlags: 0
