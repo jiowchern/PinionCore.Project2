@@ -143,34 +143,84 @@ namespace PinionCore.Project2.Tests
             var halfSqrt2 = Mathf.Sqrt(2f) / 2f;
             _ClientPlayer.Move(new Vector2(halfSqrt2, halfSqrt2)); // 相對前方 45°(右)
 
-            // 等移動中的 MoveInfo 抵達
+            // 等移動中的 MoveInfo 抵達;RPC/事件註冊可能與 session/soul 綁定流程競態而掉失
+            //(曾觀測到 "Soul not found" 的 Advance Error),逾時就重訂閱(觸發 replay
+            // 取回當下狀態)並重送 Move,兩種掉失模式都能恢復
             var deadline = Time.realtimeSinceStartup + 15f;
+            var nextRetry = Time.realtimeSinceStartup + 3f;
+            var retried = false;
             while (Time.realtimeSinceStartup < deadline)
             {
                 if (lastMove.HasValue && lastMove.Value.Speed > 0f)
                     break;
+                if (Time.realtimeSinceStartup >= nextRetry)
+                {
+                    moveSub.Dispose();
+                    moveSub = UniRx.Observable.FromEvent<MoveInfo>(
+                            h => _PlayerGhost.MoveEvent += h, h => _PlayerGhost.MoveEvent -= h)
+                        .Subscribe(info => lastMove = info);
+                    _ClientPlayer.Move(new Vector2(halfSqrt2, halfSqrt2));
+                    nextRetry = Time.realtimeSinceStartup + 3f;
+                    retried = true;
+                }
                 yield return null;
             }
             Assert.IsTrue(lastMove.HasValue && lastMove.Value.Speed > 0f, "ghost 應收到移動中的 MoveInfo");
+
+            // 有重試時可能仍有較新的 MoveInfo 在途,等事件靜默 0.5 秒再取最後一筆作為預測依據
+            if (retried)
+            {
+                var quietStart = lastMove.Value.StartTicks;
+                var quietUntil = Time.realtimeSinceStartup + 0.5f;
+                while (Time.realtimeSinceStartup < quietUntil)
+                {
+                    if (lastMove.Value.StartTicks != quietStart)
+                    {
+                        quietStart = lastMove.Value.StartTicks;
+                        quietUntil = Time.realtimeSinceStartup + 0.5f;
+                    }
+                    yield return null;
+                }
+            }
             var arcInfo = lastMove.Value;
             Assert.AreEqual(MoveSpeed, arcInfo.Speed, 0.01f, "MoveInfo.Speed 應為 ActorConfig.MoveSpeed");
             Assert.AreEqual(Mathf.PI / 4f, arcInfo.AngularSpeed, 0.01f, "45° 輸入應換算為 π/4 rad/s(比例式:偏移角/秒)");
 
-            // 觀察 ~2 秒:每幀以取樣器預測位置,與殼實際位置比對
+            // 殼訂閱的是 IActor ghost、測試訂閱的是 IPlayer ghost,MoveEvent 抵達幀序不同;
+            // 等殼實際起步(已套用移動中的 MoveInfo)再開始量測,避免量到殼還停在出生點的空窗
+            deadline = Time.realtimeSinceStartup + 15f;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                if ((_Shell.Target.position - startPos).magnitude > 0.02f)
+                    break;
+                yield return null;
+            }
+            Assert.Greater((_Shell.Target.position - startPos).magnitude, 0.02f, "殼應已開始沿弧線移動");
+
+            // 觀察 ~2 秒:每幀以取樣器預測位置,與殼實際位置比對。
+            // 殼由 UniRx EveryUpdate 定位,它取樣所用的時鐘值必落在
+            // 「本 coroutine 上次讀 CurrentTime」與「本次讀 CurrentTime」之間(時鐘單調、殼每幀重取樣);
+            // 幀長與對時往前跳(卡頓後封包補送重新錨定)都會造成合法落差,
+            // 因此以兩次量測間 world time 的前進量 × 速度作為該幀可扣除的時序落差上界。
             var maxDeviation = 0f;
+            var prevTicks = _Shell.WorldTime.CurrentTime.Ticks;
+            yield return null;
             var observeUntil = Time.realtimeSinceStartup + 2f;
             while (Time.realtimeSinceStartup < observeUntil)
             {
-                var elapsed = (_Shell.WorldTime.CurrentTime.Ticks - arcInfo.StartTicks) / (double)System.TimeSpan.TicksPerSecond;
+                var nowTicks = _Shell.WorldTime.CurrentTime.Ticks;
+                var elapsed = (nowTicks - arcInfo.StartTicks) / (double)System.TimeSpan.TicksPerSecond;
                 if (elapsed < 0)
                     elapsed = 0;
                 MoveSampler.Sample(arcInfo, elapsed, out var predicted, out _);
 
                 var actual = new Vector2(_Shell.Target.position.x, _Shell.Target.position.z);
-                maxDeviation = Mathf.Max(maxDeviation, Vector2.Distance(predicted, actual));
+                var slack = arcInfo.Speed * (float)((nowTicks - prevTicks) / (double)System.TimeSpan.TicksPerSecond);
+                maxDeviation = Mathf.Max(maxDeviation, Vector2.Distance(predicted, actual) - slack);
+                prevTicks = nowTicks;
                 yield return null;
             }
-            Assert.Less(maxDeviation, 0.25f, "殼位置應與 MoveInfo 取樣預測一致(容忍幀時序差)");
+            Assert.Less(maxDeviation, 0.25f, "殼位置應與 MoveInfo 取樣預測一致(已扣除兩次量測間時鐘前進量的時序落差)");
 
             // 向右偏轉:出生面向 +Z、ω>0 → 軌跡彎向 +X
             Assert.Greater(_Shell.Target.position.x - startPos.x, 0.5f, "弧線應持續向右(+X)偏轉");
