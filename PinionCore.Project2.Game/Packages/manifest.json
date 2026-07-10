@@ -6,6 +6,7 @@
     "com.pinioncore.netsync.unirx": "file:../../PinionCore.NetSync.UniRx",
     "com.unity.addressables": "3.1.0",
     "com.unity.ai.navigation": "2.0.13",
+    "com.unity.cinemachine": "3.1.7",
     "com.unity.collab-proxy": "2.12.4",
     "com.unity.entities": "6.5.0",
     "com.unity.entities.graphics": "6.5.0",

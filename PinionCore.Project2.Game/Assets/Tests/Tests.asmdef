@@ -18,7 +18,8 @@
         "Unity.ResourceManager",
         "PinionCore.Project2.Users",
         "PinionCore.Project2.Client",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.Cinemachine"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
