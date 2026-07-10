@@ -1,6 +1,7 @@
 using System;
 using PinionCore.Project2.Shared;
 using PinionCore.Remote;
+using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
@@ -23,10 +24,8 @@ namespace PinionCore.Project2.Worlds
         public Property<string> DisplayName { get; private set; }
         public Property<string> ModelName { get; private set; }
 
-        // 權威位置在 LocalTransform;對外的位置狀態只有 _MoveInfo:
-        // 駐留(Start==End)或移動中的時間戳路徑,前端以 world time 取樣。
-        bool _Moving;
-        Vector3 _MoveTarget;
+        // 權威狀態的唯一真相:轉向式弧線 MoveInfo,任意時刻以 MoveSampler 取樣;
+        // entity 的 LocalTransform 只是取樣結果的投影(供未來碰撞查詢使用)。
         MoveInfo _MoveInfo;
 
         public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveSpeed, Vector3 spawnPosition, World world)
@@ -38,23 +37,12 @@ namespace PinionCore.Project2.Worlds
             ActorId = new Property<Guid>(actorId);
             DisplayName = new Property<string>(info.DisplayName);
             ModelName = new Property<string>(info.ModelName);
-            _MoveInfo = _Stand(spawnPosition);
-        }
-
-        // 駐留 = Start==End 的退化路徑;取樣結果恆為該點,與移動共用同一條前端邏輯。
-        MoveInfo _Stand(Vector3 position)
-        {
-            return new MoveInfo
+            _MoveInfo = new MoveInfo
             {
-                Paths = new[]
-                {
-                    new Path
-                    {
-                        Start = new Vector2(position.x, position.z),
-                        End = new Vector2(position.x, position.z),
-                        Speed = _MoveSpeed
-                    }
-                },
+                Position = new Vector2(spawnPosition.x, spawnPosition.z),
+                Facing = new Vector2(0f, 1f), // 出生面向 +Z
+                Speed = 0f,
+                AngularSpeed = 0f,
                 StartTicks = _World.ElapsedTicks
             };
         }
@@ -65,7 +53,7 @@ namespace PinionCore.Project2.Worlds
             add
             {
                 _MoveEvent += value;
-                // 駐留與移動中都是有效狀態,一律 replay:晚訂閱的殼取樣即得正確位置。
+                // 駐留與移動中都是有效狀態,一律 replay:晚訂閱的殼取樣即得正確狀態。
                 value(_MoveInfo);
             }
             remove
@@ -75,66 +63,65 @@ namespace PinionCore.Project2.Worlds
 
         }
 
-        Value<bool> IPlayer.Move(Vector3 target)
+        // 以當下時間取樣權威位置/朝向,作為新 MoveInfo 的起點。
+        void _SampleNow(out Vector2 position, out Vector2 facing, out long now)
         {
-            if (_MoveSpeed <= 0f)
+            now = _World.ElapsedTicks;
+            var elapsed = (now - _MoveInfo.StartTicks) / (double)TimeSpan.TicksPerSecond;
+            MoveSampler.Sample(_MoveInfo, elapsed, out position, out facing);
+        }
+
+        Value<bool> IPlayer.Move(Vector2 direction)
+        {
+            if (_MoveSpeed <= 0f || direction.sqrMagnitude <= 1e-6f)
                 return false;
 
-            // Path 以 XZ 平面表示,Y 維持現值
-            Vector3 current = _EntityManager.GetComponentData<LocalTransform>(Entity).Position;
-            var destination = new Vector3(target.x, current.y, target.z);
-            if ((destination - current).sqrMagnitude <= 1e-6f)
-                return false;
+            _SampleNow(out var position, out var facing, out var now);
 
-            _MoveTarget = destination;
+            // 相對前方的偏移角(弧度),比例式轉向:偏移角/秒;
+            // 正後方 Atan2 取 +π → 右轉,屬可接受的邊界行為。
+            var omega = Mathf.Atan2(direction.x, direction.y);
             _MoveInfo = new MoveInfo
             {
-                Paths = new[]
-                {
-                    new Path
-                    {
-                        Start = new Vector2(current.x, current.z),
-                        End = new Vector2(destination.x, destination.z),
-                        Speed = _MoveSpeed
-                    }
-                },
-                StartTicks = _World.ElapsedTicks
+                Position = position,
+                Facing = facing,
+                Speed = _MoveSpeed,
+                AngularSpeed = omega,
+                StartTicks = now
             };
-            _Moving = true;
             _MoveEvent?.Invoke(_MoveInfo);
             return true;
         }
 
         Value<bool> IPlayer.Stop()
         {
-            if (!_Moving)
+            if (_MoveInfo.Speed == 0f && _MoveInfo.AngularSpeed == 0f)
                 return false;
 
-            Vector3 current = _EntityManager.GetComponentData<LocalTransform>(Entity).Position;
-            _Moving = false;
-            _MoveInfo = _Stand(current);
+            _SampleNow(out var position, out var facing, out var now);
+            _MoveInfo = new MoveInfo
+            {
+                Position = position,
+                Facing = facing,
+                Speed = 0f,
+                AngularSpeed = 0f,
+                StartTicks = now
+            };
             _MoveEvent?.Invoke(_MoveInfo);
             return true;
         }
 
         /// <summary>
-        /// 由 World.Update 每幀驅動:以 MoveSpeed 推進 entity,直到抵達目標。
+        /// 由 World.Update 每幀驅動:把 MoveInfo 的取樣結果投影到 entity 的 LocalTransform。
         /// </summary>
-        internal void Update(float deltaSeconds)
+        internal void Update()
         {
-            if (!_Moving)
-                return;
+            _SampleNow(out var position, out var facing, out _);
 
             var transform = _EntityManager.GetComponentData<LocalTransform>(Entity);
-            Vector3 next = Vector3.MoveTowards(transform.Position, _MoveTarget, _MoveSpeed * deltaSeconds);
-            transform.Position = next;
+            transform.Position = new float3(position.x, transform.Position.y, position.y);
+            transform.Rotation = quaternion.LookRotationSafe(new float3(facing.x, 0f, facing.y), math.up());
             _EntityManager.SetComponentData(Entity, transform);
-
-            if ((next - _MoveTarget).sqrMagnitude <= 1e-6f)
-            {
-                _Moving = false;
-                _MoveInfo = _Stand(_MoveTarget);
-            }
         }
     }
 }

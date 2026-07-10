@@ -11,11 +11,12 @@ using PinionCore.Project2.Shared.Users;
 namespace PinionCore.Project2.Tests
 {
     /// <summary>
-    /// Actor 移動端到端測試:
+    /// Actor 轉向式移動端到端測試:
     /// 比照 ActorDisplayNameTests 的四場景 Standalone 流程,
     /// Verify 進入遊戲後取得 IActor / IPlayer,
-    /// 由 Client.Player.Move 發出移動請求,World 依 ActorConfig.MoveSpeed 推進並發出 PathEvent,
-    /// 驗證 Client.Actor 殼確實沿路徑移動到目的地。
+    /// 由 Client.Player.Move 送出「以角色前方為基準」的相對方向,
+    /// World 換算成 (Speed, AngularSpeed) 的弧線 MoveInfo 發回,
+    /// 驗證 Client.Actor 殼沿直線/弧線移動、改向連續、Stop 駐留。
     /// </summary>
     public class ActorMoveTests
     {
@@ -80,138 +81,160 @@ namespace PinionCore.Project2.Tests
             Application.runInBackground = _PreviousRunInBackground;
         }
 
+        /// <summary>
+        /// 直線前進:輸入 (0,1)(正前方)→ 無偏轉,沿出生朝向 +Z 直線移動。
+        /// 轉向式移動沒有終點,量測方向與 MoveInfo 欄位後 Stop 收尾。
+        /// </summary>
         [UnityTest]
         [Timeout(120000)]
-        public IEnumerator MoveActorToDestinationTest()
+        public IEnumerator MoveStraightTest()
         {
-            const string PlayerName = "MoveTester";
+            yield return _EnterWorld("StraightTester");
 
-            // 1. 連上 Gateway 後,Router 把 session 路由到 User 服務,收到 IVerifiable
-            var verifiableSupply = _Client.Queryer.QueryNotifier<IVerifiable>().SupplyEvent()
-                .First()
-                .Timeout(System.TimeSpan.FromSeconds(10))
-                .ToYieldInstruction(throwOnError: false);
-            yield return verifiableSupply;
-            Assert.IsFalse(verifiableSupply.HasError, "連線後 client 應從 User 服務收到 IVerifiable");
-            var verifiable = verifiableSupply.Result;
-
-            // 2. Verify 通過
-            var verifyResult = verifiable.Verify(PlayerName).RemoteValue()
-                .First()
-                .Timeout(System.TimeSpan.FromSeconds(10))
-                .ToYieldInstruction(throwOnError: false);
-            yield return verifyResult;
-            Assert.IsFalse(verifyResult.HasError, "Verify 未收到回傳值");
-            Assert.IsTrue(verifyResult.Result, "首次註冊的名字 Verify 應回傳 true");
-
-            // 3. Verify 後 UserGame 進入世界,World 把玩家以 IActor 同步回 client
-            var actorSupply = _Client.Queryer.QueryNotifier<IActor>().SupplyEvent()
-                .First()
-                .Timeout(System.TimeSpan.FromSeconds(15))
-                .ToYieldInstruction(throwOnError: false);
-            yield return actorSupply;
-            Assert.IsFalse(actorSupply.HasError, "Verify 通過後 client 應收到 IActor");
-
-            // 4. 擁有者另外收到 IPlayer(可下移動指令的介面)
-            var playerSupply = _Client.Queryer.QueryNotifier<IPlayer>().SupplyEvent()
-                .First()
-                .Timeout(System.TimeSpan.FromSeconds(15))
-                .ToYieldInstruction(throwOnError: false);
-            yield return playerSupply;
-            Assert.IsFalse(playerSupply.HasError, "Verify 通過後 client 應收到 IPlayer");
-            var playerGhost = playerSupply.Result;
-            System.Guid actorId = playerGhost.ActorId;
-
-            // 5. 以 ActorId 從 Client 場景找出「自己的」殼(場景中可能有其他玩家的殼)
-            PinionCore.Project2.Client.Actor shell = null;
-            var deadline = Time.realtimeSinceStartup + 15f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                shell = _FindActor(actorId);
-                if (shell != null)
-                    break;
-                yield return null;
-            }
-            Assert.NotNull(shell, "ActorProvider 應在 Client 場景實例化出對應 ActorId 的 Client.Actor");
-            var startPos = shell.Target.position;
-
-            // 6. 透過 Client.Player 發出移動請求
-            var clientPlayer = _Scenes.FindComponent<PinionCore.Project2.Client.Player>("Client", "Handlers");
-            Assert.NotNull(clientPlayer, "Client 場景的 Handlers 應掛有 Client.Player");
-
-            // Entrance 為 (0,0,0),距離約 2.24,MoveSpeed 1.0 → 約 2.3 秒抵達
-            var destination = new Vector3(2f, 0f, 1f);
-            clientPlayer.Move(destination);
-
-            // 7. 輪詢殼的位置:先確認開始移動(PathEvent 已送達並播放),再等待抵達
-            var destinationXZ = new Vector2(destination.x, destination.z);
-            var travelDistance = Vector2.Distance(new Vector2(startPos.x, startPos.z), destinationXZ);
-            var moved = false;
-            deadline = Time.realtimeSinceStartup + travelDistance / MoveSpeed + 15f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                var pos = shell.Target.position;
-                if (!moved && (pos - startPos).sqrMagnitude > 0.01f)
-                    moved = true;
-                if (Vector2.Distance(new Vector2(pos.x, pos.z), destinationXZ) < 0.05f)
-                    break;
-                yield return null;
-            }
-
-            Assert.IsTrue(moved, "收到 MoveEvent 後殼應開始移動");
-            var finalPos = shell.Target.position;
-            Assert.Less(Vector2.Distance(new Vector2(finalPos.x, finalPos.z), destinationXZ), 0.05f,
-                "殼最終應移動到目的地(XZ)");
-        }
-
-        [UnityTest]
-        [Timeout(120000)]
-        public IEnumerator MoveRedirectTest()
-        {
-            yield return _EnterWorld("RedirectTester");
-
-            // 擷取 ghost 收到的最新 MoveInfo(訂閱時 replay 保證有初始駐留值)
             MoveInfo? lastMove = null;
             var moveSub = UniRx.Observable.FromEvent<MoveInfo>(
                     h => _PlayerGhost.MoveEvent += h, h => _PlayerGhost.MoveEvent -= h)
                 .Subscribe(info => lastMove = info);
 
             var startPos = _Shell.Target.position;
-            _ClientPlayer.Move(new Vector3(2f, 0f, 1f));
+            _ClientPlayer.Move(new Vector2(0f, 1f));
 
-            // 等殼開始移動後,途中改道
-            var deadline = Time.realtimeSinceStartup + 15f;
+            // 等殼走出約 1.5 單位
+            var deadline = Time.realtimeSinceStartup + 1.5f / MoveSpeed + 15f;
             while (Time.realtimeSinceStartup < deadline)
             {
-                if ((_Shell.Target.position - startPos).sqrMagnitude > 0.01f)
+                if ((_Shell.Target.position - startPos).magnitude >= 1.5f)
                     break;
                 yield return null;
             }
-            Assert.Greater((_Shell.Target.position - startPos).sqrMagnitude, 0.01f, "第一段移動應已開始");
+            Assert.GreaterOrEqual((_Shell.Target.position - startPos).magnitude, 1.5f, "殼應已沿直線移動約 1.5 單位");
 
-            var destinationXZ = new Vector2(-1f, 2f);
-            _ClientPlayer.Move(new Vector3(destinationXZ.x, 0f, destinationXZ.y));
+            // MoveInfo 欄位:等速直線
+            Assert.IsTrue(lastMove.HasValue && lastMove.Value.Speed > 0f, "ghost 應收到移動中的 MoveInfo");
+            Assert.AreEqual(MoveSpeed, lastMove.Value.Speed, 0.01f, "MoveInfo.Speed 應為 ActorConfig.MoveSpeed");
+            Assert.AreEqual(0f, lastMove.Value.AngularSpeed, 0.01f, "正前方輸入不應產生角速度");
 
-            // 兩段距離總和(約 2.24 + 3.2)/ MoveSpeed + 緩衝
-            deadline = Time.realtimeSinceStartup + 6f / MoveSpeed + 15f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                var pos = _Shell.Target.position;
-                if (Vector2.Distance(new Vector2(pos.x, pos.z), destinationXZ) < 0.05f)
-                    break;
-                yield return null;
-            }
+            // 位移方向 ≈ 出生朝向 +Z
+            var displacement = _Shell.Target.position - startPos;
+            var directionXZ = new Vector2(displacement.x, displacement.z).normalized;
+            Assert.Greater(Vector2.Dot(directionXZ, new Vector2(0f, 1f)), 0.99f, "位移方向應沿出生朝向 +Z");
 
-            var finalPos = _Shell.Target.position;
-            Assert.Less(Vector2.Distance(new Vector2(finalPos.x, finalPos.z), destinationXZ), 0.05f,
-                "改道後殼應移動到第二個目的地(XZ)");
-            Assert.IsTrue(lastMove.HasValue, "ghost 應收到 MoveEvent");
-            Assert.Less(Vector2.Distance(lastMove.Value.Paths[lastMove.Value.Paths.Length - 1].End, destinationXZ), 0.05f,
-                "改道後的 MoveInfo 終點應為第二個目的地");
-
+            _ClientPlayer.Stop();
             moveSub.Dispose();
         }
 
+        /// <summary>
+        /// 弧線偏轉:輸入 45°(右前)→ ω = π/4 rad/s 的等速圓周,持續向右偏轉。
+        /// 以共用取樣器對 ghost 收到的 MoveInfo 預測位置,與殼實際位置比對,
+        /// 同時驗證 server 端換算與兩端公式一致。
+        /// </summary>
+        [UnityTest]
+        [Timeout(120000)]
+        public IEnumerator MoveArcTest()
+        {
+            yield return _EnterWorld("ArcTester");
+
+            MoveInfo? lastMove = null;
+            var moveSub = UniRx.Observable.FromEvent<MoveInfo>(
+                    h => _PlayerGhost.MoveEvent += h, h => _PlayerGhost.MoveEvent -= h)
+                .Subscribe(info => lastMove = info);
+
+            var startPos = _Shell.Target.position;
+            var halfSqrt2 = Mathf.Sqrt(2f) / 2f;
+            _ClientPlayer.Move(new Vector2(halfSqrt2, halfSqrt2)); // 相對前方 45°(右)
+
+            // 等移動中的 MoveInfo 抵達
+            var deadline = Time.realtimeSinceStartup + 15f;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                if (lastMove.HasValue && lastMove.Value.Speed > 0f)
+                    break;
+                yield return null;
+            }
+            Assert.IsTrue(lastMove.HasValue && lastMove.Value.Speed > 0f, "ghost 應收到移動中的 MoveInfo");
+            var arcInfo = lastMove.Value;
+            Assert.AreEqual(MoveSpeed, arcInfo.Speed, 0.01f, "MoveInfo.Speed 應為 ActorConfig.MoveSpeed");
+            Assert.AreEqual(Mathf.PI / 4f, arcInfo.AngularSpeed, 0.01f, "45° 輸入應換算為 π/4 rad/s(比例式:偏移角/秒)");
+
+            // 觀察 ~2 秒:每幀以取樣器預測位置,與殼實際位置比對
+            var maxDeviation = 0f;
+            var observeUntil = Time.realtimeSinceStartup + 2f;
+            while (Time.realtimeSinceStartup < observeUntil)
+            {
+                var elapsed = (_Shell.WorldTime.CurrentTime.Ticks - arcInfo.StartTicks) / (double)System.TimeSpan.TicksPerSecond;
+                if (elapsed < 0)
+                    elapsed = 0;
+                MoveSampler.Sample(arcInfo, elapsed, out var predicted, out _);
+
+                var actual = new Vector2(_Shell.Target.position.x, _Shell.Target.position.z);
+                maxDeviation = Mathf.Max(maxDeviation, Vector2.Distance(predicted, actual));
+                yield return null;
+            }
+            Assert.Less(maxDeviation, 0.25f, "殼位置應與 MoveInfo 取樣預測一致(容忍幀時序差)");
+
+            // 向右偏轉:出生面向 +Z、ω>0 → 軌跡彎向 +X
+            Assert.Greater(_Shell.Target.position.x - startPos.x, 0.5f, "弧線應持續向右(+X)偏轉");
+
+            _ClientPlayer.Stop();
+            moveSub.Dispose();
+        }
+
+        /// <summary>
+        /// 改向:45° 改 -45° → 新 MoveInfo 的 ω 變號,
+        /// 且新起點與「舊 MoveInfo 取樣至新 StartTicks 的位置」連續。
+        /// </summary>
+        [UnityTest]
+        [Timeout(120000)]
+        public IEnumerator MoveRedirectTest()
+        {
+            yield return _EnterWorld("RedirectTester");
+
+            MoveInfo? lastMove = null;
+            var moveSub = UniRx.Observable.FromEvent<MoveInfo>(
+                    h => _PlayerGhost.MoveEvent += h, h => _PlayerGhost.MoveEvent -= h)
+                .Subscribe(info => lastMove = info);
+
+            var startPos = _Shell.Target.position;
+            var halfSqrt2 = Mathf.Sqrt(2f) / 2f;
+            _ClientPlayer.Move(new Vector2(halfSqrt2, halfSqrt2)); // 右前 45°
+
+            // 等第一段移動的 MoveInfo 與殼實際起步
+            var deadline = Time.realtimeSinceStartup + 15f;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                if (lastMove.HasValue && lastMove.Value.AngularSpeed > 0f
+                    && (_Shell.Target.position - startPos).sqrMagnitude > 0.25f)
+                    break;
+                yield return null;
+            }
+            Assert.IsTrue(lastMove.HasValue && lastMove.Value.AngularSpeed > 0f, "第一段應為右轉弧線");
+            var firstInfo = lastMove.Value;
+
+            _ClientPlayer.Move(new Vector2(-halfSqrt2, halfSqrt2)); // 途中改左前 45°
+
+            deadline = Time.realtimeSinceStartup + 15f;
+            while (Time.realtimeSinceStartup < deadline)
+            {
+                if (lastMove.HasValue && lastMove.Value.AngularSpeed < 0f)
+                    break;
+                yield return null;
+            }
+            Assert.IsTrue(lastMove.HasValue && lastMove.Value.AngularSpeed < 0f, "改向後 ghost 應收到 ω 變號的 MoveInfo");
+            var secondInfo = lastMove.Value;
+            Assert.AreEqual(-Mathf.PI / 4f, secondInfo.AngularSpeed, 0.01f, "-45° 輸入應換算為 -π/4 rad/s");
+
+            // 位置連續:新起點 = 舊軌跡取樣至新 StartTicks(伺服器端純數學,容差取小)
+            var handover = (secondInfo.StartTicks - firstInfo.StartTicks) / (double)System.TimeSpan.TicksPerSecond;
+            MoveSampler.Sample(firstInfo, handover, out var predicted, out _);
+            Assert.Less(Vector2.Distance(predicted, secondInfo.Position), 0.01f, "改向瞬間位置應連續,不得跳點");
+
+            _ClientPlayer.Stop();
+            moveSub.Dispose();
+        }
+
+        /// <summary>
+        /// 停止:移動中 Stop → ghost 收到 Speed==0 的駐留 MoveInfo,殼吸附後不再移動。
+        /// </summary>
         [UnityTest]
         [Timeout(120000)]
         public IEnumerator MoveStopTest()
@@ -224,7 +247,7 @@ namespace PinionCore.Project2.Tests
                 .Subscribe(info => lastMove = info);
 
             var startPos = _Shell.Target.position;
-            _ClientPlayer.Move(new Vector3(3f, 0f, 0f));
+            _ClientPlayer.Move(new Vector2(0f, 1f));
 
             // 等殼走出約 1 單位再喊停
             var deadline = Time.realtimeSinceStartup + 1f / MoveSpeed + 15f;
@@ -236,7 +259,7 @@ namespace PinionCore.Project2.Tests
             }
             Assert.GreaterOrEqual((_Shell.Target.position - startPos).magnitude, 1f, "移動應已進行約 1 單位");
 
-            // 清空擷取值,等 Stop 產生的駐留 MoveInfo(Start==End),
+            // 清空擷取值,等 Stop 產生的駐留 MoveInfo(Speed==0),
             // 以免跟訂閱時 replay 的初始駐留混淆
             lastMove = null;
             _ClientPlayer.Stop();
@@ -244,17 +267,14 @@ namespace PinionCore.Project2.Tests
             deadline = Time.realtimeSinceStartup + 10f;
             while (Time.realtimeSinceStartup < deadline)
             {
-                if (lastMove.HasValue)
-                {
-                    var p = lastMove.Value.Paths[0];
-                    if (Vector2.Distance(p.Start, p.End) < 0.001f)
-                        break;
-                }
+                if (lastMove.HasValue && lastMove.Value.Speed == 0f)
+                    break;
                 yield return null;
             }
             Assert.IsTrue(lastMove.HasValue, "Stop 後 ghost 應收到 MoveEvent");
-            var standPath = lastMove.Value.Paths[0];
-            Assert.Less(Vector2.Distance(standPath.Start, standPath.End), 0.001f, "Stop 後應收到駐留路徑(Start==End)");
+            var standInfo = lastMove.Value;
+            Assert.AreEqual(0f, standInfo.Speed, "Stop 後應收到駐留 MoveInfo(Speed==0)");
+            Assert.AreEqual(0f, standInfo.AngularSpeed, "駐留 MoveInfo 不應帶角速度");
 
             // 殼的取樣位置可能落後 server(時鐘偏差),且殼的 IActor ghost 與測試訂閱的
             // IPlayer ghost 事件抵達幀序不同;駐留一到殼會先瞬移吸附到 server 停點,
@@ -263,7 +283,7 @@ namespace PinionCore.Project2.Tests
             while (Time.realtimeSinceStartup < deadline)
             {
                 var pos = _Shell.Target.position;
-                if (Vector2.Distance(new Vector2(pos.x, pos.z), standPath.End) < 0.1f)
+                if (Vector2.Distance(new Vector2(pos.x, pos.z), standInfo.Position) < 0.1f)
                     break;
                 yield return null;
             }
@@ -275,7 +295,7 @@ namespace PinionCore.Project2.Tests
                 yield return null;
 
             Assert.Less((_Shell.Target.position - stopPos).magnitude, 0.02f, "Stop 後殼不應再移動");
-            Assert.Less(Vector2.Distance(new Vector2(_Shell.Target.position.x, _Shell.Target.position.z), standPath.End), 0.1f,
+            Assert.Less(Vector2.Distance(new Vector2(_Shell.Target.position.x, _Shell.Target.position.z), standInfo.Position), 0.1f,
                 "殼的停止位置應與伺服器駐留點一致(容忍延遲取樣差)");
 
             moveSub.Dispose();

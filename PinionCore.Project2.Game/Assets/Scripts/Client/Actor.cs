@@ -84,35 +84,23 @@ namespace PinionCore.Project2.Client
             _MoveInfo = moveInfo;
         }
 
-        // 以 world time 對時間戳路徑取樣位置;Path 為 XZ 平面座標,Y 維持現值。
-        // 駐留(Start==End)段長為零,自然落在 End,停止與移動共用同一條邏輯。
+        // 以 world time 對 MoveInfo 取樣位置與朝向(MoveSampler 與伺服器共用同一份公式);
+        // 座標為 XZ 平面,Y 維持現值。駐留(Speed==0)取樣恆為原點,停止與移動共用同一條邏輯。
         private void _Step()
         {
             if (!_MoveInfo.HasValue || WorldTime == null)
                 return;
 
             var info = _MoveInfo.Value;
-            if (info.Paths == null || info.Paths.Length == 0)
-                return;
 
             // client 時間可能落後 StartTicks(延遲/尚未收到 tick),clamp 為 0 站在起點等時間追上
             var elapsed = (WorldTime.CurrentTime.Ticks - info.StartTicks) / (double)TimeSpan.TicksPerSecond;
             if (elapsed < 0)
                 elapsed = 0;
 
-            var position = info.Paths[info.Paths.Length - 1].End;
-            foreach (var path in info.Paths)
-            {
-                var duration = path.Speed > 0f ? Vector2.Distance(path.Start, path.End) / path.Speed : 0f;
-                if (elapsed < duration)
-                {
-                    position = Vector2.Lerp(path.Start, path.End, (float)(elapsed / duration));
-                    break;
-                }
-                elapsed -= duration;
-            }
-
+            MoveSampler.Sample(info, elapsed, out var position, out var facing);
             Target.position = new Vector3(position.x, Target.position.y, position.y);
+            Target.rotation = Quaternion.LookRotation(new Vector3(facing.x, 0f, facing.y), Vector3.up);
         }
 
         public void LoadModel(AssetReferenceGameObject modelPrefab)
