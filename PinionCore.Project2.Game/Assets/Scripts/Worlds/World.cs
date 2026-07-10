@@ -195,7 +195,7 @@ namespace PinionCore.Project2.Worlds
             em.AddComponentData(entity, LocalTransform.FromPosition(_info.Entrance));
 
             var actorId = Guid.NewGuid();
-            var player = new Player(actorId, actor, entity, em, config.MoveSpeed, _info.Entrance, this);
+            var player = new Player(actorId, actor, entity, em, config.MoveSpeed, config.MoveAcceptInterval, _info.Entrance, this);
             _Players.Items.Add(player);
             return actorId;
         }

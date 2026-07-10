@@ -18,7 +18,11 @@ namespace PinionCore.Project2.Worlds
 
         readonly Unity.Entities.EntityManager _EntityManager;
         readonly float _MoveSpeed;
+        readonly long _MoveAcceptIntervalTicks;
         readonly World _World;
+
+        // 上次被接受的 Move 時間戳,節流用;初值遠早於世界時間,首發必被接受
+        long _LastMoveAcceptedTicks;
 
         public Property<Guid> ActorId { get; private set; }
         public Property<string> DisplayName { get; private set; }
@@ -31,12 +35,14 @@ namespace PinionCore.Project2.Worlds
         // 供 editor 除錯繪製(WorldDebugDrawer)讀取當前弧線
         internal MoveInfo CurrentMoveInfo => _MoveInfo;
 
-        public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveSpeed, Vector3 spawnPosition, World world)
+        public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveSpeed, float moveAcceptInterval, Vector3 spawnPosition, World world)
         {
             _World = world;
             Entity = entity;
             _EntityManager = entityManager;
             _MoveSpeed = moveSpeed;
+            _MoveAcceptIntervalTicks = (long)(moveAcceptInterval * TimeSpan.TicksPerSecond);
+            _LastMoveAcceptedTicks = long.MinValue / 4;
             ActorId = new Property<Guid>(actorId);
             DisplayName = new Property<string>(info.DisplayName);
             ModelName = new Property<string>(info.ModelName);
@@ -79,19 +85,23 @@ namespace PinionCore.Project2.Worlds
             if (_MoveSpeed <= 0f || direction.sqrMagnitude <= 1e-6f)
                 return false;
 
-            _SampleNow(out var position, out var facing, out var now);
+            // Move 節流:距上次被接受的 Move 未滿間隔即拒收;Stop 不受此限
+            if (_World.ElapsedTicks - _LastMoveAcceptedTicks < _MoveAcceptIntervalTicks)
+                return false;
 
-            // 相對前方的偏移角(弧度),比例式轉向:偏移角/秒;
-            // 正後方 Atan2 取 +π → 右轉,屬可接受的邊界行為。
-            var omega = Mathf.Atan2(direction.x, direction.y);
+            _SampleNow(out var position, out _, out var now);
+
+            // 瞬轉直走:朝向即刻設為指令方向(世界座標),直線前進直到下一個 Move/Stop;
+            // 轉向表現由前端補間
             _MoveInfo = new MoveInfo
             {
                 Position = position,
-                Facing = facing,
+                Facing = direction.normalized,
                 Speed = _MoveSpeed,
-                AngularSpeed = omega,
+                AngularSpeed = 0f,
                 StartTicks = now
             };
+            _LastMoveAcceptedTicks = now;
             _MoveEvent?.Invoke(_MoveInfo);
             return true;
         }

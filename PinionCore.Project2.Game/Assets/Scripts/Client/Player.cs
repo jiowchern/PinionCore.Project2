@@ -19,7 +19,7 @@ namespace PinionCore.Project2.Client
         }
 
 
-        // direction 為角色區域座標的相對方向:y=前方、x=右方
+        // direction 為世界座標 XZ 方向:x=+X、y=+Z
         public void Move(Vector2 direction)
         {
             // Clear 而非 Dispose:Dispose 後的 CompositeDisposable 會立刻銷毀之後 Add 的訂閱

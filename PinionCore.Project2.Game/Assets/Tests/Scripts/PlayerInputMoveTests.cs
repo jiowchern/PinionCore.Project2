@@ -15,7 +15,7 @@ namespace PinionCore.Project2.Tests
     /// 比照 ActorMoveTests 的四場景 Standalone 流程,
     /// 透過 PlayerInputHandler.InputSource 測試接縫模擬按鍵
     /// (WASD→Vector2 的 binding 是 Input System 內建 composite,不在驗證範圍),
-    /// 驗證「輸入 → 相機相對換算 → 前饋轉向(弧線→對齊後直行)→ 放開 Stop」這段自家邏輯。
+    /// 驗證「輸入 → 相機相對換算成世界方向 → 瞬轉直走 → 放開 Stop」這段自家邏輯。
     /// </summary>
     public class PlayerInputMoveTests
     {
@@ -85,13 +85,12 @@ namespace PinionCore.Project2.Tests
         }
 
         /// <summary>
-        /// 按住 A(相機左):首發 MoveInfo 的角速度應等於「世界目標方向相對出生朝向的偏移角」,
-        /// 弧線轉到對齊後 handler 送直行指令(ω=0)斬斷永久弧線,朝向落在相機左方;
-        /// 收斂後殼位置應與 MoveInfo 取樣預測一致(扣除時鐘前進量 slack)。
+        /// 按住 A(相機左):首發 MoveInfo 的朝向即為相機左方的世界方向(瞬轉、ω==0),
+        /// 沿直線前進;殼位置應與 MoveInfo 取樣預測一致(扣除時鐘前進量 slack)。
         /// </summary>
         [UnityTest]
         [Timeout(120000)]
-        public IEnumerator HoldLeftConvergesToCameraLeftTest()
+        public IEnumerator HoldLeftMovesCameraLeftTest()
         {
             yield return _EnterWorld("WasdLeftTester");
 
@@ -121,13 +120,9 @@ namespace PinionCore.Project2.Tests
                         firstMoving = info;
                 });
 
-            // 依 handler 同一公式預先算「按 A 的世界目標方向」(相機左)與預期首發角速度:
-            // 輸入 (-1,0) → worldDir = -PerpRight(camFwd);ω = Atan2(rel.x, rel.y)
+            // 依 handler 同一公式預先算「按 A 的世界方向」(相機左):
+            // 輸入 (-1,0) → worldDir = -PerpRight(camFwd)
             var expectedDir = _CameraLeft(camera);
-            var facing3 = _Shell.Target.forward;
-            var facing = new Vector2(facing3.x, facing3.z).normalized;
-            var right = new Vector2(facing.y, -facing.x);
-            var expectedOmega = Mathf.Atan2(Vector2.Dot(expectedDir, right), Vector2.Dot(expectedDir, facing));
 
             _InputHandler.InputSource = () => new Vector2(-1f, 0f); // 按住 A
 
@@ -156,30 +151,12 @@ namespace PinionCore.Project2.Tests
             }
             Assert.IsTrue(firstMoving.HasValue, "按住 A 後 ghost 應收到移動中的 MoveInfo");
             Assert.AreEqual(MoveSpeed, firstMoving.Value.Speed, 0.01f, "MoveInfo.Speed 應為 ActorConfig.MoveSpeed");
-            Assert.AreEqual(expectedOmega, firstMoving.Value.AngularSpeed, 0.2f,
-                "首發角速度應等於相機左方相對出生朝向的偏移角(相機相對換算)");
-            Assert.Less(firstMoving.Value.AngularSpeed, 0f, "相機左方在出生朝向左側,應為左轉(ω<0)");
+            Assert.AreEqual(0f, firstMoving.Value.AngularSpeed, 0.01f, "瞬轉直走不應產生角速度");
+            Assert.Greater(Vector2.Dot(firstMoving.Value.Facing.normalized, expectedDir), 0.99f,
+                "首發朝向應瞬轉為相機左方的世界方向(相機相對換算)");
 
-            // 等收斂:弧線轉到對齊(≤AlignAngleThreshold)後 handler 送直行,
-            // 最終 ω==0 且 Facing 對齊相機左方
-            //(OrbitalFollow 是 WorldSpace binding,相機 yaw 不隨角色朝向轉,目標方向恆定)
-            var converged = false;
-            deadline = Time.realtimeSinceStartup + 30f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                if (lastMove.HasValue && lastMove.Value.Speed > 0f
-                    && Mathf.Abs(lastMove.Value.AngularSpeed) < 0.05f
-                    && Vector2.Dot(lastMove.Value.Facing.normalized, _CameraLeft(camera)) > 0.99f)
-                {
-                    converged = true;
-                    break;
-                }
-                yield return null;
-            }
-            Assert.IsTrue(converged, "重送應使角色朝向收斂到相機左方(|ω|<0.05 且 Facing 對齊)");
-
-            // 收斂後觀察 ~2 秒:每幀以「當下最新 MoveInfo」取樣預測位置,與殼實際位置比對。
-            // 對齊後 handler 靜默,MoveInfo 不再更新;若有漂移矯正,每筆起點連續,逐幀跟最新一筆比即可;
+            // 觀察 ~2 秒:每幀以「當下最新 MoveInfo」取樣預測位置,與殼實際位置比對。
+            // 方向不變 handler 靜默,MoveInfo 通常不再更新;若有修復重送,每筆起點連續,逐幀跟最新一筆比即可;
             // 幀長與對時往前跳的合法落差以「兩次量測間 world time 前進量 × 速度」作 slack 扣除
             var maxDeviation = 0f;
             var prevTicks = _Shell.WorldTime.CurrentTime.Ticks;
