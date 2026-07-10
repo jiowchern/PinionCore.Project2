@@ -22,6 +22,13 @@ namespace PinionCore.Project2.Client
         // direction 為世界座標 XZ 方向:x=+X、y=+Z
         public void Move(Vector2 direction)
         {
+            Move(direction, null);
+        }
+
+        // responded:收到伺服器回傳值(接受與否)時回呼;
+        // 下一個指令的 Clear 會取消未回應的訂閱,屆時不回呼(視同掉失,由上層逾時處理)
+        public void Move(Vector2 direction, Action<bool> responded)
+        {
             // Clear 而非 Dispose:Dispose 後的 CompositeDisposable 會立刻銷毀之後 Add 的訂閱
             _Disposable.Clear();
 
@@ -30,18 +37,23 @@ namespace PinionCore.Project2.Client
             var obs = from player in GatewayClient.Queryer.QueryNotifier<Shared.IPlayer>().SupplyEvent().Take(1)
                       from result in player.Move(direction).RemoteValue()
                       select result;
-            var disp =  obs.Subscribe();
+            var disp = obs.Subscribe(result => responded?.Invoke(result));
             _Disposable.Add(disp);
         }
 
         public void Stop()
+        {
+            Stop(null);
+        }
+
+        public void Stop(Action<bool> responded)
         {
             _Disposable.Clear();
 
             var obs = from player in GatewayClient.Queryer.QueryNotifier<Shared.IPlayer>().SupplyEvent().Take(1)
                       from result in player.Stop().RemoteValue()
                       select result;
-            var disp = obs.Subscribe();
+            var disp = obs.Subscribe(result => responded?.Invoke(result));
             _Disposable.Add(disp);
         }
 
