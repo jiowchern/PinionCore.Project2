@@ -19,3 +19,5 @@ MonoBehaviour:
     m_SubObjectType: 
     m_SubObjectGUID: 
     m_EditorAssetChanged: 0
+  MoveSpeed: 1
+  MoveAcceptInterval: 0.3
