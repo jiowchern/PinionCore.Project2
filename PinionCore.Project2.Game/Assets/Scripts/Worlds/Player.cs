@@ -11,7 +11,7 @@ namespace PinionCore.Project2.Worlds
     /// 封裝一顆 DOTS entity 的玩家物件:對外(協議)提供 IPlayer/IActor 的檢視與控制,
     /// entity 的建立與銷毀由 World 負責,Player 只持有參考。
     /// </summary>
-    public class Player : IPlayer
+    public class Player : ICharactor
     {
         // World 在 Leave 時據此銷毀 entity。
         public readonly Unity.Entities.Entity Entity;
@@ -49,6 +49,15 @@ namespace PinionCore.Project2.Worlds
         public Property<string> DisplayName { get; private set; }
         public Property<string> ModelName { get; private set; }
 
+        // 視野內角色(含自己);由 World 在 Enter/Leave 時增刪,目前尚無視野過濾,
+        // 供應範圍即整個世界的玩家。
+        readonly Depot<Player> _VisibleActors;
+        readonly Notifier<IActor> _ActorsNotifier;
+        Notifier<IActor> IPlayer.Actors => _ActorsNotifier;
+
+        // 供 World 增刪可見角色
+        internal Depot<Player> VisibleActors => _VisibleActors;
+
         // 權威狀態的唯一真相:等速直線 MoveInfo,任意時刻以 MoveSampler 取樣;
         // entity 的 LocalTransform 只是取樣結果的投影(供未來碰撞查詢使用)。
         MoveInfo _MoveInfo;
@@ -69,6 +78,8 @@ namespace PinionCore.Project2.Worlds
             _Radius = radius;
             _LastMoveAcceptedTicks = long.MinValue / 4;
             _LastRedirectTicks = long.MinValue / 4;
+            _VisibleActors = new Depot<Player>();
+            _ActorsNotifier = _VisibleActors.ToNotifier<IActor>();
             ActorId = new Property<Guid>(actorId);
             DisplayName = new Property<string>(info.DisplayName);
             ModelName = new Property<string>(info.ModelName);

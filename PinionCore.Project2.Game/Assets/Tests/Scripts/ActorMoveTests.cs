@@ -470,7 +470,7 @@ namespace PinionCore.Project2.Tests
             moveSub.Dispose();
         }
 
-        IPlayer _PlayerGhost;
+        ICharactor _PlayerGhost;
         PinionCore.Project2.Client.Actor _Shell;
         PinionCore.Project2.Client.Player _ClientPlayer;
 
@@ -492,7 +492,7 @@ namespace PinionCore.Project2.Tests
             Assert.IsFalse(verifyResult.HasError, "Verify 未收到回傳值");
             Assert.IsTrue(verifyResult.Result, "首次註冊的名字 Verify 應回傳 true");
 
-            var playerSupply = _Client.Queryer.QueryNotifier<IPlayer>().SupplyEvent()
+            var playerSupply = _Client.Queryer.QueryNotifier<ICharactor>().SupplyEvent()
                 .First()
                 .Timeout(System.TimeSpan.FromSeconds(15))
                 .ToYieldInstruction(throwOnError: false);

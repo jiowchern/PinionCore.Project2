@@ -53,8 +53,8 @@ namespace PinionCore.Project2.Worlds
 
 
         Depot<Player> _Players ;
-        Notifier<IPlayer> _PlayersNotifier;
-        Notifier<IPlayer> IWorld.Players => _PlayersNotifier;
+        Notifier<ICharactor> _PlayersNotifier;
+        Notifier<ICharactor> IWorld.Players => _PlayersNotifier;
 
         // 供 editor 除錯繪製(WorldDebugDrawer)走訪權威玩家狀態
         internal System.Collections.Generic.IEnumerable<Player> PlayerItems => _Players.Items;
@@ -74,7 +74,7 @@ namespace PinionCore.Project2.Worlds
             _elapsedWatch = Stopwatch.StartNew();
             _UpdateWatch = Stopwatch.StartNew();
             _Players = new Depot<Player>();
-            _PlayersNotifier = _Players.ToNotifier<IPlayer>();
+            _PlayersNotifier = _Players.ToNotifier<ICharactor>();
 
             Id = id;
             _info = worldInfo;
@@ -106,6 +106,8 @@ namespace PinionCore.Project2.Worlds
         public void Dispose()
         {
             // 先清掉殘留玩家讓 Unsupply 通知送出;entity 隨 _dots.Dispose() 一併銷毀。
+            foreach (var player in _Players.Items)
+                player.VisibleActors.Items.Clear();
             _Players.Items.Clear();
             _terrainQuery?.Dispose();
             if (_terrainCollider.IsCreated)
@@ -205,6 +207,16 @@ namespace PinionCore.Project2.Worlds
 
             var actorId = Guid.NewGuid();
             var player = new Player(actorId, actor, entity, em, config.MoveSpeed, config.MoveAcceptInterval, config.Radius, _info.Entrance, this);
+
+            // 互相可見(目前無視野過濾,範圍即整個世界,含自己);
+            // 先填好新玩家的名單再加入 _Players,綁定時的 replay 會送出完整名單。
+            foreach (var other in _Players.Items)
+            {
+                player.VisibleActors.Items.Add(other);
+                other.VisibleActors.Items.Add(player);
+            }
+            player.VisibleActors.Items.Add(player);
+
             _Players.Items.Add(player);
             return actorId;
         }
@@ -214,6 +226,11 @@ namespace PinionCore.Project2.Worlds
             var player = _Players.Items.FirstOrDefault(p => p.ActorId == actorId);
             if (player == null)
                 return false;
+
+            // 從所有玩家(含自己)的視野移除,讓 Unsupply 先送達
+            foreach (var other in _Players.Items)
+                other.VisibleActors.Items.Remove(player);
+            player.VisibleActors.Items.Clear();
 
             _Players.Items.Remove(player);
             _dots.EntityManager.DestroyEntity(player.Entity);

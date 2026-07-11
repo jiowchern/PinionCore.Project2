@@ -82,8 +82,8 @@ namespace PinionCore.Project2.Tests
             IWorld world = _world;
             yield return null;
 
-            IPlayer supplied = null;
-            IPlayer unsupplied = null;
+            ICharactor supplied = null;
+            ICharactor unsupplied = null;
             world.Players.Base.Supply += p => supplied = p;
             world.Players.Base.Unsupply += p => unsupplied = p;
 

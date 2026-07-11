@@ -34,7 +34,7 @@ namespace PinionCore.Project2.Client
 
             // Take(1):Supply 會重播既有的 IPlayer,一次 Move 只發一次 RPC,
             // 不讓訂閱殘留到未來的 re-supply 重發 Move
-            var obs = from player in GatewayClient.Queryer.QueryNotifier<Shared.IPlayer>().SupplyEvent().Take(1)
+            var obs = from player in GatewayClient.Queryer.QueryNotifier<Shared.ICharactor>().SupplyEvent().Take(1)
                       from result in player.Move(direction).RemoteValue()
                       select result;
             var disp = obs.Subscribe(result => responded?.Invoke(result));
@@ -50,7 +50,7 @@ namespace PinionCore.Project2.Client
         {
             _Disposable.Clear();
 
-            var obs = from player in GatewayClient.Queryer.QueryNotifier<Shared.IPlayer>().SupplyEvent().Take(1)
+            var obs = from player in GatewayClient.Queryer.QueryNotifier<Shared.ICharactor>().SupplyEvent().Take(1)
                       from result in player.Stop().RemoteValue()
                       select result;
             var disp = obs.Subscribe(result => responded?.Invoke(result));

@@ -19,23 +19,16 @@ namespace PinionCore.Project2.Users
         Property<string> _WorldName;
         Property<string> IGame.WorldName => _WorldName;
 
-        PinionCore.Remote.Depot<PinionCore.Project2.Shared.IActor> _Actors;
-        
-        Remote.Notifier<IActor> _ActorsNotifier;
-        Remote.Notifier<IActor> IGame.Actors => _ActorsNotifier;
-
-        PinionCore.Remote.Depot<PinionCore.Project2.Shared.IPlayer> _Players;
-        Remote.Notifier<IPlayer> _PlayersNotifier;        
-        Remote.Notifier<IPlayer> IGame.Players => _PlayersNotifier;
+        PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor> _Players;
+        Remote.Notifier<ICharactor> _PlayersNotifier;        
+        Remote.Notifier<ICharactor> IGame.Players => _PlayersNotifier;
 
         public event System.Action DoneEvent;
         public UserGame(ISessionBinder binder, INotifierQueryable worldNotifer, ActorInfo actor)
         {
-            _Players = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.IPlayer>();
-            _PlayersNotifier = _Players.ToNotifier<IPlayer>();
+            _Players = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor>();
+            _PlayersNotifier = _Players.ToNotifier<ICharactor>();
 
-            _Actors = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.IActor>();
-            _ActorsNotifier = _Actors.ToNotifier<IActor>();
             _WorldName = new Property<string>(string.Empty);
             _DisposeHandlers = new System.Collections.Generic.List<System.Action>();            
             this._Binder = binder;
@@ -76,13 +69,8 @@ namespace PinionCore.Project2.Users
             var disposablePlayersRemoveObs = playersRemoveObs.Subscribe((p) => _Players.Items.Remove(p));
             _DisposeHandlers.Add(() => disposablePlayersRemoveObs.Dispose());
 
-            var actorsAddObs = world.Players.SupplyEvent(); 
-            var disposableActorsAddObs = actorsAddObs.Subscribe(_Actors.Items.Add);
-            _DisposeHandlers.Add(() => disposableActorsAddObs.Dispose());
-
-            var actorsRemoveObs = world.Players.UnsupplyEvent();
-            var disposableActorsRemoveObs = actorsRemoveObs.Subscribe((p) => _Actors.Items.Remove(p));
-            _DisposeHandlers.Add(() => disposableActorsRemoveObs.Dispose());
+            // IActor 供應改由 ICharactor.Actors 承載:綁給 client 的 ICharactor ghost
+            // 其 Actors 屬性由框架遞迴綁定自動轉發,User 端不需再手動搬運。
 
             _DisposeHandlers.Add(() => world.Leave(actorId).RemoteValue().Subscribe());
         }

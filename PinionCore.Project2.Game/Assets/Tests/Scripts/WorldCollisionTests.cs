@@ -90,7 +90,7 @@ namespace PinionCore.Project2.Tests
         public IEnumerator HeadOnStopTest()
         {
             var player = _Enter(out var events);
-            IPlayer remote = player;
+            ICharactor remote = player;
 
             var accepted = false;
             remote.Move(new Vector2(0f, -1f)).OnValue += r => accepted = r;
@@ -117,7 +117,7 @@ namespace PinionCore.Project2.Tests
         public IEnumerator SlideAlongWallTest()
         {
             var player = _Enter(out var events);
-            IPlayer remote = player;
+            ICharactor remote = player;
 
             // 45 度斜向入射:撞牆後應沿 +X 滑行,速度縮為 MoveSpeed/√2
             remote.Move(new Vector2(1f, -1f).normalized);
@@ -151,7 +151,7 @@ namespace PinionCore.Project2.Tests
         public IEnumerator MoveIntoTouchingWallTest()
         {
             var player = _Enter(out var events);
-            IPlayer remote = player;
+            ICharactor remote = player;
 
             // 先正面撞停
             remote.Move(new Vector2(0f, -1f));
