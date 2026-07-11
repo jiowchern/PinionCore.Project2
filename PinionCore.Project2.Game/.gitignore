@@ -53,6 +53,9 @@ ExportedObj/
 *.pdb.meta
 *.mdb.meta
 
+# Unity Test Framework temporary bootstrap scene (left behind if a PlayMode run is interrupted)
+/[Aa]ssets/InitTestScene*.unity*
+
 # Unity3D generated file on crash reports
 sysinfo.txt
 
