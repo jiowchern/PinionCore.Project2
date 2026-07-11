@@ -4,7 +4,7 @@ namespace PinionCore.Project2.Worlds
 {
     /// <summary>
     /// Editor 除錯繪製:把伺服器權威狀態畫進 Scene view,供與 client 殼比對同步。
-    /// - 玩家:權威位置(球)+ 朝向(射線)+ 當前 MoveInfo 弧線軌跡(圓)
+    /// - 玩家:權威位置(球)+ 朝向(射線)+ 當前 MoveInfo 前進預告線
     /// - 地形:碰撞 AABB(線框盒)
     /// 以元件 enabled 與各 Draw 開關控制;只在 Play Mode 且編輯器內生效,不影響建置。
     /// </summary>
@@ -44,20 +44,10 @@ namespace PinionCore.Project2.Worlds
                 Gizmos.DrawWireSphere(pos, 0.3f);
                 Gizmos.DrawRay(pos, fwd * 1.2f);
 
-                // 當前弧線:圓心 = 位置 + 帶號半徑 × PerpRight(朝向),對弧上任一點都不變
+                // 移動中:畫一段前進預告線
                 var info = player.CurrentMoveInfo;
-                if (info.Speed > 0f && Mathf.Abs(info.AngularSpeed) > 1e-4f)
+                if (info.Speed > 0f)
                 {
-                    var radius = info.Speed / info.AngularSpeed;
-                    var facing2 = new Vector2(fwd.x, fwd.z);
-                    var center2 = new Vector2(pos.x, pos.z) + radius * new Vector2(facing2.y, -facing2.x);
-                    UnityEditor.Handles.color = Color.yellow;
-                    UnityEditor.Handles.DrawWireDisc(
-                        new Vector3(center2.x, pos.y, center2.y), Vector3.up, Mathf.Abs(radius));
-                }
-                else if (info.Speed > 0f)
-                {
-                    // 直線:畫一段前進預告線
                     Gizmos.color = Color.yellow;
                     Gizmos.DrawRay(pos, fwd * 3f);
                 }

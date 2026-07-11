@@ -28,11 +28,11 @@ namespace PinionCore.Project2.Worlds
         public Property<string> DisplayName { get; private set; }
         public Property<string> ModelName { get; private set; }
 
-        // 權威狀態的唯一真相:轉向式弧線 MoveInfo,任意時刻以 MoveSampler 取樣;
+        // 權威狀態的唯一真相:等速直線 MoveInfo,任意時刻以 MoveSampler 取樣;
         // entity 的 LocalTransform 只是取樣結果的投影(供未來碰撞查詢使用)。
         MoveInfo _MoveInfo;
 
-        // 供 editor 除錯繪製(WorldDebugDrawer)讀取當前弧線
+        // 供 editor 除錯繪製(WorldDebugDrawer)讀取當前 MoveInfo
         internal MoveInfo CurrentMoveInfo => _MoveInfo;
 
         public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveSpeed, float moveAcceptInterval, Vector3 spawnPosition, World world)
@@ -51,7 +51,6 @@ namespace PinionCore.Project2.Worlds
                 Position = new Vector2(spawnPosition.x, spawnPosition.z),
                 Facing = new Vector2(0f, 1f), // 出生面向 +Z
                 Speed = 0f,
-                AngularSpeed = 0f,
                 StartTicks = _World.ElapsedTicks
             };
         }
@@ -98,7 +97,6 @@ namespace PinionCore.Project2.Worlds
                 Position = position,
                 Facing = direction.normalized,
                 Speed = _MoveSpeed,
-                AngularSpeed = 0f,
                 StartTicks = now
             };
             _LastMoveAcceptedTicks = now;
@@ -108,7 +106,7 @@ namespace PinionCore.Project2.Worlds
 
         Value<bool> IPlayer.Stop()
         {
-            if (_MoveInfo.Speed == 0f && _MoveInfo.AngularSpeed == 0f)
+            if (_MoveInfo.Speed == 0f)
                 return false;
 
             _SampleNow(out var position, out var facing, out var now);
@@ -117,7 +115,6 @@ namespace PinionCore.Project2.Worlds
                 Position = position,
                 Facing = facing,
                 Speed = 0f,
-                AngularSpeed = 0f,
                 StartTicks = now
             };
             _MoveEvent?.Invoke(_MoveInfo);

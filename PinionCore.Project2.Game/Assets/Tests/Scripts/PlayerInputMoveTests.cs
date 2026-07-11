@@ -151,7 +151,6 @@ namespace PinionCore.Project2.Tests
             }
             Assert.IsTrue(firstMoving.HasValue, "按住 A 後 ghost 應收到移動中的 MoveInfo");
             Assert.AreEqual(MoveSpeed, firstMoving.Value.Speed, 0.01f, "MoveInfo.Speed 應為 ActorConfig.MoveSpeed");
-            Assert.AreEqual(0f, firstMoving.Value.AngularSpeed, 0.01f, "瞬轉直走不應產生角速度");
             Assert.Greater(Vector2.Dot(firstMoving.Value.Facing.normalized, expectedDir), 0.99f,
                 "首發朝向應瞬轉為相機左方的世界方向(相機相對換算)");
 

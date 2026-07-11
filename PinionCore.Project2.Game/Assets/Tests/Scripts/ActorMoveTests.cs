@@ -112,7 +112,6 @@ namespace PinionCore.Project2.Tests
             // MoveInfo 欄位:等速直線
             Assert.IsTrue(lastMove.HasValue && lastMove.Value.Speed > 0f, "ghost 應收到移動中的 MoveInfo");
             Assert.AreEqual(MoveSpeed, lastMove.Value.Speed, 0.01f, "MoveInfo.Speed 應為 ActorConfig.MoveSpeed");
-            Assert.AreEqual(0f, lastMove.Value.AngularSpeed, 0.01f, "正前方輸入不應產生角速度");
 
             // 位移方向 ≈ 世界 +Z
             var displacement = _Shell.Target.position - startPos;
@@ -184,7 +183,6 @@ namespace PinionCore.Project2.Tests
             }
             var moveInfo = lastMove.Value;
             Assert.AreEqual(MoveSpeed, moveInfo.Speed, 0.01f, "MoveInfo.Speed 應為 ActorConfig.MoveSpeed");
-            Assert.AreEqual(0f, moveInfo.AngularSpeed, 0.01f, "瞬轉直走不應產生角速度");
             Assert.Greater(Vector2.Dot(moveInfo.Facing.normalized, new Vector2(halfSqrt2, halfSqrt2)), 0.999f,
                 "朝向應瞬轉為指令的世界方向");
 
@@ -277,7 +275,6 @@ namespace PinionCore.Project2.Tests
             }
             Assert.IsTrue(lastMove.HasValue && lastMove.Value.Facing.x < -0.5f, "改向後 ghost 應收到朝向翻轉的 MoveInfo");
             var secondInfo = lastMove.Value;
-            Assert.AreEqual(0f, secondInfo.AngularSpeed, 0.01f, "瞬轉直走不應產生角速度");
             Assert.Greater(Vector2.Dot(secondInfo.Facing.normalized, new Vector2(-halfSqrt2, halfSqrt2)), 0.999f,
                 "朝向應瞬轉為新的世界方向");
 
@@ -332,7 +329,6 @@ namespace PinionCore.Project2.Tests
             Assert.IsTrue(lastMove.HasValue, "Stop 後 ghost 應收到 MoveEvent");
             var standInfo = lastMove.Value;
             Assert.AreEqual(0f, standInfo.Speed, "Stop 後應收到駐留 MoveInfo(Speed==0)");
-            Assert.AreEqual(0f, standInfo.AngularSpeed, "駐留 MoveInfo 不應帶角速度");
 
             // 殼的取樣位置可能落後 server(時鐘偏差),且殼的 IActor ghost 與測試訂閱的
             // IPlayer ghost 事件抵達幀序不同;駐留一到殼會先瞬移吸附到 server 停點,
