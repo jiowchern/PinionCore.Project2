@@ -29,7 +29,12 @@ namespace PinionCore.Project2.Worlds
 
         Value<Guid> IUniverse.QueryWorld(string name)
         {
-            var config = WorldConfigs.FirstOrDefault(c => c.Name == name);  
+            // 同名世界共用同一個實例,所有玩家才會進到同一個世界看見彼此
+            var existing = _WorldsDepot.ReadOnlyItems.FirstOrDefault(w => w.Name == name);
+            if (existing != null)
+                return new Value<Guid>(existing.Id);
+
+            var config = WorldConfigs.FirstOrDefault(c => c.Name == name);
             if (config == null)
             {
                 Debug.LogError($"WorldConfig not found for name: {name}");

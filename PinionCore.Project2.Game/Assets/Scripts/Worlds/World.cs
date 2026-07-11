@@ -46,6 +46,9 @@ namespace PinionCore.Project2.Worlds
 
         Property<string> IView.Name => new Property<string>(_info.Name);
 
+        // 供 Universe.QueryWorld 以名稱找回既有世界
+        internal string Name => _info.Name;
+
         Property<Guid> IWorld.Id => new Property<Guid>(Id);
 
 
