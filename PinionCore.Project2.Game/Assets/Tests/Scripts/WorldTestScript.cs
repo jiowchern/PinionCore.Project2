@@ -62,6 +62,17 @@ namespace PinionCore.Project2.Tests
                     "Terrain 缺少 LocalTransform");
                 Assert.IsTrue(em.HasComponent<Unity.Physics.PhysicsCollider>(terrain),
                     "Terrain 缺少碰撞資料 PhysicsCollider");
+
+                // L4 烘焙內容:根+子物件的 collider 應烘成 compound,且 AABB 涵蓋子物件 Wall。
+                // Terrain.prefab:根 = 地板 Plane(y≈0),子 Wall 世界盒 x∈[-2.5,2.5], y∈[0,1], z∈[-3.5,-2.5]。
+                var t = em.GetComponentData<LocalTransform>(terrain);
+                var pc = em.GetComponentData<Unity.Physics.PhysicsCollider>(terrain);
+                Assert.AreEqual(Unity.Physics.ColliderType.Compound, pc.Value.Value.Type,
+                    "地形應烘成 CompoundCollider(根地板 + 子物件障礙)");
+                var aabb = pc.Value.Value.CalculateAabb(
+                    new Unity.Mathematics.RigidTransform(t.Rotation, t.Position));
+                Assert.GreaterOrEqual(aabb.Max.y, 0.9f, "AABB 應包含 Wall 的高度(地板本身 y≈0)");
+                Assert.LessOrEqual(aabb.Min.z, -3.4f, "AABB 應涵蓋 Wall 的 z 範圍(-3.5..-2.5)");
             }
         }
 

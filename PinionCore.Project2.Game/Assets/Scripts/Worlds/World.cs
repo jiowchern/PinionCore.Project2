@@ -28,6 +28,17 @@ namespace PinionCore.Project2.Worlds
         // 記住建立出來的 collider blob;blob 不隨 world 自動釋放,Dispose 時要手動釋放。
         Unity.Entities.BlobAssetReference<Unity.Physics.Collider> _terrainCollider;
 
+        // 地形碰撞查詢服務(Player 移動用);與 debug 繪製用的子形狀清單
+        TerrainQuery _terrainQuery;
+        readonly System.Collections.Generic.List<TerrainColliderBaker.TerrainDebugShape> _terrainDebugShapes
+            = new System.Collections.Generic.List<TerrainColliderBaker.TerrainDebugShape>();
+
+        // 供 Player 做移動碰撞查詢
+        internal TerrainQuery Terrain => _terrainQuery;
+
+        // 供 editor 除錯繪製(WorldDebugDrawer)畫個別地形子形狀
+        internal System.Collections.Generic.IReadOnlyList<TerrainColliderBaker.TerrainDebugShape> TerrainDebugShapes => _terrainDebugShapes;
+
         /// <summary>
         /// 對外開放內部的 DOTS 世界,讓遊戲系統或測試可以查詢 EntityManager。
         /// </summary>
@@ -93,6 +104,7 @@ namespace PinionCore.Project2.Worlds
         {
             // 先清掉殘留玩家讓 Unsupply 通知送出;entity 隨 _dots.Dispose() 一併銷毀。
             _Players.Items.Clear();
+            _terrainQuery?.Dispose();
             if (_terrainCollider.IsCreated)
                 _terrainCollider.Dispose();
             if (_dots.IsCreated)
@@ -123,21 +135,16 @@ namespace PinionCore.Project2.Worlds
                     return false;
                 }
 
-                // 後端只要碰撞:優先取 MeshCollider 的幾何,退而取 MeshFilter 的 mesh。
-                var meshCollider = prefab.GetComponentInChildren<UnityEngine.MeshCollider>();
-                var mesh = meshCollider != null ? meshCollider.sharedMesh : null;
-                if (mesh == null)
+                // 後端只要碰撞:把根+子物件所有非 trigger collider 烘成單一 compound
+                //(根節點 = Ground 層、子物件 = Obstacle 層,見 TerrainColliderBaker)。
+                var compound = TerrainColliderBaker.Bake(prefab, _terrainDebugShapes);
+                if (!compound.IsCreated)
                 {
-                    var filter = prefab.GetComponentInChildren<MeshFilter>();
-                    mesh = filter != null ? filter.sharedMesh : null;
-                }
-                if (mesh == null)
-                {
-                    UnityEngine.Debug.LogError("[World] 地形 prefab 找不到可用的碰撞 Mesh(MeshCollider / MeshFilter)");
+                    UnityEngine.Debug.LogError("[World] 地形 prefab 找不到可用的 collider(MeshCollider / BoxCollider)");
                     return false;
                 }
 
-                CreateTerrainCollider(mesh, prefab.transform.position);
+                CreateTerrainCollider(compound, prefab.transform.position);
                 return true;
             }
             catch (Exception e)
@@ -155,16 +162,15 @@ namespace PinionCore.Project2.Worlds
         }
 
         /// <summary>
-        /// 用 mesh 建一顆 Unity.Physics 的碰撞實體:PhysicsCollider + 位置 + TerrainTag。
-        /// 完全不加渲染元件。
+        /// 用烘好的 compound blob 建一顆 Unity.Physics 的碰撞實體:PhysicsCollider + 位置 + TerrainTag。
+        /// 完全不加渲染元件;同時建立 TerrainQuery 供移動碰撞查詢。
         /// </summary>
-        void CreateTerrainCollider(Mesh mesh, Vector3 position)
+        void CreateTerrainCollider(Unity.Entities.BlobAssetReference<Unity.Physics.Collider> compound, Vector3 position)
         {
-            // 把 UnityEngine.Mesh 烘成 DOTS 物理的 collider blob(碰撞幾何)。
-            _terrainCollider = Unity.Physics.MeshCollider.Create(
-                mesh,
-                Unity.Physics.CollisionFilter.Default,
-                Unity.Physics.Material.Default);
+            _terrainCollider = compound;
+            _terrainQuery = new TerrainQuery(
+                _terrainCollider,
+                new Unity.Mathematics.RigidTransform(quaternion.identity, new float3(position.x, position.y, position.z)));
 
             var em = _dots.EntityManager;
             var entity = em.CreateEntity();
@@ -195,7 +201,7 @@ namespace PinionCore.Project2.Worlds
             em.AddComponentData(entity, LocalTransform.FromPosition(_info.Entrance));
 
             var actorId = Guid.NewGuid();
-            var player = new Player(actorId, actor, entity, em, config.MoveSpeed, config.MoveAcceptInterval, _info.Entrance, this);
+            var player = new Player(actorId, actor, entity, em, config.MoveSpeed, config.MoveAcceptInterval, config.Radius, _info.Entrance, this);
             _Players.Items.Add(player);
             return actorId;
         }

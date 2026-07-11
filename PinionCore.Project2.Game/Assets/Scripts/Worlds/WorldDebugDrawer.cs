@@ -41,7 +41,7 @@ namespace PinionCore.Project2.Worlds
                 var fwd = (Vector3)Unity.Mathematics.math.forward(t.Rotation);
 
                 Gizmos.color = Color.red;
-                Gizmos.DrawWireSphere(pos, 0.3f);
+                Gizmos.DrawWireSphere(pos, player.Radius);
                 Gizmos.DrawRay(pos, fwd * 1.2f);
 
                 // 移動中:畫一段前進預告線
@@ -50,6 +50,15 @@ namespace PinionCore.Project2.Worlds
                 {
                     Gizmos.color = Color.yellow;
                     Gizmos.DrawRay(pos, fwd * 3f);
+                }
+
+                // 有預計撞牆點:畫洋紅十字(高度取角色半徑,與掃掠球心一致)
+                if (player.HasPendingHit)
+                {
+                    var hit = new Vector3(player.PendingHitPosition.x, player.Radius, player.PendingHitPosition.y);
+                    Gizmos.color = Color.magenta;
+                    Gizmos.DrawLine(hit + Vector3.left * 0.2f, hit + Vector3.right * 0.2f);
+                    Gizmos.DrawLine(hit + Vector3.back * 0.2f, hit + Vector3.forward * 0.2f);
                 }
             }
         }
@@ -76,6 +85,22 @@ namespace PinionCore.Project2.Worlds
                     var size = (Vector3)(aabb.Max - aabb.Min);
                     Gizmos.color = Color.green;
                     Gizmos.DrawWireCube(center, size);
+
+                    // 個別子形狀:地面灰、障礙青(compound 內部不易走訪,用烘焙時記下的清單)
+                    var worldFromTerrain = new Unity.Mathematics.RigidTransform(t.Rotation, t.Position);
+                    foreach (var shape in world.TerrainDebugShapes)
+                    {
+                        var worldFromChild = Unity.Mathematics.math.mul(worldFromTerrain, shape.CompoundFromChild);
+                        var localCenter = (shape.LocalAabb.Min + shape.LocalAabb.Max) * 0.5f;
+                        var childCenter = (Vector3)Unity.Mathematics.math.transform(worldFromChild, localCenter);
+                        var childSize = (Vector3)(shape.LocalAabb.Max - shape.LocalAabb.Min);
+
+                        Gizmos.color = shape.IsGround ? Color.gray : Color.cyan;
+                        var prev = Gizmos.matrix;
+                        Gizmos.matrix = Matrix4x4.TRS(childCenter, worldFromChild.rot, Vector3.one);
+                        Gizmos.DrawWireCube(Vector3.zero, childSize);
+                        Gizmos.matrix = prev;
+                    }
                 }
             }
         }

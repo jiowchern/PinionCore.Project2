@@ -12,5 +12,8 @@ namespace PinionCore.Project2.Shared
 
         // Move 指令的最小接受間隔(秒):間隔內的 Move 被拒絕(回傳 false),Stop 不受限
         public float MoveAcceptInterval = 0.1f;
+
+        // 碰撞半徑(XZ 平面上的圓):伺服器權威碰撞查詢用,角色以此半徑的球對障礙做掃掠
+        public float Radius = 0.3f;
     }
 }
