@@ -1,0 +1,4 @@
+# cmd's batch-label lookup can miss labels in LF-only files
+# ("The system cannot find the batch label specified") - keep .bat/.cmd CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
