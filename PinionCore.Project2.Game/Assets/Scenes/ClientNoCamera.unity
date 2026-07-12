@@ -358,12 +358,6 @@ MonoBehaviour:
   View: {fileID: 440969112}
   QueryerHost: {fileID: 497929653}
   Protocol: {fileID: 11400000, guid: 2177ef7ad07432643b0fe35c896e0965, type: 2}
-  TcpConnector: {fileID: 497929651}
-  WebConnector: {fileID: 497929656}
-  StandaloneConnector: {fileID: 497929655}
-  StandaloneListener: {fileID: 0}
-  StandaloneSceneName: Gateway
-  StandaloneObjectName: SessionEndpoint
 --- !u!114 &440969112
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -409,6 +403,7 @@ GameObject:
   - component: {fileID: 497929651}
   - component: {fileID: 497929656}
   - component: {fileID: 497929655}
+  - component: {fileID: 497929657}
   m_Layer: 0
   m_Name: GatewayClient
   m_TagString: Untagged
@@ -494,6 +489,21 @@ MonoBehaviour:
   ConnectBreakEvent:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &497929657
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 497929650}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98e4fdad5abac40498285942a0dab6c4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Standalone.ListenerLocator
+  Listener: {fileID: 0}
+  SceneName: Gateway
+  ObjectName: SessionEndpoint
 --- !u!1 &800024545
 GameObject:
   m_ObjectHideFlags: 0
