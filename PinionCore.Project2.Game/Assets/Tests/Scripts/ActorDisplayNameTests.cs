@@ -22,7 +22,7 @@ namespace PinionCore.Project2.Tests
     {
         StandaloneSceneLoader _Scenes;
         PinionCore.NetSync.Standalone.Connector _Connector;
-        PinionCore.NetSync.Gateways.GatewayClient _Client;
+        PinionCore.NetSync.Client _Client;
         bool _PreviousRunInBackground;
 
         [UnitySetUp]
@@ -41,17 +41,17 @@ namespace PinionCore.Project2.Tests
             yield return _Scenes.Load("User");
             yield return _Scenes.Load("Client");
 
-            // Gateway 場景有兩個 Listener(SessionEndpoint / RegistryEndpoint),必須用物件名區分
+            // 直連實驗:Client 直接連 User 場景 GatewayService 上的 Standalone Listener(不經 Gateway)
             PinionCore.NetSync.Standalone.Listener listener = null;
             while (listener == null || _Connector == null)
             {
                 if (listener == null)
-                    listener = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Listener>("Gateway", "SessionEndpoint");
+                    listener = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Listener>("User", "GatewayService");
                 if (_Connector == null)
                     _Connector = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Connector>("Client", "GatewayClient");
                 yield return null;
             }
-            _Client = _Connector.GetComponent<PinionCore.NetSync.Gateways.GatewayClient>();
+            _Client = _Connector.GetComponent<PinionCore.NetSync.Client>();
 
             // 等一個 frame:StandaloneStartToBind 綁定 Listener、User 場景的 GatewayService 註冊進 Router
             yield return null;

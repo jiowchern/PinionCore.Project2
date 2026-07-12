@@ -16,7 +16,8 @@ namespace PinionCore.Project2.Client
         // 殼 prefab:直接序列化引用(不走 Addressables),保證 Supply 時同步建立成功
         public Actor ShellPrefab;
 
-        public GatewayClient Client;
+        // 抽象為 QueryerHost:可掛 Client(直連)或 GatewayClient(經 Router)
+        public PinionCore.NetSync.QueryerHost Client;
 
         // 殼取樣位置用的同步時間來源
         public WorldTimeHandler WorldTime;

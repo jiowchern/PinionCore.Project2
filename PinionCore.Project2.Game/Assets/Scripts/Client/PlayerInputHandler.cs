@@ -18,7 +18,8 @@ namespace PinionCore.Project2.Client
     /// </summary>
     public class PlayerInputHandler : MonoBehaviour
     {
-        public GatewayClient Client;
+        // 抽象為 QueryerHost:可掛 Client(直連)或 GatewayClient(經 Router)
+        public PinionCore.NetSync.QueryerHost Client;
         public ActorProvider Provider;
         public Player ClientPlayer;
 

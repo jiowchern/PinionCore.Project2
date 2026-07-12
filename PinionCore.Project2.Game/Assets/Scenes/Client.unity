@@ -356,14 +356,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Consoles.ClientConsole
   View: {fileID: 440969112}
-  QueryerHost: {fileID: 497929653}
+  QueryerHost: {fileID: 497929657}
   Protocol: {fileID: 11400000, guid: 2177ef7ad07432643b0fe35c896e0965, type: 2}
   TcpConnector: {fileID: 497929651}
   WebConnector: {fileID: 497929656}
   StandaloneConnector: {fileID: 497929655}
   StandaloneListener: {fileID: 0}
-  StandaloneSceneName: Gateway
-  StandaloneObjectName: SessionEndpoint
+  StandaloneSceneName: User
+  StandaloneObjectName: GatewayService
 --- !u!114 &440969112
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -405,10 +405,10 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 497929654}
-  - component: {fileID: 497929653}
   - component: {fileID: 497929651}
   - component: {fileID: 497929656}
   - component: {fileID: 497929655}
+  - component: {fileID: 497929657}
   m_Layer: 0
   m_Name: GatewayClient
   m_TagString: Untagged
@@ -435,19 +435,6 @@ MonoBehaviour:
   ConnectBreakEvent:
     m_PersistentCalls:
       m_Calls: []
---- !u!114 &497929653
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 497929650}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6aa14b5b67c8f8f428d53e2e2c0cb43c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Gateways.GatewayClient
-  Provider: {fileID: 11400000, guid: 2177ef7ad07432643b0fe35c896e0965, type: 2}
 --- !u!4 &497929654
 Transform:
   m_ObjectHideFlags: 0
@@ -494,6 +481,19 @@ MonoBehaviour:
   ConnectBreakEvent:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &497929657
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 497929650}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 26a192b1c46b88141b3605c047d2a346, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Client
+  Provider: {fileID: 11400000, guid: 2177ef7ad07432643b0fe35c896e0965, type: 2}
 --- !u!1 &800024545
 GameObject:
   m_ObjectHideFlags: 0
@@ -548,7 +548,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 57239c638d804d7419b931f15445b1d1, type: 2}
   ActorRoot: {fileID: 1932123267}
   ShellPrefab: {fileID: 8405657415622340701, guid: 1223cc201130de145ada9412cca47bc1, type: 3}
-  Client: {fileID: 497929653}
+  Client: {fileID: 497929657}
   WorldTime: {fileID: 800024548}
 --- !u!114 &800024548
 MonoBehaviour:
@@ -562,7 +562,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4eac9dc1fa958754fbd92d9aba38a02f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.WorldTimeHandler
-  Client: {fileID: 497929653}
+  Client: {fileID: 497929657}
   _currentTimeDisplay: 
 --- !u!114 &800024549
 MonoBehaviour:
@@ -576,7 +576,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 65962f2a25b495344b9a8f1d8c87e46e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.Player
-  GatewayClient: {fileID: 497929653}
+  GatewayClient: {fileID: 497929657}
 --- !u!114 &800024550
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -589,7 +589,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0a14fa638f6e9824b83df65a542587bf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.View
-  Gateway: {fileID: 497929653}
+  Gateway: {fileID: 497929657}
   WorldInfos:
   - {fileID: 11400000, guid: 9e620929fa8025743bb57c3febb472c7, type: 2}
 --- !u!114 &800024551
@@ -604,7 +604,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bae59dd4ef8afad439f0476141cc2f71, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.PlayerCameraHandler
-  Client: {fileID: 497929653}
+  Client: {fileID: 497929657}
   Provider: {fileID: 800024547}
   FollowCamera: {fileID: 125214426}
 --- !u!114 &800024552
@@ -619,14 +619,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18c8e3f6b78a7d546ae446318dc0af4c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.PlayerInputHandler
-  Client: {fileID: 497929653}
+  Client: {fileID: 497929657}
   Provider: {fileID: 800024547}
   ClientPlayer: {fileID: 800024549}
   CameraTransform: {fileID: 1829177393}
   MoveAction: {fileID: -1680190386980627800, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-  ResendInterval: 0.1
   RedirectAngleThreshold: 10
   MinSendInterval: 0.05
+  RecheckInterval: 1
   DeadZone: 0.2
 --- !u!1 &1640811266
 GameObject:

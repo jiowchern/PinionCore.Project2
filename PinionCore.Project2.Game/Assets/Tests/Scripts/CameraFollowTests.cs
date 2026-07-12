@@ -20,7 +20,7 @@ namespace PinionCore.Project2.Tests
     {
         StandaloneSceneLoader _Scenes;
         PinionCore.NetSync.Standalone.Connector _Connector;
-        PinionCore.NetSync.Gateways.GatewayClient _Client;
+        PinionCore.NetSync.Client _Client;
         bool _PreviousRunInBackground;
 
         [UnitySetUp]
@@ -41,12 +41,12 @@ namespace PinionCore.Project2.Tests
             while (listener == null || _Connector == null)
             {
                 if (listener == null)
-                    listener = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Listener>("Gateway", "SessionEndpoint");
+                    listener = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Listener>("User", "GatewayService");
                 if (_Connector == null)
                     _Connector = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Connector>("Client", "GatewayClient");
                 yield return null;
             }
-            _Client = _Connector.GetComponent<PinionCore.NetSync.Gateways.GatewayClient>();
+            _Client = _Connector.GetComponent<PinionCore.NetSync.Client>();
 
             yield return null;
 

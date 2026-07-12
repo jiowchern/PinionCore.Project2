@@ -9,7 +9,8 @@ namespace PinionCore.Project2.Client
 {
     public class Player :MonoBehaviour
     {        
-        public GatewayClient GatewayClient;
+        // 抽象為 QueryerHost:可掛 Client(直連)或 GatewayClient(經 Router)
+        public PinionCore.NetSync.QueryerHost GatewayClient;
 
 
         readonly UniRx.CompositeDisposable _Disposable;

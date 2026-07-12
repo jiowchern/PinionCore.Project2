@@ -24,10 +24,10 @@ namespace PinionCore.Project2.Tests
     {
         StandaloneSceneLoader _Scenes;
         PinionCore.NetSync.Standalone.Connector _ConnectorA;
-        PinionCore.NetSync.Gateways.GatewayClient _ClientA;
+        PinionCore.NetSync.Client _ClientA;
         GameObject _ClientBObject;
         PinionCore.NetSync.Standalone.Connector _ConnectorB;
-        PinionCore.NetSync.Gateways.GatewayClient _ClientB;
+        PinionCore.NetSync.Client _ClientB;
         bool _PreviousRunInBackground;
 
         [UnitySetUp]
@@ -46,21 +46,21 @@ namespace PinionCore.Project2.Tests
             yield return _Scenes.Load("User");
             yield return _Scenes.Load("Client");
 
-            // Gateway 場景有兩個 Listener(SessionEndpoint / RegistryEndpoint),必須用物件名區分
+            // 直連實驗:Client 直接連 User 場景 GatewayService 上的 Standalone Listener(不經 Gateway)
             PinionCore.NetSync.Standalone.Listener listener = null;
             while (listener == null || _ConnectorA == null)
             {
                 if (listener == null)
-                    listener = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Listener>("Gateway", "SessionEndpoint");
+                    listener = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Listener>("User", "GatewayService");
                 if (_ConnectorA == null)
                     _ConnectorA = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Connector>("Client", "GatewayClient");
                 yield return null;
             }
-            _ClientA = _ConnectorA.GetComponent<PinionCore.NetSync.Gateways.GatewayClient>();
+            _ClientA = _ConnectorA.GetComponent<PinionCore.NetSync.Client>();
 
-            // 第二位玩家:headless GatewayClient,Provider 沿用場景上的協議資產
+            // 第二位玩家:headless Client(直連),Provider 沿用場景上的協議資產
             _ClientBObject = new GameObject("TestGatewayClientB");
-            _ClientB = _ClientBObject.AddComponent<PinionCore.NetSync.Gateways.GatewayClient>();
+            _ClientB = _ClientBObject.AddComponent<PinionCore.NetSync.Client>();
             _ClientB.Provider = _ClientA.Provider;
             _ConnectorB = _ClientBObject.AddComponent<PinionCore.NetSync.Standalone.Connector>();
 
