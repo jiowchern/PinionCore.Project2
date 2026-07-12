@@ -47,15 +47,18 @@ namespace PinionCore.Project2.Tests
             yield return _Scenes.Load("Client");
 
             // Gateway 場景有兩個 Listener(SessionEndpoint / RegistryEndpoint),必須用物件名區分
+            // UnitySetUp 不受 [Timeout] 保護,找元件必須有界限,否則會掛死整輪
             PinionCore.NetSync.Standalone.Listener listener = null;
-            while (listener == null || _ConnectorA == null)
+            var found = TestWait.Until(() =>
             {
                 if (listener == null)
                     listener = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Listener>("Gateway", "SessionEndpoint");
                 if (_ConnectorA == null)
                     _ConnectorA = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Connector>("Client", "GatewayClient");
-                yield return null;
-            }
+                return listener != null && _ConnectorA != null;
+            }, System.TimeSpan.FromSeconds(30));
+            yield return found;
+            TestWait.AssertDone(found, "SetUp:應在時限內找到 SessionEndpoint Listener 與 GatewayClient Connector");
             _ClientA = _ConnectorA.GetComponent<PinionCore.NetSync.Gateways.GatewayClient>();
 
             // 第二位玩家:headless GatewayClient,Provider 沿用場景上的協議資產
@@ -104,79 +107,53 @@ namespace PinionCore.Project2.Tests
             const string PlayerNameA = "VisTesterA";
             const string PlayerNameB = "VisTesterB";
 
-            // 先訂閱雙方的 IActor Supply 再登入,避免漏接進場廣播
-            var actorsA = new List<IActor>();
-            var actorsB = new List<IActor>();
-            var subA = _ClientA.Queryer.QueryNotifier<IActor>().SupplyEvent().Subscribe(actorsA.Add);
-            var subB = _ClientB.Queryer.QueryNotifier<IActor>().SupplyEvent().Subscribe(actorsB.Add);
+            // 先建等待(建構即訂閱)再登入,避免漏接進場廣播;
+            // 逾時 60s 從訂閱(登入前)起算,涵蓋兩段 Verify(各自另有 10s 逾時)
+            var actorsA = TestWait.Count(
+                _ClientA.Queryer.QueryNotifier<IActor>().SupplyEvent(), 2, System.TimeSpan.FromSeconds(60));
+            var actorsB = TestWait.Count(
+                _ClientB.Queryer.QueryNotifier<IActor>().SupplyEvent(), 2, System.TimeSpan.FromSeconds(60));
 
             yield return _Verify(_ClientA.Queryer, PlayerNameA);
             yield return _Verify(_ClientB.Queryer, PlayerNameB);
 
             // 兩位玩家都在同一個世界時,各自應收到兩個 IActor(自己與對方)
-            var deadline = Time.realtimeSinceStartup + 20f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                if (actorsA.Count >= 2 && actorsB.Count >= 2)
-                    break;
-                yield return null;
-            }
-            Assert.AreEqual(2, actorsA.Count, "client A 應看到兩個 actor(自己與 client B)");
-            Assert.AreEqual(2, actorsB.Count, "client B 應看到兩個 actor(自己與 client A)");
+            yield return actorsA;
+            TestWait.AssertDone(actorsA, "client A 應看到兩個 actor(自己與 client B)");
+            yield return actorsB;
+            TestWait.AssertDone(actorsB, "client B 應看到兩個 actor(自己與 client A)");
 
             // 雙方看到的是同一組玩家
             var expectedNames = new[] { PlayerNameA, PlayerNameB };
-            CollectionAssert.AreEquivalent(expectedNames, actorsA.Select(a => a.DisplayName.Value).ToArray(),
+            CollectionAssert.AreEquivalent(expectedNames, actorsA.Result.Select(a => a.DisplayName.Value).ToArray(),
                 "client A 收到的 actor 名單應為兩位玩家");
-            CollectionAssert.AreEquivalent(expectedNames, actorsB.Select(a => a.DisplayName.Value).ToArray(),
+            CollectionAssert.AreEquivalent(expectedNames, actorsB.Result.Select(a => a.DisplayName.Value).ToArray(),
                 "client B 收到的 actor 名單應為兩位玩家");
 
             // Client 場景的 ActorProvider 應在 ActorRoot 底下生出兩個殼
-            var shells = 0;
-            deadline = Time.realtimeSinceStartup + 15f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                shells = _CountShells();
-                if (shells >= 2)
-                    break;
-                yield return null;
-            }
-            Assert.AreEqual(2, shells, "Client 場景 ActorRoot 底下應有兩個 ActorShell");
-
-            subA.Dispose();
-            subB.Dispose();
+            // (SupplyEvent 會 replay 既有殼,晚訂閱安全)
+            var provider = _Scenes.FindComponent<PinionCore.Project2.Client.ActorProvider>("Client", "Handlers");
+            Assert.NotNull(provider, "Client 場景應有 ActorProvider");
+            var shells = TestWait.Count(provider.SupplyEvent(), 2, System.TimeSpan.FromSeconds(15));
+            yield return shells;
+            TestWait.AssertDone(shells, "Client 場景 ActorRoot 底下應有兩個 ActorShell");
         }
 
         // 單一 client 的登入流程:等 IVerifiable → Verify 通過
         IEnumerator _Verify(PinionCore.Remote.INotifierQueryable queryer, string playerName)
         {
-            var verifiableSupply = queryer.QueryNotifier<IVerifiable>().SupplyEvent()
-                .First()
-                .Timeout(System.TimeSpan.FromSeconds(10))
-                .ToYieldInstruction(throwOnError: false);
+            var verifiableSupply = TestWait.First(
+                queryer.QueryNotifier<IVerifiable>().SupplyEvent(),
+                System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
-            Assert.IsFalse(verifiableSupply.HasError, $"{playerName}:連線後 client 應從 User 服務收到 IVerifiable");
+            TestWait.AssertDone(verifiableSupply, $"{playerName}:連線後 client 應從 User 服務收到 IVerifiable");
 
-            var verifyResult = verifiableSupply.Result.Verify(playerName).RemoteValue()
-                .First()
-                .Timeout(System.TimeSpan.FromSeconds(10))
-                .ToYieldInstruction(throwOnError: false);
+            var verifyResult = TestWait.First(
+                verifiableSupply.Result.Verify(playerName).RemoteValue(),
+                System.TimeSpan.FromSeconds(10));
             yield return verifyResult;
-            Assert.IsFalse(verifyResult.HasError, $"{playerName}:Verify 未收到回傳值");
+            TestWait.AssertDone(verifyResult, $"{playerName}:Verify 未收到回傳值");
             Assert.IsTrue(verifyResult.Result, $"{playerName}:首次註冊的名字 Verify 應回傳 true");
-        }
-
-        // 數 Client 場景中的殼;實例名稱是 "(Clone)" 結尾,不能靠物件名找
-        int _CountShells()
-        {
-            var scene = SceneManager.GetSceneByName("Client");
-            if (!scene.isLoaded)
-                return 0;
-
-            var count = 0;
-            foreach (var root in scene.GetRootGameObjects())
-                count += root.GetComponentsInChildren<PinionCore.Project2.Client.Actor>(true).Length;
-            return count;
         }
     }
 }
