@@ -21,6 +21,10 @@ namespace PinionCore.Project2.Worlds
         readonly RigidTransform _WorldFromTerrain;
         readonly RigidTransform _TerrainFromWorld;
 
+        // 供 Burst job(Sight 等)直接對 blob 查詢;生命週期仍由 World 管理
+        internal Unity.Entities.BlobAssetReference<Unity.Physics.Collider> TerrainBlob => _Terrain;
+        internal RigidTransform TerrainFromWorld => _TerrainFromWorld;
+
         // 去穿透用的膠囊高度:深嵌牆中時,球的最近分離面可能是牆的頂/底面(垂直法線,XZ 推不動);
         // 改用由角色高度往上延伸的高膠囊,讓側面成為最近分離面,法線必為水平。
         // 代價:比牆頂還高的懸空幾何(若未來有)也會被此查詢視為障礙。
@@ -128,7 +132,7 @@ namespace PinionCore.Project2.Worlds
 
             sphere = Unity.Physics.SphereCollider.Create(
                 new Unity.Physics.SphereGeometry { Center = float3.zero, Radius = radius },
-                _ActorFilter(),
+                ActorObstacleFilter(),
                 Unity.Physics.Material.Default);
             _SpheresByRadius.Add(radius, sphere);
             return sphere;
@@ -146,13 +150,13 @@ namespace PinionCore.Project2.Worlds
                     Vertex1 = new float3(0f, DepenetrationCapsuleHeight, 0f),
                     Radius = radius,
                 },
-                _ActorFilter(),
+                ActorObstacleFilter(),
                 Unity.Physics.Material.Default);
             _CapsulesByRadius.Add(radius, capsule);
             return capsule;
         }
 
-        static Unity.Physics.CollisionFilter _ActorFilter()
+        internal static Unity.Physics.CollisionFilter ActorObstacleFilter()
         {
             return new Unity.Physics.CollisionFilter
             {

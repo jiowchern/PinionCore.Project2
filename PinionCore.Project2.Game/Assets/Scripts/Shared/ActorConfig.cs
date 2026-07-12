@@ -15,5 +15,8 @@ namespace PinionCore.Project2.Shared
 
         // 碰撞半徑(XZ 平面上的圓):伺服器權威碰撞查詢用,角色以此半徑的球對障礙做掃掠
         public float Radius = 0.3f;
+
+        // 視野半徑(XZ 平面上的圓):伺服器權威視野查詢用,角色以此半徑的球對其他角色做掃掠
+        public float SightRadius = 5.0f;
     }
 }

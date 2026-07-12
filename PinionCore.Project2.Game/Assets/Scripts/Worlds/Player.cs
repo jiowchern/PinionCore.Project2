@@ -20,6 +20,7 @@ namespace PinionCore.Project2.Worlds
         readonly float _MoveSpeed;
         readonly long _MoveAcceptIntervalTicks;
         readonly float _Radius;
+        readonly float _SightRadius;
         readonly World _World;
 
         // 上次被接受的 Move 時間戳,節流用;初值遠早於世界時間,首發必被接受
@@ -49,8 +50,8 @@ namespace PinionCore.Project2.Worlds
         public Property<string> DisplayName { get; private set; }
         public Property<string> ModelName { get; private set; }
 
-        // 視野內角色(含自己);由 World 在 Enter/Leave 時增刪,目前尚無視野過濾,
-        // 供應範圍即整個世界的玩家。
+        // 視野內角色(含自己);由 World 的 Sight 依「距離 + 地形遮蔽」判定增刪,
+        // Enter/Leave 時由 World 直接增刪(self 成員資格也由 World 管)。
         readonly Depot<Player> _VisibleActors;
         readonly Notifier<IActor> _ActorsNotifier;
         Notifier<IActor> IPlayer.Actors => _ActorsNotifier;
@@ -65,10 +66,11 @@ namespace PinionCore.Project2.Worlds
         // 供 editor 除錯繪製(WorldDebugDrawer)讀取當前 MoveInfo / 半徑 / 預計撞點
         internal MoveInfo CurrentMoveInfo => _MoveInfo;
         internal float Radius => _Radius;
+        internal float SightRadius => _SightRadius;
         internal bool HasPendingHit => _HasPendingHit;
         internal Vector2 PendingHitPosition => _HitContactPos;
 
-        public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveSpeed, float moveAcceptInterval, float radius, Vector3 spawnPosition, World world)
+        public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveSpeed, float moveAcceptInterval, float radius, float sightRadius, Vector3 spawnPosition, World world)
         {
             _World = world;
             Entity = entity;
@@ -76,6 +78,7 @@ namespace PinionCore.Project2.Worlds
             _MoveSpeed = moveSpeed;
             _MoveAcceptIntervalTicks = (long)(moveAcceptInterval * TimeSpan.TicksPerSecond);
             _Radius = radius;
+            _SightRadius = sightRadius;
             _LastMoveAcceptedTicks = long.MinValue / 4;
             _LastRedirectTicks = long.MinValue / 4;
             _VisibleActors = new Depot<Player>();

@@ -13,6 +13,7 @@ namespace PinionCore.Project2.Worlds
         public Universe Universe;
         public bool DrawActors = true;
         public bool DrawTerrainBounds = true;
+        public bool DrawSightRadius = true;
 
 #if UNITY_EDITOR
         void OnDrawGizmos()
@@ -24,13 +25,13 @@ namespace PinionCore.Project2.Worlds
             foreach (var world in Universe.Worlds)
             {
                 if (DrawActors)
-                    _DrawActors(world);
+                    _DrawActors(world, DrawSightRadius);
                 if (DrawTerrainBounds)
                     _DrawTerrainBounds(world);
             }
         }
 
-        static void _DrawActors(World world)
+        static void _DrawActors(World world, bool drawSightRadius)
         {
             var em = world.Dots.EntityManager;
             foreach (var player in world.PlayerItems)
@@ -50,6 +51,16 @@ namespace PinionCore.Project2.Worlds
                 {
                     Gizmos.color = Color.yellow;
                     Gizmos.DrawRay(pos, fwd * 3f);
+                }
+
+                // 視野圈:實線 = 進入半徑,淡色 = 離開半徑(hysteresis 緩衝帶)
+                if (drawSightRadius)
+                {
+                    var ground = new Vector3(pos.x, 0.02f, pos.z);
+                    UnityEditor.Handles.color = new Color(0f, 1f, 1f, 0.8f);
+                    UnityEditor.Handles.DrawWireDisc(ground, Vector3.up, player.SightRadius);
+                    UnityEditor.Handles.color = new Color(0f, 1f, 1f, 0.25f);
+                    UnityEditor.Handles.DrawWireDisc(ground, Vector3.up, player.SightRadius * Sight.ExitRadiusFactor);
                 }
 
                 // 有預計撞牆點:畫洋紅十字(高度取角色半徑,與掃掠球心一致)

@@ -69,10 +69,16 @@ namespace PinionCore.Project2.Worlds
         readonly System.Diagnostics.Stopwatch _elapsedWatch ;
         readonly System.Diagnostics.Stopwatch _UpdateWatch ;
 
+        // 視野評估:Burst job 判定距離 + 遮蔽,結果增刪各 Player.VisibleActors;節流 stopwatch 控制頻率
+        readonly Sight _Sight;
+        readonly System.Diagnostics.Stopwatch _SightWatch;
+
         public World(Guid id,WorldConfig worldInfo, ActorConfig[] actorConfigs)
         {
             _elapsedWatch = Stopwatch.StartNew();
             _UpdateWatch = Stopwatch.StartNew();
+            _Sight = new Sight();
+            _SightWatch = Stopwatch.StartNew();
             _Players = new Depot<Player>();
             _PlayersNotifier = _Players.ToNotifier<ICharactor>();
 
@@ -206,16 +212,16 @@ namespace PinionCore.Project2.Worlds
             em.AddComponentData(entity, LocalTransform.FromPosition(_info.Entrance));
 
             var actorId = Guid.NewGuid();
-            var player = new Player(actorId, actor, entity, em, config.MoveSpeed, config.MoveAcceptInterval, config.Radius, _info.Entrance, this);
+            var player = new Player(actorId, actor, entity, em, config.MoveSpeed, config.MoveAcceptInterval, config.Radius, config.SightRadius, _info.Entrance, this);
 
-            // 互相可見(目前無視野過濾,範圍即整個世界,含自己);
+            // 自己永遠可見;其餘互見交給 Sight 依「距離 + 遮蔽」判定。
+            // 先投影全體 transform(ctor 去穿透可能把出生點推離 Entrance)再評估;
             // 先填好新玩家的名單再加入 _Players,綁定時的 replay 會送出完整名單。
-            foreach (var other in _Players.Items)
-            {
-                player.VisibleActors.Items.Add(other);
-                other.VisibleActors.Items.Add(player);
-            }
             player.VisibleActors.Items.Add(player);
+            var evaluated = new System.Collections.Generic.List<Player>(_Players.Items) { player };
+            foreach (var p in evaluated)
+                p.Update();
+            _Sight.Tick(evaluated, em, _terrainQuery);
 
             _Players.Items.Add(player);
             return actorId;
@@ -228,10 +234,11 @@ namespace PinionCore.Project2.Worlds
             if (player == null)
                 return false;
 
-            // 從所有玩家(含自己)的視野移除,讓 Unsupply 先送達
+            // 從所有玩家(含自己)的視野移除,讓 Unsupply 先送達;離開不走 debounce,立即移除
             foreach (var other in _Players.Items)
                 other.VisibleActors.Items.Remove(player);
             player.VisibleActors.Items.Clear();
+            _Sight.Forget(player);
 
             _Players.Items.Remove(player);
             _dots.EntityManager.DestroyEntity(player.Entity);
@@ -250,6 +257,24 @@ namespace PinionCore.Project2.Worlds
             // 把所有玩家的 MoveInfo 取樣結果投影到 entity。
             foreach (var player in _Players.Items)
                 player.Update();
+
+            // 視野判定節流:transform 投影完才評估,結果增刪 VisibleActors → Supply/Unsupply
+            if (_SightWatch.Elapsed.TotalSeconds >= Sight.UpdateIntervalSeconds)
+            {
+                _Sight.Tick(new System.Collections.Generic.List<Player>(_Players.Items), _dots.EntityManager, _terrainQuery);
+                _SightWatch.Restart();
+            }
+        }
+
+        /// <summary>
+        /// 供測試決定性驅動視野判定:投影全體 transform 後立刻評估一次,不受節流間隔影響。
+        /// </summary>
+        internal void TickSight()
+        {
+            var players = new System.Collections.Generic.List<Player>(_Players.Items);
+            foreach (var player in players)
+                player.Update();
+            _Sight.Tick(players, _dots.EntityManager, _terrainQuery);
         }
     }
 }
