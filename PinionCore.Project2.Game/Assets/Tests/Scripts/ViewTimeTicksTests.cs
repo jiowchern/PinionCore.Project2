@@ -14,14 +14,14 @@ namespace PinionCore.Project2.Tests
     /// <summary>
     /// IView.TimeTicksEvent 端到端測試:
     /// Gateway/World/User/Client 四場景全部載入(AutoConnector 一律覆寫為 Standalone),
-    /// Client 以 Standalone.Connector 連上 Gateway 的 SessionEndpoint,
+    /// Client 以 Standalone.Connector 連上 ListenerLocator 描述的目標(跟隨場景 QueryHost 的拓撲),
     /// 走 IVerifiable.Verify 進入遊戲取得 IView,驗證時間戳數值與更新間隔。
     /// </summary>
     public class ViewTimeTicksTests
     {
         StandaloneSceneLoader _Scenes;
         PinionCore.NetSync.Standalone.Connector _Connector;
-        PinionCore.NetSync.Gateways.GatewayClient _Client;
+        PinionCore.NetSync.QueryerHost _Client;
         bool _PreviousRunInBackground;
 
         [UnitySetUp]
@@ -40,20 +40,27 @@ namespace PinionCore.Project2.Tests
             yield return _Scenes.Load("User");
             yield return _Scenes.Load("Client");
 
-            // Gateway 場景有兩個 Listener(SessionEndpoint / RegistryEndpoint),必須用物件名區分
+            // 從 QueryHost wrapper 解析目前拓撲的連線物件;Connector 與連線目標(ListenerLocator)都在其上
             // UnitySetUp 不受 [Timeout] 保護,找元件必須有界限,否則會掛死整輪
+            PinionCore.NetSync.QueryerHost host = null;
             PinionCore.NetSync.Standalone.Listener listener = null;
             var found = TestWait.Until(() =>
             {
-                if (listener == null)
-                    listener = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Listener>("Gateway", "SessionEndpoint");
-                if (_Connector == null)
-                    _Connector = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Connector>("Client", "GatewayClient");
+                if (host == null)
+                    host = _Scenes.FindClientHost();
+                if (host != null && _Connector == null)
+                    _Connector = host.GetComponent<PinionCore.NetSync.Standalone.Connector>();
+                if (host != null && listener == null)
+                {
+                    var locator = host.GetComponent<PinionCore.NetSync.Standalone.ListenerLocator>();
+                    if (locator != null)
+                        listener = locator.Find();
+                }
                 return listener != null && _Connector != null;
             }, System.TimeSpan.FromSeconds(30));
             yield return found;
-            TestWait.AssertDone(found, "SetUp:應在時限內找到 SessionEndpoint Listener 與 GatewayClient Connector");
-            _Client = _Connector.GetComponent<PinionCore.NetSync.Gateways.GatewayClient>();
+            TestWait.AssertDone(found, "SetUp:應在時限內從 QueryHost 解析出 Connector 與 Standalone 連線目標");
+            _Client = host;
 
             // 等一個 frame:StandaloneStartToBind 綁定 Listener、User 場景的 GatewayService 註冊進 Router
             yield return null;

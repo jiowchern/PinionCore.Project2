@@ -15,8 +15,8 @@ namespace PinionCore.Project2.Tests
     /// <summary>
     /// 多人可視性端到端測試:
     /// 比照 ActorDisplayNameTests 的四場景 Standalone 流程,
-    /// 但同時連入兩個 GatewayClient(第二個為測試動態建立的 headless client,
-    /// 不需要場景表現)模擬兩位玩家分別登入。
+    /// 但同時連入兩個 client(第二個為測試動態複製連線物件產生的 headless client,
+    /// 不需要場景表現,host 型別跟隨目前拓撲)模擬兩位玩家分別登入。
     /// 兩人進入同名世界後,雙方都應收到「自己 + 對方」共兩個 IActor,
     /// 且 Client 場景的 ActorProvider 應在 ActorRoot 底下生出兩個殼。
     /// </summary>
@@ -24,10 +24,10 @@ namespace PinionCore.Project2.Tests
     {
         StandaloneSceneLoader _Scenes;
         PinionCore.NetSync.Standalone.Connector _ConnectorA;
-        PinionCore.NetSync.Gateways.GatewayClient _ClientA;
+        PinionCore.NetSync.QueryerHost _ClientA;
         GameObject _ClientBObject;
         PinionCore.NetSync.Standalone.Connector _ConnectorB;
-        PinionCore.NetSync.Gateways.GatewayClient _ClientB;
+        PinionCore.NetSync.QueryerHost _ClientB;
         bool _PreviousRunInBackground;
 
         [UnitySetUp]
@@ -46,26 +46,34 @@ namespace PinionCore.Project2.Tests
             yield return _Scenes.Load("User");
             yield return _Scenes.Load("Client");
 
-            // Gateway 場景有兩個 Listener(SessionEndpoint / RegistryEndpoint),必須用物件名區分
+            // 從 QueryHost wrapper 解析目前拓撲的連線物件;Connector 與連線目標(ListenerLocator)都在其上
             // UnitySetUp 不受 [Timeout] 保護,找元件必須有界限,否則會掛死整輪
+            PinionCore.NetSync.QueryerHost hostA = null;
             PinionCore.NetSync.Standalone.Listener listener = null;
             var found = TestWait.Until(() =>
             {
-                if (listener == null)
-                    listener = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Listener>("Gateway", "SessionEndpoint");
-                if (_ConnectorA == null)
-                    _ConnectorA = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Connector>("Client", "GatewayClient");
+                if (hostA == null)
+                    hostA = _Scenes.FindClientHost();
+                if (hostA != null && _ConnectorA == null)
+                    _ConnectorA = hostA.GetComponent<PinionCore.NetSync.Standalone.Connector>();
+                if (hostA != null && listener == null)
+                {
+                    var locator = hostA.GetComponent<PinionCore.NetSync.Standalone.ListenerLocator>();
+                    if (locator != null)
+                        listener = locator.Find();
+                }
                 return listener != null && _ConnectorA != null;
             }, System.TimeSpan.FromSeconds(30));
             yield return found;
-            TestWait.AssertDone(found, "SetUp:應在時限內找到 SessionEndpoint Listener 與 GatewayClient Connector");
-            _ClientA = _ConnectorA.GetComponent<PinionCore.NetSync.Gateways.GatewayClient>();
+            TestWait.AssertDone(found, "SetUp:應在時限內從 QueryHost 解析出 Connector 與 Standalone 連線目標");
+            _ClientA = hostA;
 
-            // 第二位玩家:headless GatewayClient,Provider 沿用場景上的協議資產
-            _ClientBObject = new GameObject("TestGatewayClientB");
-            _ClientB = _ClientBObject.AddComponent<PinionCore.NetSync.Gateways.GatewayClient>();
-            _ClientB.Provider = _ClientA.Provider;
-            _ConnectorB = _ClientBObject.AddComponent<PinionCore.NetSync.Standalone.Connector>();
+            // 第二位玩家:複製連線物件產生 headless client,
+            // host 型別、Provider 與 Connector 都自動跟隨目前拓撲
+            _ClientBObject = Object.Instantiate(hostA.gameObject);
+            _ClientBObject.name = "TestClientB";
+            _ClientB = _ClientBObject.GetComponent<PinionCore.NetSync.QueryerHost>();
+            _ConnectorB = _ClientBObject.GetComponent<PinionCore.NetSync.Standalone.Connector>();
 
             // 等一個 frame:StandaloneStartToBind 綁定 Listener、User 場景的 GatewayService 註冊進 Router
             yield return null;

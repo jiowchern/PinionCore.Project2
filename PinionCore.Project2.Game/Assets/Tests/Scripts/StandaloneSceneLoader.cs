@@ -52,6 +52,19 @@ namespace PinionCore.Project2.Tests
             _LoadedSceneNames.Clear();
         }
 
+        // 從 Client 場景的 QueryHost wrapper 解析目前拓撲的連線 host(GatewayClient 或直連 Client);
+        // 場景未載入或 wrapper 的 Host 未指派時回傳 null。
+        // Connector 與 Standalone.ListenerLocator(連線目標)都掛在回傳 host 的 GameObject 上。
+        public PinionCore.NetSync.QueryerHost FindClientHost()
+        {
+            var wrapper = FindComponent<PinionCore.NetSync.QueryerHost>("Client", "QueryHost");
+            if (wrapper == null)
+                return null;
+
+            var host = wrapper.Resolve();
+            return host != wrapper ? host : null;
+        }
+
         // 從指定 scene 中名為 gameObjectName 的物件上取得元件;場景未載入或找不到時回傳 null
         public T FindComponent<T>(string sceneName, string gameObjectName) where T : Component
         {
