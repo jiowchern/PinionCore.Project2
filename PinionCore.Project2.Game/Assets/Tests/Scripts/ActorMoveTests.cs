@@ -46,15 +46,18 @@ namespace PinionCore.Project2.Tests
             yield return _Scenes.Load("Client");
 
             // Gateway 場景有兩個 Listener(SessionEndpoint / RegistryEndpoint),必須用物件名區分
+            // UnitySetUp 不受 [Timeout] 保護,找元件必須有界限,否則會掛死整輪
             PinionCore.NetSync.Standalone.Listener listener = null;
-            while (listener == null || _Connector == null)
+            var found = TestWait.Until(() =>
             {
                 if (listener == null)
                     listener = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Listener>("Gateway", "SessionEndpoint");
                 if (_Connector == null)
                     _Connector = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Connector>("Client", "GatewayClient");
-                yield return null;
-            }
+                return listener != null && _Connector != null;
+            }, System.TimeSpan.FromSeconds(30));
+            yield return found;
+            TestWait.AssertDone(found, "SetUp:應在時限內找到 SessionEndpoint Listener 與 GatewayClient Connector");
             _Client = _Connector.GetComponent<PinionCore.NetSync.Gateways.GatewayClient>();
 
             // 等一個 frame:StandaloneStartToBind 綁定 Listener、User 場景的 GatewayService 註冊進 Router
@@ -91,27 +94,23 @@ namespace PinionCore.Project2.Tests
         {
             yield return _EnterWorld("StraightTester");
 
-            MoveInfo? lastMove = null;
-            var moveSub = UniRx.Observable.FromEvent<MoveInfo>(
-                    h => _PlayerGhost.MoveEvent += h, h => _PlayerGhost.MoveEvent -= h)
-                .Subscribe(info => lastMove = info);
+            // 先建等待(建構即訂閱)再送指令;訂閱當下的 replay 是駐留態,被 predicate 濾掉
+            var moving = TestWait.First(
+                TestWait.MoveEvents(_PlayerGhost), i => i.Speed > 0f, System.TimeSpan.FromSeconds(15));
 
             var startPos = _Shell.Target.position;
             _ClientPlayer.Move(new Vector2(0f, 1f));
 
-            // 等殼走出約 1.5 單位
-            var deadline = Time.realtimeSinceStartup + 1.5f / MoveSpeed + 15f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                if ((_Shell.Target.position - startPos).magnitude >= 1.5f)
-                    break;
-                yield return null;
-            }
-            Assert.GreaterOrEqual((_Shell.Target.position - startPos).magnitude, 1.5f, "殼應已沿直線移動約 1.5 單位");
+            yield return moving;
+            TestWait.AssertDone(moving, "ghost 應收到移動中的 MoveInfo");
+            Assert.AreEqual(MoveSpeed, moving.Result.Speed, 0.01f, "MoveInfo.Speed 應為 ActorConfig.MoveSpeed");
 
-            // MoveInfo 欄位:等速直線
-            Assert.IsTrue(lastMove.HasValue && lastMove.Value.Speed > 0f, "ghost 應收到移動中的 MoveInfo");
-            Assert.AreEqual(MoveSpeed, lastMove.Value.Speed, 0.01f, "MoveInfo.Speed 應為 ActorConfig.MoveSpeed");
+            // 等殼走出約 1.5 單位
+            var moved = TestWait.Until(
+                () => (_Shell.Target.position - startPos).magnitude >= 1.5f,
+                System.TimeSpan.FromSeconds(1.5f / MoveSpeed + 15f));
+            yield return moved;
+            TestWait.AssertDone(moved, "殼應已沿直線移動約 1.5 單位");
 
             // 位移方向 ≈ 世界 +Z
             var displacement = _Shell.Target.position - startPos;
@@ -119,7 +118,6 @@ namespace PinionCore.Project2.Tests
             Assert.Greater(Vector2.Dot(directionXZ, new Vector2(0f, 1f)), 0.99f, "位移方向應沿世界 +Z");
 
             _ClientPlayer.Stop();
-            moveSub.Dispose();
         }
 
         /// <summary>
@@ -133,80 +131,50 @@ namespace PinionCore.Project2.Tests
         {
             yield return _EnterWorld("WorldDirTester");
 
-            MoveInfo? lastMove = null;
-            var moveSub = UniRx.Observable.FromEvent<MoveInfo>(
-                    h => _PlayerGhost.MoveEvent += h, h => _PlayerGhost.MoveEvent -= h)
-                .Subscribe(info => lastMove = info);
-
             var startPos = _Shell.Target.position;
             var halfSqrt2 = Mathf.Sqrt(2f) / 2f;
-            _ClientPlayer.Move(new Vector2(halfSqrt2, halfSqrt2)); // 世界右前 45°
 
             // 等移動中的 MoveInfo 抵達;RPC/事件註冊可能與 session/soul 綁定流程競態而掉失
-            //(曾觀測到 "Soul not found" 的 Advance Error),逾時就重訂閱(觸發 replay
-            // 取回當下狀態)並重送 Move,兩種掉失模式都能恢復
-            var deadline = Time.realtimeSinceStartup + 15f;
-            var nextRetry = Time.realtimeSinceStartup + 3f;
-            var retried = false;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                if (lastMove.HasValue && lastMove.Value.Speed > 0f)
-                    break;
-                if (Time.realtimeSinceStartup >= nextRetry)
-                {
-                    moveSub.Dispose();
-                    moveSub = UniRx.Observable.FromEvent<MoveInfo>(
-                            h => _PlayerGhost.MoveEvent += h, h => _PlayerGhost.MoveEvent -= h)
-                        .Subscribe(info => lastMove = info);
-                    _ClientPlayer.Move(new Vector2(halfSqrt2, halfSqrt2));
-                    nextRetry = Time.realtimeSinceStartup + 3f;
-                    retried = true;
-                }
-                yield return null;
-            }
-            Assert.IsTrue(lastMove.HasValue && lastMove.Value.Speed > 0f, "ghost 應收到移動中的 MoveInfo");
+            //(曾觀測到 "Soul not found" 的 Advance Error),單次嘗試逾時就重訂閱
+            //(觸發 replay 取回當下狀態)並重送 Move,兩種掉失模式都能恢復
+            var moving = TestWait.FirstWithRetry(
+                () => TestWait.MoveEvents(_PlayerGhost).Where(i => i.Speed > 0f),
+                onAttempt: () => _ClientPlayer.Move(new Vector2(halfSqrt2, halfSqrt2)), // 世界右前 45°
+                perAttempt: System.TimeSpan.FromSeconds(3),
+                attempts: 5);
+            yield return moving;
+            TestWait.AssertDone(moving, "ghost 應收到移動中的 MoveInfo");
 
-            // 有重試時可能仍有較新的 MoveInfo 在途,等事件靜默 0.5 秒再取最後一筆作為預測依據
-            if (retried)
-            {
-                var quietStart = lastMove.Value.StartTicks;
-                var quietUntil = Time.realtimeSinceStartup + 0.5f;
-                while (Time.realtimeSinceStartup < quietUntil)
-                {
-                    if (lastMove.Value.StartTicks != quietStart)
-                    {
-                        quietStart = lastMove.Value.StartTicks;
-                        quietUntil = Time.realtimeSinceStartup + 0.5f;
-                    }
-                    yield return null;
-                }
-            }
-            var moveInfo = lastMove.Value;
+            // 可能仍有較新的 MoveInfo 在途(重試重送),等事件靜默 0.5 秒取最後一筆作為預測依據;
+            // 新訂閱的 replay(當下最新狀態)會進窗並成為最後一筆,語意正確
+            var settled = TestWait.Quiet(
+                TestWait.MoveEvents(_PlayerGhost).Where(i => i.Speed > 0f),
+                seed: moving.Result,
+                quiet: System.TimeSpan.FromSeconds(0.5),
+                timeout: System.TimeSpan.FromSeconds(15));
+            yield return settled;
+            TestWait.AssertDone(settled, "移動中的 MoveInfo 應在靜默窗內穩定");
+            var moveInfo = settled.Result;
             Assert.AreEqual(MoveSpeed, moveInfo.Speed, 0.01f, "MoveInfo.Speed 應為 ActorConfig.MoveSpeed");
             Assert.Greater(Vector2.Dot(moveInfo.Facing.normalized, new Vector2(halfSqrt2, halfSqrt2)), 0.999f,
                 "朝向應瞬轉為指令的世界方向");
 
             // 殼訂閱的是 IActor ghost、測試訂閱的是 IPlayer ghost,MoveEvent 抵達幀序不同;
             // 等殼實際起步(已套用移動中的 MoveInfo)再開始量測,避免量到殼還停在出生點的空窗
-            deadline = Time.realtimeSinceStartup + 15f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                if ((_Shell.Target.position - startPos).magnitude > 0.02f)
-                    break;
-                yield return null;
-            }
-            Assert.Greater((_Shell.Target.position - startPos).magnitude, 0.02f, "殼應已開始移動");
+            var started = TestWait.Until(
+                () => (_Shell.Target.position - startPos).magnitude > 0.02f,
+                System.TimeSpan.FromSeconds(15));
+            yield return started;
+            TestWait.AssertDone(started, "殼應已開始移動");
 
-            // 觀察 ~2 秒:每幀以取樣器預測位置,與殼實際位置比對。
+            // 觀察 ~2 秒:每幀以取樣器預測位置,與殼實際位置比對(違規即刻結束)。
             // 殼由 UniRx EveryUpdate 定位,它取樣所用的時鐘值必落在
-            // 「本 coroutine 上次讀 CurrentTime」與「本次讀 CurrentTime」之間(時鐘單調、殼每幀重取樣);
+            // 「上次讀 CurrentTime」與「本次讀 CurrentTime」之間(時鐘單調、殼每幀重取樣);
             // 幀長與對時往前跳(卡頓後封包補送重新錨定)都會造成合法落差,
             // 因此以兩次量測間 world time 的前進量 × 速度作為該幀可扣除的時序落差上界。
-            var maxDeviation = 0f;
             var prevTicks = _Shell.WorldTime.CurrentTime.Ticks;
             yield return null;
-            var observeUntil = Time.realtimeSinceStartup + 2f;
-            while (Time.realtimeSinceStartup < observeUntil)
+            var held = TestWait.HoldFrames(() =>
             {
                 var nowTicks = _Shell.WorldTime.CurrentTime.Ticks;
                 var elapsed = (nowTicks - moveInfo.StartTicks) / (double)System.TimeSpan.TicksPerSecond;
@@ -216,11 +184,12 @@ namespace PinionCore.Project2.Tests
 
                 var actual = new Vector2(_Shell.Target.position.x, _Shell.Target.position.z);
                 var slack = moveInfo.Speed * (float)((nowTicks - prevTicks) / (double)System.TimeSpan.TicksPerSecond);
-                maxDeviation = Mathf.Max(maxDeviation, Vector2.Distance(predicted, actual) - slack);
+                var deviation = Vector2.Distance(predicted, actual) - slack;
                 prevTicks = nowTicks;
-                yield return null;
-            }
-            Assert.Less(maxDeviation, 0.25f, "殼位置應與 MoveInfo 取樣預測一致(已扣除兩次量測間時鐘前進量的時序落差)");
+                return deviation < 0.25f;
+            }, System.TimeSpan.FromSeconds(2));
+            yield return held;
+            Assert.IsFalse(held.Result, "殼位置應與 MoveInfo 取樣預測一致(已扣除兩次量測間時鐘前進量的時序落差)");
 
             // 位移方向 ≈ 指令的世界方向
             var displacement = _Shell.Target.position - startPos;
@@ -228,7 +197,6 @@ namespace PinionCore.Project2.Tests
             Assert.Greater(Vector2.Dot(directionXZ, new Vector2(halfSqrt2, halfSqrt2)), 0.99f, "位移方向應沿指令的世界方向");
 
             _ClientPlayer.Stop();
-            moveSub.Dispose();
         }
 
         /// <summary>
@@ -241,40 +209,37 @@ namespace PinionCore.Project2.Tests
         {
             yield return _EnterWorld("RedirectTester");
 
-            MoveInfo? lastMove = null;
-            var moveSub = UniRx.Observable.FromEvent<MoveInfo>(
-                    h => _PlayerGhost.MoveEvent += h, h => _PlayerGhost.MoveEvent -= h)
-                .Subscribe(info => lastMove = info);
-
             var startPos = _Shell.Target.position;
             var halfSqrt2 = Mathf.Sqrt(2f) / 2f;
+
+            // 先建等待再送指令;訂閱當下的 replay 是駐留態,被 predicate 濾掉
+            var firstMove = TestWait.First(
+                TestWait.MoveEvents(_PlayerGhost),
+                i => i.Speed > 0f && i.Facing.x > 0.5f,
+                System.TimeSpan.FromSeconds(15));
             _ClientPlayer.Move(new Vector2(halfSqrt2, halfSqrt2)); // 世界右前 45°
 
-            // 等第一段移動的 MoveInfo 與殼實際起步
-            //(移動 0.5 單位 ≈ 0.5 秒,遠超過 MoveAcceptInterval,第二發不會被節流)
-            var deadline = Time.realtimeSinceStartup + 15f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                if (lastMove.HasValue && lastMove.Value.Speed > 0f && lastMove.Value.Facing.x > 0.5f
-                    && (_Shell.Target.position - startPos).sqrMagnitude > 0.25f)
-                    break;
-                yield return null;
-            }
-            Assert.IsTrue(lastMove.HasValue && lastMove.Value.Speed > 0f && lastMove.Value.Facing.x > 0.5f,
-                "第一段應朝世界右前方直走");
-            var firstInfo = lastMove.Value;
+            yield return firstMove;
+            TestWait.AssertDone(firstMove, "第一段應朝世界右前方直走");
+            var firstInfo = firstMove.Result;
 
+            // 等殼實際走出 0.5 單位(≈ 0.5 秒,遠超過 MoveAcceptInterval,第二發不會被節流)
+            var traveled = TestWait.Until(
+                () => (_Shell.Target.position - startPos).sqrMagnitude > 0.25f,
+                System.TimeSpan.FromSeconds(15));
+            yield return traveled;
+            TestWait.AssertDone(traveled, "第一段應已走出約 0.5 單位");
+
+            // 改向:先建等待(replay 是右前態,被 predicate 濾掉)再送指令
+            var secondMove = TestWait.First(
+                TestWait.MoveEvents(_PlayerGhost),
+                i => i.Facing.x < -0.5f,
+                System.TimeSpan.FromSeconds(15));
             _ClientPlayer.Move(new Vector2(-halfSqrt2, halfSqrt2)); // 途中改世界左前 45°
 
-            deadline = Time.realtimeSinceStartup + 15f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                if (lastMove.HasValue && lastMove.Value.Facing.x < -0.5f)
-                    break;
-                yield return null;
-            }
-            Assert.IsTrue(lastMove.HasValue && lastMove.Value.Facing.x < -0.5f, "改向後 ghost 應收到朝向翻轉的 MoveInfo");
-            var secondInfo = lastMove.Value;
+            yield return secondMove;
+            TestWait.AssertDone(secondMove, "改向後 ghost 應收到朝向翻轉的 MoveInfo");
+            var secondInfo = secondMove.Result;
             Assert.Greater(Vector2.Dot(secondInfo.Facing.normalized, new Vector2(-halfSqrt2, halfSqrt2)), 0.999f,
                 "朝向應瞬轉為新的世界方向");
 
@@ -284,7 +249,6 @@ namespace PinionCore.Project2.Tests
             Assert.Less(Vector2.Distance(predicted, secondInfo.Position), 0.01f, "改向瞬間位置應連續,不得跳點");
 
             _ClientPlayer.Stop();
-            moveSub.Dispose();
         }
 
         /// <summary>
@@ -296,63 +260,46 @@ namespace PinionCore.Project2.Tests
         {
             yield return _EnterWorld("StopTester");
 
-            MoveInfo? lastMove = null;
-            var moveSub = UniRx.Observable.FromEvent<MoveInfo>(
-                    h => _PlayerGhost.MoveEvent += h, h => _PlayerGhost.MoveEvent -= h)
-                .Subscribe(info => lastMove = info);
-
             var startPos = _Shell.Target.position;
             _ClientPlayer.Move(new Vector2(0f, 1f));
 
             // 等殼走出約 1 單位再喊停
-            var deadline = Time.realtimeSinceStartup + 1f / MoveSpeed + 15f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                if ((_Shell.Target.position - startPos).magnitude >= 1f)
-                    break;
-                yield return null;
-            }
-            Assert.GreaterOrEqual((_Shell.Target.position - startPos).magnitude, 1f, "移動應已進行約 1 單位");
+            var moved = TestWait.Until(
+                () => (_Shell.Target.position - startPos).magnitude >= 1f,
+                System.TimeSpan.FromSeconds(1f / MoveSpeed + 15f));
+            yield return moved;
+            TestWait.AssertDone(moved, "移動應已進行約 1 單位");
 
-            // 清空擷取值,等 Stop 產生的駐留 MoveInfo(Speed==0),
-            // 以免跟訂閱時 replay 的初始駐留混淆
-            lastMove = null;
+            // 先建等待再喊停:訂閱當下的 replay 是移動態,被 predicate 濾掉,
+            // 只會等到 Stop 產生的駐留 MoveInfo(Speed==0)
+            var stand = TestWait.First(
+                TestWait.MoveEvents(_PlayerGhost), i => i.Speed == 0f, System.TimeSpan.FromSeconds(10));
             _ClientPlayer.Stop();
 
-            deadline = Time.realtimeSinceStartup + 10f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                if (lastMove.HasValue && lastMove.Value.Speed == 0f)
-                    break;
-                yield return null;
-            }
-            Assert.IsTrue(lastMove.HasValue, "Stop 後 ghost 應收到 MoveEvent");
-            var standInfo = lastMove.Value;
-            Assert.AreEqual(0f, standInfo.Speed, "Stop 後應收到駐留 MoveInfo(Speed==0)");
+            yield return stand;
+            TestWait.AssertDone(stand, "Stop 後應收到駐留 MoveInfo(Speed==0)");
+            var standInfo = stand.Result;
 
             // 殼的取樣位置可能落後 server(時鐘偏差),且殼的 IActor ghost 與測試訂閱的
             // IPlayer ghost 事件抵達幀序不同;駐留一到殼會先瞬移吸附到 server 停點,
             // 這段吸附不屬於「Stop 後的移動」——先等殼停到駐留點再開始量
-            deadline = Time.realtimeSinceStartup + 5f;
-            while (Time.realtimeSinceStartup < deadline)
+            var snapped = TestWait.Until(() =>
             {
                 var pos = _Shell.Target.position;
-                if (Vector2.Distance(new Vector2(pos.x, pos.z), standInfo.Position) < 0.1f)
-                    break;
-                yield return null;
-            }
+                return Vector2.Distance(new Vector2(pos.x, pos.z), standInfo.Position) < 0.1f;
+            }, System.TimeSpan.FromSeconds(5));
+            yield return snapped;
+            TestWait.AssertDone(snapped, "殼應吸附到伺服器駐留點");
 
-            // 確認殼真的停住:1 秒內位置不再變化
+            // 確認殼真的停住:1 秒內位置不再變化(違規即刻結束)
             var stopPos = _Shell.Target.position;
-            var holdUntil = Time.realtimeSinceStartup + 1f;
-            while (Time.realtimeSinceStartup < holdUntil)
-                yield return null;
-
-            Assert.Less((_Shell.Target.position - stopPos).magnitude, 0.02f, "Stop 後殼不應再移動");
+            var held = TestWait.HoldFrames(
+                () => (_Shell.Target.position - stopPos).magnitude < 0.02f,
+                System.TimeSpan.FromSeconds(1));
+            yield return held;
+            Assert.IsFalse(held.Result, "Stop 後殼不應再移動");
             Assert.Less(Vector2.Distance(new Vector2(_Shell.Target.position.x, _Shell.Target.position.z), standInfo.Position), 0.1f,
                 "殼的停止位置應與伺服器駐留點一致(容忍延遲取樣差)");
-
-            moveSub.Dispose();
         }
 
         /// <summary>
@@ -372,13 +319,11 @@ namespace PinionCore.Project2.Tests
 
             yield return _EnterWorld("IntervalTester");
 
-            MoveInfo? lastMove = null;
+            // 收集器(事件驅動):訂閱當下的 replay 是駐留態(Speed==0),不會進 movingInfos
             var movingInfos = new System.Collections.Generic.List<MoveInfo>();
-            var moveSub = UniRx.Observable.FromEvent<MoveInfo>(
-                    h => _PlayerGhost.MoveEvent += h, h => _PlayerGhost.MoveEvent -= h)
+            var moveSub = TestWait.MoveEvents(_PlayerGhost)
                 .Subscribe(info =>
                 {
-                    lastMove = info;
                     if (info.Speed > 0f)
                         movingInfos.Add(info);
                 });
@@ -405,17 +350,14 @@ namespace PinionCore.Project2.Tests
             Assert.IsTrue(stopResult.Result, "Stop 不受間隔限制,緊跟在 Move 後仍應被接受");
 
             // 等事件靜默,確保被接受指令的 MoveEvent 都已抵達
-            var quietUntil = Time.realtimeSinceStartup + 0.5f;
-            var quietCount = movingInfos.Count;
-            while (Time.realtimeSinceStartup < quietUntil)
-            {
-                if (movingInfos.Count != quietCount)
-                {
-                    quietCount = movingInfos.Count;
-                    quietUntil = Time.realtimeSinceStartup + 0.5f;
-                }
-                yield return null;
-            }
+            //(柵欄自己的訂閱會收到一筆 replay,只進柵欄的流,不污染收集器)
+            var fence = TestWait.Quiet(
+                TestWait.MoveEvents(_PlayerGhost),
+                seed: default(MoveInfo),
+                quiet: System.TimeSpan.FromSeconds(0.5),
+                timeout: System.TimeSpan.FromSeconds(10));
+            yield return fence;
+            TestWait.AssertDone(fence, "被接受指令的 MoveEvent 應在靜默窗內全部抵達");
 
             // 節流不變量:任兩筆被接受的 Move 的伺服器時間差 ≥ 間隔(容忍 1ms 取樣誤差)
             for (var i = 1; i < movingInfos.Count; i++)
@@ -436,35 +378,32 @@ namespace PinionCore.Project2.Tests
             Assert.AreEqual(acceptedCount, movingInfos.Count,
                 "被接受的 Move 數應等於 ghost 收到的移動 MoveInfo 數(被拒不產生事件)");
 
-            // Stop 已生效:收到駐留 MoveInfo
-            var deadline = Time.realtimeSinceStartup + 10f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                if (lastMove.HasValue && lastMove.Value.Speed == 0f)
-                    break;
-                yield return null;
-            }
-            Assert.IsTrue(lastMove.HasValue && lastMove.Value.Speed == 0f, "Stop 後應收到駐留 MoveInfo");
+            // Stop 已生效:收到駐留 MoveInfo(晚訂閱安全:若已駐留,replay 即滿足條件)
+            var stand = TestWait.First(
+                TestWait.MoveEvents(_PlayerGhost), i => i.Speed == 0f, System.TimeSpan.FromSeconds(10));
+            yield return stand;
+            TestWait.AssertDone(stand, "Stop 後應收到駐留 MoveInfo");
 
-            // 間隔過後的 Move 恢復接受(用連發未包含的方向 -X 區別)
+            // 間隔過後的 Move 恢復接受(用連發未包含的方向 -X 區別)。
+            // 刻意保留實時空等:節流以伺服器 Stopwatch 真實時間計,等真實時間才是正確語意
             var waitUntil = Time.realtimeSinceStartup + 0.5f;
             while (Time.realtimeSinceStartup < waitUntil)
                 yield return null;
-            var resumeResult = _PlayerGhost.Move(new Vector2(-1f, 0f)).RemoteValue()
-                .First().Timeout(System.TimeSpan.FromSeconds(10)).ToYieldInstruction(throwOnError: false);
+
+            // 先建等待再送指令(replay 是駐留態,被 predicate 濾掉)
+            var resumeMove = TestWait.First(
+                TestWait.MoveEvents(_PlayerGhost),
+                i => i.Speed > 0f && i.Facing.x < -0.9f,
+                System.TimeSpan.FromSeconds(10));
+            var resumeResult = TestWait.First(
+                _PlayerGhost.Move(new Vector2(-1f, 0f)).RemoteValue(),
+                System.TimeSpan.FromSeconds(10));
             yield return resumeResult;
-            Assert.IsFalse(resumeResult.HasError, "間隔後的 Move 未收到回傳值");
+            TestWait.AssertDone(resumeResult, "間隔後的 Move 未收到回傳值");
             Assert.IsTrue(resumeResult.Result, "間隔過後的 Move 應恢復接受");
 
-            deadline = Time.realtimeSinceStartup + 10f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                if (lastMove.HasValue && lastMove.Value.Speed > 0f && lastMove.Value.Facing.x < -0.9f)
-                    break;
-                yield return null;
-            }
-            Assert.IsTrue(lastMove.HasValue && lastMove.Value.Speed > 0f && lastMove.Value.Facing.x < -0.9f,
-                "間隔後的 Move 應生效(朝向 -X)");
+            yield return resumeMove;
+            TestWait.AssertDone(resumeMove, "間隔後的 Move 應生效(朝向 -X)");
 
             _ClientPlayer.Stop();
             moveSub.Dispose();
@@ -474,64 +413,40 @@ namespace PinionCore.Project2.Tests
         PinionCore.Project2.Client.Actor _Shell;
         PinionCore.Project2.Client.Player _ClientPlayer;
 
-        // 共用進場流程:Verify → 取得 IPlayer → 以 ActorId 找到殼 → 取得 Client.Player
+        // 共用進場流程:Verify → 取得 IPlayer → 等 ActorProvider 建出對應殼 → 取得 Client.Player
         IEnumerator _EnterWorld(string playerName)
         {
-            var verifiableSupply = _Client.Queryer.QueryNotifier<IVerifiable>().SupplyEvent()
-                .First()
-                .Timeout(System.TimeSpan.FromSeconds(10))
-                .ToYieldInstruction(throwOnError: false);
+            var verifiableSupply = TestWait.First(
+                _Client.Queryer.QueryNotifier<IVerifiable>().SupplyEvent(),
+                System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
-            Assert.IsFalse(verifiableSupply.HasError, "連線後 client 應從 User 服務收到 IVerifiable");
+            TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifiable");
 
-            var verifyResult = verifiableSupply.Result.Verify(playerName).RemoteValue()
-                .First()
-                .Timeout(System.TimeSpan.FromSeconds(10))
-                .ToYieldInstruction(throwOnError: false);
+            var verifyResult = TestWait.First(
+                verifiableSupply.Result.Verify(playerName).RemoteValue(),
+                System.TimeSpan.FromSeconds(10));
             yield return verifyResult;
-            Assert.IsFalse(verifyResult.HasError, "Verify 未收到回傳值");
+            TestWait.AssertDone(verifyResult, "Verify 未收到回傳值");
             Assert.IsTrue(verifyResult.Result, "首次註冊的名字 Verify 應回傳 true");
 
-            var playerSupply = _Client.Queryer.QueryNotifier<ICharactor>().SupplyEvent()
-                .First()
-                .Timeout(System.TimeSpan.FromSeconds(15))
-                .ToYieldInstruction(throwOnError: false);
+            var playerSupply = TestWait.First(
+                _Client.Queryer.QueryNotifier<ICharactor>().SupplyEvent(),
+                System.TimeSpan.FromSeconds(15));
             yield return playerSupply;
-            Assert.IsFalse(playerSupply.HasError, "Verify 通過後 client 應收到 IPlayer");
+            TestWait.AssertDone(playerSupply, "Verify 通過後 client 應收到 IPlayer");
             _PlayerGhost = playerSupply.Result;
             System.Guid actorId = _PlayerGhost.ActorId;
 
-            _Shell = null;
-            var deadline = Time.realtimeSinceStartup + 15f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                _Shell = _FindActor(actorId);
-                if (_Shell != null)
-                    break;
-                yield return null;
-            }
-            Assert.NotNull(_Shell, "ActorProvider 應在 Client 場景實例化出對應 ActorId 的 Client.Actor");
+            // ActorProvider.SupplyEvent 會 replay 既有殼,晚訂閱安全
+            var provider = _Scenes.FindComponent<PinionCore.Project2.Client.ActorProvider>("Client", "Handlers");
+            Assert.NotNull(provider, "Client 場景應有 ActorProvider");
+            var shellWait = TestWait.First(provider.SupplyEvent(), a => a.ActorId == actorId, System.TimeSpan.FromSeconds(15));
+            yield return shellWait;
+            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出對應 ActorId 的 Client.Actor");
+            _Shell = shellWait.Result;
 
             _ClientPlayer = _Scenes.FindComponent<PinionCore.Project2.Client.Player>("Client", "Handlers");
             Assert.NotNull(_ClientPlayer, "Client 場景的 Handlers 應掛有 Client.Player");
-        }
-
-        // 以 ActorId 從 Client 場景找出對應的殼;實例名稱是 "(Clone)" 結尾,不能靠物件名找
-        PinionCore.Project2.Client.Actor _FindActor(System.Guid actorId)
-        {
-            var scene = SceneManager.GetSceneByName("Client");
-            if (!scene.isLoaded)
-                return null;
-
-            foreach (var root in scene.GetRootGameObjects())
-            {
-                foreach (var actor in root.GetComponentsInChildren<PinionCore.Project2.Client.Actor>(true))
-                {
-                    if (actor.ActorId == actorId)
-                        return actor;
-                }
-            }
-            return null;
         }
     }
 }
