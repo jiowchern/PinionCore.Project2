@@ -272,6 +272,8 @@ GameObject:
   - component: {fileID: 633939012}
   - component: {fileID: 633939011}
   - component: {fileID: 633939015}
+  - component: {fileID: 633939017}
+  - component: {fileID: 633939016}
   m_Layer: 0
   m_Name: GatewayService
   m_TagString: Untagged
@@ -356,6 +358,31 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 823e270d024300242bb64d672a623140, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Standalone.Connector
+--- !u!114 &633939016
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 633939010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fb93e0cf694e31b4488623eb8aca7aac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Kits.StandaloneStartToBind
+  Listener: {fileID: 633939017}
+--- !u!114 &633939017
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 633939010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b816db3782033a644b9f22645503aab8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Standalone.Listener
 --- !u!1 &1715423958
 GameObject:
   m_ObjectHideFlags: 0

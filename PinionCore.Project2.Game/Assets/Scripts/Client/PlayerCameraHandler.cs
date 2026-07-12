@@ -8,7 +8,8 @@ namespace PinionCore.Project2.Client
 {
     public class PlayerCameraHandler : MonoBehaviour
     {
-        public GatewayClient Client;
+        // 抽象為 QueryerHost:可掛 Client(直連)或 GatewayClient(經 Router)
+        public PinionCore.NetSync.QueryerHost Client;
         public ActorProvider Provider;
         public Unity.Cinemachine.CinemachineCamera FollowCamera;
 

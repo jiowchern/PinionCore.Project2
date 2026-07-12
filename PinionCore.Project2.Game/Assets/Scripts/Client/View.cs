@@ -12,7 +12,8 @@ namespace PinionCore.Project2.Client
 {
     public class View : MonoBehaviour
     {
-        public GatewayClient Gateway;
+        // 抽象為 QueryerHost:可掛 Client(直連)或 GatewayClient(經 Router)
+        public PinionCore.NetSync.QueryerHost Gateway;
         public WorldConfig[] WorldInfos;
 
         // 追蹤已實例化的 Addressable handle,離場時釋放,避免 WebGL 記憶體洩漏。
