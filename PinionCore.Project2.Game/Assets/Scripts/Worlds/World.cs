@@ -224,6 +224,7 @@ namespace PinionCore.Project2.Worlds
         Value<bool> IWorld.Leave(Guid actorId)
         {
             var player = _Players.Items.FirstOrDefault(p => p.ActorId == actorId);
+            PinionCore.Utility.Log.Instance.WriteInfo($"World.Leave actor:{actorId} found:{player != null}");
             if (player == null)
                 return false;
 

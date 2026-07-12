@@ -16,6 +16,9 @@ namespace PinionCore.Project2.Users
 
         readonly System.Collections.Generic.List< System.Action > _DisposeHandlers;
 
+        // Leave 已跑;Enter 回應在這之後才抵達時要走補償退場(見 _EnterWorld)
+        bool _Done;
+
         Property<string> _WorldName;
         Property<string> IGame.WorldName => _WorldName;
 
@@ -38,13 +41,13 @@ namespace PinionCore.Project2.Users
 
         void IStatus.Enter()
         {
+            PinionCore.Utility.Log.Instance.WriteInfo("UserGame.Enter");
             var obs = from uni in _WorldNotifer.QueryNotifier<IUniverse>().SupplyEvent()
                       from worldId in uni.QueryWorld("Test1").RemoteValue()
                       from world in uni.WorldNotifier.SupplyEvent().Where(w => w.Id == worldId).Take(1)
-                      from actorId in world.Enter(_ActorInfo).RemoteValue()                      
-                      select new {world, actorId };
+                      select world;
 
-            IDisposable disposable = obs.Subscribe(result => _Join(result.world, result.actorId));            
+            IDisposable disposable = obs.Subscribe(_EnterWorld);
 
 
             _DisposeHandlers.Add(() => {
@@ -52,9 +55,27 @@ namespace PinionCore.Project2.Users
             });
 
         }
-         
+
+        private void _EnterWorld(IWorld world)
+        {
+            // Enter 送出後伺服器側就有 actor,回應的消化不能依賴 session 存活:
+            // 若回應抵達前 session 已收尾(Leave 已跑),立即補償退場,避免 actor 殘留在 World。
+            // 因此這條訂閱不掛進 _DisposeHandlers,由回呼自行了結(RemoteValue 發完一筆即完成)。
+            world.Enter(_ActorInfo).RemoteValue().Subscribe(actorId =>
+            {
+                if (_Done)
+                {
+                    PinionCore.Utility.Log.Instance.WriteInfo($"UserGame enter-after-leave, compensating leave actor:{actorId}");
+                    world.Leave(actorId).RemoteValue().Subscribe();
+                    return;
+                }
+                _Join(world, actorId);
+            });
+        }
+
         private void _Join(IWorld world,Guid actorId)
         {
+            PinionCore.Utility.Log.Instance.WriteInfo($"UserGame.Join actor:{actorId}");
             var gameSoul = _Binder.Bind<IGame>(this);
             _DisposeHandlers.Add(() => _Binder.Unbind(gameSoul));
 
@@ -72,14 +93,21 @@ namespace PinionCore.Project2.Users
             // IActor 供應改由 ICharactor.Actors 承載:綁給 client 的 ICharactor ghost
             // 其 Actors 屬性由框架遞迴綁定自動轉發,User 端不需再手動搬運。
 
-            _DisposeHandlers.Add(() => world.Leave(actorId).RemoteValue().Subscribe());
+            _DisposeHandlers.Add(() =>
+            {
+                PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Leave send actor:{actorId}");
+                world.Leave(actorId).RemoteValue().Subscribe(
+                    r => PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Leave result:{r}"),
+                    e => PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Leave error:{e.Message}"));
+            });
         }
 
        
 
         void IStatus.Leave()
         {
-
+            PinionCore.Utility.Log.Instance.WriteInfo($"UserGame.Leave handlers:{_DisposeHandlers.Count}");
+            _Done = true;
             foreach (var handler in _DisposeHandlers)
             {
                 handler();
