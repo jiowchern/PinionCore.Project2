@@ -25,14 +25,17 @@ namespace PinionCore.Project2.Tests
             // get listener from world scene
             // get client from user scene
             // (User scene 的 UserService 也有 Listener, 所以必須用名稱區分)
-            while (_Listener == null || _Connector == null)
+            // UnitySetUp 不受 [Timeout] 保護,找元件必須有界限,否則會掛死整輪
+            var found = TestWait.Until(() =>
             {
                 if (_Listener == null)
                     _Listener = _FindComponent<PinionCore.NetSync.Standalone.Listener>("World", "WorldService");
                 if (_Connector == null)
                     _Connector = _FindComponent<PinionCore.NetSync.Standalone.Connector>("User", "WorldAgent");
-                yield return null;
-            }
+                return _Listener != null && _Connector != null;
+            }, System.TimeSpan.FromSeconds(30));
+            yield return found;
+            TestWait.AssertDone(found, "SetUp:應在時限內找到 WorldService Listener 與 WorldAgent Connector");
             _Client = _Connector.GetComponent<PinionCore.NetSync.Client>();
 
             // 等一個 frame 讓 StandaloneStartToBind.Start 先把 Listener 綁上 Server
@@ -56,16 +59,16 @@ namespace PinionCore.Project2.Tests
         }
 
         [UnityTest]
+        [Timeout(120000)]
         public IEnumerator ClientSupplyUniverseTest()
         {
-            var supply = _Client.Queryer.QueryNotifier<IUniverse>().SupplyEvent()
-                .First()
-                .Timeout(System.TimeSpan.FromSeconds(5))
-                .ToYieldInstruction(throwOnError: false);
+            var supply = TestWait.First(
+                _Client.Queryer.QueryNotifier<IUniverse>().SupplyEvent(),
+                System.TimeSpan.FromSeconds(5));
 
             yield return supply;
 
-            Assert.IsFalse(supply.HasError, "連線後 client 應從 world 收到 IUniverse");
+            TestWait.AssertDone(supply, "連線後 client 應從 world 收到 IUniverse");
             Assert.NotNull(supply.Result, "連線後 client 應從 world 收到 IUniverse");
         }
 

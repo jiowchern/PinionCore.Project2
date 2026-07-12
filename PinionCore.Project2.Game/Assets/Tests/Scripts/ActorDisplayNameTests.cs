@@ -42,15 +42,18 @@ namespace PinionCore.Project2.Tests
             yield return _Scenes.Load("Client");
 
             // Gateway 場景有兩個 Listener(SessionEndpoint / RegistryEndpoint),必須用物件名區分
+            // UnitySetUp 不受 [Timeout] 保護,找元件必須有界限,否則會掛死整輪
             PinionCore.NetSync.Standalone.Listener listener = null;
-            while (listener == null || _Connector == null)
+            var found = TestWait.Until(() =>
             {
                 if (listener == null)
                     listener = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Listener>("Gateway", "SessionEndpoint");
                 if (_Connector == null)
                     _Connector = _Scenes.FindComponent<PinionCore.NetSync.Standalone.Connector>("Client", "GatewayClient");
-                yield return null;
-            }
+                return listener != null && _Connector != null;
+            }, System.TimeSpan.FromSeconds(30));
+            yield return found;
+            TestWait.AssertDone(found, "SetUp:應在時限內找到 SessionEndpoint Listener 與 GatewayClient Connector");
             _Client = _Connector.GetComponent<PinionCore.NetSync.Gateways.GatewayClient>();
 
             // 等一個 frame:StandaloneStartToBind 綁定 Listener、User 場景的 GatewayService 註冊進 Router
@@ -84,77 +87,48 @@ namespace PinionCore.Project2.Tests
             const string PlayerName = "ActorTester";
 
             // 1. 連上 Gateway 後,Router 把 session 路由到 User 服務,收到 IVerifiable
-            var verifiableSupply = _Client.Queryer.QueryNotifier<IVerifiable>().SupplyEvent()
-                .First()
-                .Timeout(System.TimeSpan.FromSeconds(10))
-                .ToYieldInstruction(throwOnError: false);
+            var verifiableSupply = TestWait.First(
+                _Client.Queryer.QueryNotifier<IVerifiable>().SupplyEvent(),
+                System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
-            Assert.IsFalse(verifiableSupply.HasError, "連線後 client 應從 User 服務收到 IVerifiable");
+            TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifiable");
             var verifiable = verifiableSupply.Result;
 
             // 2. Verify 通過
-            var verifyResult = verifiable.Verify(PlayerName).RemoteValue()
-                .First()
-                .Timeout(System.TimeSpan.FromSeconds(10))
-                .ToYieldInstruction(throwOnError: false);
+            var verifyResult = TestWait.First(
+                verifiable.Verify(PlayerName).RemoteValue(),
+                System.TimeSpan.FromSeconds(10));
             yield return verifyResult;
-            Assert.IsFalse(verifyResult.HasError, "Verify 未收到回傳值");
+            TestWait.AssertDone(verifyResult, "Verify 未收到回傳值");
             Assert.IsTrue(verifyResult.Result, "首次註冊的名字 Verify 應回傳 true");
 
             // 3. Verify 後 UserGame 進入世界,World 把玩家以 IActor 同步回 client
-            var actorSupply = _Client.Queryer.QueryNotifier<IActor>().SupplyEvent()
-                .First()
-                .Timeout(System.TimeSpan.FromSeconds(15))
-                .ToYieldInstruction(throwOnError: false);
+            var actorSupply = TestWait.First(
+                _Client.Queryer.QueryNotifier<IActor>().SupplyEvent(),
+                System.TimeSpan.FromSeconds(15));
             yield return actorSupply;
-            Assert.IsFalse(actorSupply.HasError, "Verify 通過後 client 應收到 IActor");
+            TestWait.AssertDone(actorSupply, "Verify 通過後 client 應收到 IActor");
 
-            // 4. Client 場景的 ActorProvider 收到 Supply 後同步建立殼(Actor + 名牌),
-            //    輪詢直到名牌文字就緒(殼建立與 Setup 皆同步,但 Supply 事件本身跨 frame)
-            PinionCore.Project2.Client.Actor actorComponent = null;
-            var deadline = Time.realtimeSinceStartup + 15f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                actorComponent = _FindActor();
-                if (actorComponent != null &&
-                    actorComponent.DisplayName != null &&
-                    !string.IsNullOrEmpty(actorComponent.DisplayName.text))
-                    break;
-                yield return null;
-            }
+            // 4. Client 場景的 ActorProvider 收到 Supply 後同步建立殼(Actor + 名牌);
+            //    ActorProvider.SupplyEvent 會 replay 既有殼,晚訂閱安全。
+            //    _Create 在 OnNext 前已同步跑完 shell.Setup,名牌可立即斷言。
+            var provider = _Scenes.FindComponent<PinionCore.Project2.Client.ActorProvider>("Client", "Handlers");
+            Assert.NotNull(provider, "Client 場景應有 ActorProvider");
+            var shellWait = TestWait.First(provider.SupplyEvent(), System.TimeSpan.FromSeconds(15));
+            yield return shellWait;
+            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出 Client.Actor");
+            var actorComponent = shellWait.Result;
 
-            Assert.NotNull(actorComponent, "ActorProvider 應在 Client 場景實例化出 Client.Actor");
             Assert.NotNull(actorComponent.DisplayName, "Actor prefab 應已設定 DisplayName 的 TMP 參考");
             Assert.AreEqual(PlayerName, actorComponent.DisplayName.text, "Actor 名牌應顯示 Verify 時的 DisplayName");
 
             // 5. 模型由 Actor 內部從 Addressables 非同步載入,掛在 Target 底下;
-            //    以 CapsuleCollider 辨識模型實例(殼與 TMP 名牌都沒有 collider)
-            CapsuleCollider model = null;
-            deadline = Time.realtimeSinceStartup + 15f;
-            while (Time.realtimeSinceStartup < deadline)
-            {
-                model = actorComponent.GetComponentInChildren<CapsuleCollider>(true);
-                if (model != null)
-                    break;
-                yield return null;
-            }
-            Assert.NotNull(model, "Actor 應從 Addressables 載入模型並掛在殼底下");
-        }
-
-        // 從 Client 場景搜出第一個 Client.Actor;實例名稱是 "(Clone)" 結尾,不能靠物件名找
-        PinionCore.Project2.Client.Actor _FindActor()
-        {
-            var scene = SceneManager.GetSceneByName("Client");
-            if (!scene.isLoaded)
-                return null;
-
-            foreach (var root in scene.GetRootGameObjects())
-            {
-                var found = root.GetComponentsInChildren<PinionCore.Project2.Client.Actor>(true).FirstOrDefault();
-                if (found != null)
-                    return found;
-            }
-            return null;
+            //    載入完成沒有對外事件,以逐幀條件等待 CapsuleCollider 出現
+            var modelLoaded = TestWait.Until(
+                () => actorComponent.GetComponentInChildren<CapsuleCollider>(true) != null,
+                System.TimeSpan.FromSeconds(15));
+            yield return modelLoaded;
+            TestWait.AssertDone(modelLoaded, "Actor 應從 Addressables 載入模型並掛在殼底下");
         }
     }
 }
