@@ -10,7 +10,7 @@ namespace PinionCore.Project2.Client
 {
     public class ActorProvider : MonoBehaviour
     {
-        public ActorConfig[] ActorConfigs;
+        public ActorConfigSet ActorConfigs;
         public GameObject ActorRoot;
 
         // 殼 prefab:直接序列化引用(不走 Addressables),保證 Supply 時同步建立成功
@@ -86,7 +86,7 @@ namespace PinionCore.Project2.Client
             _actors.Add(actorId, shell);
             shell.Setup(actor, WorldTime);
 
-            var config = ActorConfigs.FirstOrDefault(c => c.Name == actor.ModelName);
+            var config = ActorConfigs.Find(actor.ModelName);
             if (config == null)
             {
                 Debug.LogError($"找不到對應的 ActorConfig, ModelName={actor.ModelName}");

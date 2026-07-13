@@ -14,7 +14,7 @@ namespace PinionCore.Project2.Client
     {
         // 抽象為 QueryerHost:可掛 Client(直連)或 GatewayClient(經 Router)
         public PinionCore.NetSync.QueryerHost Gateway;
-        public WorldConfig[] WorldInfos;
+        public WorldConfigSet WorldInfos;
 
         // 追蹤已實例化的 Addressable handle,離場時釋放,避免 WebGL 記憶體洩漏。
         private readonly List<AsyncOperationHandle<GameObject>> _terrainHandles = new List<AsyncOperationHandle<GameObject>>();
@@ -33,7 +33,7 @@ namespace PinionCore.Project2.Client
 
         void _Setup(IView view)
         {
-            var info = WorldInfos.FirstOrDefault(x => x.Name == view.Name.Value);
+            var info = WorldInfos.Find(view.Name.Value);
             if (info == null)
             {
                 Debug.LogError($"[View] 找不到對應的 WorldInfo: {view.Name.Value}");

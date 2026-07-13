@@ -10,8 +10,8 @@ namespace PinionCore.Project2.Worlds
     // 管理所有 world 的类
     public class Universe : MonoBehaviour , PinionCore.Project2.Shared.IUniverse
     {
-        public WorldConfig[] WorldConfigs;
-        public ActorConfig[] ActorConfigs;
+        public WorldConfigSet WorldConfigs;
+        public ActorConfigSet ActorConfigs;
 
         readonly PinionCore.Remote.Depot<World> _WorldsDepot;
         readonly PinionCore.Remote.Notifier<IWorld> _WorldsNotifier;
@@ -34,7 +34,7 @@ namespace PinionCore.Project2.Worlds
             if (existing != null)
                 return new Value<Guid>(existing.Id);
 
-            var config = WorldConfigs.FirstOrDefault(c => c.Name == name);
+            var config = WorldConfigs.Find(name);
             if (config == null)
             {
                 Debug.LogError($"WorldConfig not found for name: {name}");
@@ -42,7 +42,7 @@ namespace PinionCore.Project2.Worlds
             }
 
             var worldId = Guid.NewGuid();
-            var world = new World(worldId, config, ActorConfigs);
+            var world = new World(worldId, config, ActorConfigs.Configs);
             _WorldsDepot.Items.Add(world);
 
             return new Value<Guid>(worldId);

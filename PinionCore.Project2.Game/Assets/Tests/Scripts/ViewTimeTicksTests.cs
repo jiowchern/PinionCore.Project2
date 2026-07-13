@@ -120,7 +120,7 @@ namespace PinionCore.Project2.Tests
             //    拆成兩次訂閱會多觸發一次 server replay,tick 索引語意就變了。
             var universe = _Scenes.FindComponent<PinionCore.Project2.Worlds.Universe>("World", "Universe");
             Assert.NotNull(universe, "World 場景應有 Universe 物件");
-            var interval = universe.WorldConfigs.First(c => c.Name == "Test1").TimeUpdateInterval;
+            var interval = universe.WorldConfigs.Find("Test1").TimeUpdateInterval;
 
             // per-gap 逾時 interval+10s:同時界定「註冊→立即 replay」與「每個週期 tick 的間距」
             var ticksWait = TestWait.Count(
