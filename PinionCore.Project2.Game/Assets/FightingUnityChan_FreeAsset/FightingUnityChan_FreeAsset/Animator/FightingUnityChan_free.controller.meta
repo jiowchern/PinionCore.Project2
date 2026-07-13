@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 53383c83dfcb60e49ae25d068c254028
+timeCreated: 1427539076
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 33478
+  packageName: HQ Fighting Animation FREE
+  packageVersion: 1.06
+  assetPath: Assets/FightingUnityChan_FreeAsset/FightingUnityChan_FreeAsset/Animator/FightingUnityChan_free.controller
+  uploadId: 227161
