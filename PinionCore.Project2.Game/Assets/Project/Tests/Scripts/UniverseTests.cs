@@ -77,7 +77,7 @@ namespace PinionCore.Project2.Tests
         {
 #if UNITY_EDITOR
             yield return UnityEditor.SceneManagement.EditorSceneManager.LoadSceneInPlayMode(
-                $"Assets/Scenes/{name}.unity",
+                $"Assets/Project/Scenes/{name}.unity",
                 new LoadSceneParameters(LoadSceneMode.Additive));
 #else
             yield return SceneManager.LoadSceneAsync(name, LoadSceneMode.Additive);
