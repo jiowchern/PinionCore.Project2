@@ -102,6 +102,7 @@ GameObject:
   - component: {fileID: 5434495942084297269}
   - component: {fileID: 5845522206669638947}
   - component: {fileID: 5611558339260996663}
+  - component: {fileID: 1113574742983908928}
   m_Layer: 0
   m_Name: TestActor1
   m_TagString: Untagged
@@ -205,3 +206,17 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &1113574742983908928
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7629819569726651295}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 197fe45d48bdf524e90ec3a8d6e906fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.Project2.Shared::PinionCore.Project2.Shared.ActorMetrics
+  CollisionRadius: 0.3
+  SightRadius: 5

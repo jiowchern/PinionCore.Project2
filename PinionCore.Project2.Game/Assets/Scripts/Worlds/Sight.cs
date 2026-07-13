@@ -20,7 +20,7 @@ namespace PinionCore.Project2.Worlds
         public const float UpdateIntervalSeconds = 0.1f;
 
         /// <summary>離開半徑 = SightRadius × 此係數:已可見的配對要超出此距離才算失去,防邊界震盪。</summary>
-        public const float ExitRadiusFactor = 1.1f;
+        public const float ExitRadiusFactor = Shared.SightRules.ExitRadiusFactor;
 
         /// <summary>可見配對需連續失敗此次數才移除(吸收牆角遮蔽閃爍);加入則首次可見即生效。</summary>
         public const int InvisibleDebounceTicks = 3;
