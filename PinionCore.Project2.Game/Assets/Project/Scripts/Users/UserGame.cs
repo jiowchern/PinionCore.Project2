@@ -3,6 +3,7 @@ using PinionCore.Project2.Shared;
 using PinionCore.Remote;
 using PinionCore.Utility;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UniRx;
@@ -11,7 +12,7 @@ namespace PinionCore.Project2.Users
     
     internal class UserGame : PinionCore.Utility.IStatus ,IGame
     {
-        private readonly ISessionBinder _Binder;
+        readonly System.Collections.Generic.ICollection<IGame> _Games;
         private readonly INotifierQueryable _WorldNotifer;
         private readonly ActorInfo _ActorInfo;
 
@@ -27,24 +28,35 @@ namespace PinionCore.Project2.Users
         Remote.Notifier<IPlayer> _PlayersNotifier;
         Remote.Notifier<IPlayer> IGame.Players => _PlayersNotifier;
 
+
+        PinionCore.Remote.Depot<PinionCore.Project2.Shared.IMoveable> _Moveables;
         Remote.Notifier<IMoveable> _MoveablesNotifier;
         Remote.Notifier<IMoveable> IGame.Moveables => _MoveablesNotifier;
+
+
+        readonly Depot<IView> _Views;
+        Remote.Notifier<IView> _ViewsNotifier;
+        Remote.Notifier<IView> IGame.Views => _ViewsNotifier;
 
         public event System.Action DoneEvent;
 
         readonly PinionCore.Utility.StatusMachine _StatusMachine;
-        public UserGame(ISessionBinder binder, INotifierQueryable worldNotifer, ActorInfo actor)
+        public UserGame(ICollection<IGame> games, INotifierQueryable worldNotifer, ActorInfo actor)
         {
+            _Games = games;
             _StatusMachine = new StatusMachine();
             _Charactors = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor>();
+            _Moveables = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.IMoveable>();    
             _PlayersNotifier = _Charactors.ToNotifier<IPlayer>();
-            _MoveablesNotifier = _Charactors.ToNotifier<IMoveable>();
+            _MoveablesNotifier = _Moveables.ToNotifier<IMoveable>();
 
             _WorldName = new Property<string>(string.Empty);
             _DisposeHandlers = new System.Collections.Generic.List<System.Action>();            
-            this._Binder = binder;
+            
             this._WorldNotifer = worldNotifer;
             this._ActorInfo = actor;
+            _Views = new PinionCore.Remote.Depot<IView>();
+            _ViewsNotifier = new PinionCore.Remote.Notifier<IView>(_Views);
         }
 
         void IStatus.Enter()
@@ -85,11 +97,11 @@ namespace PinionCore.Project2.Users
             PinionCore.Utility.Log.Instance.WriteInfo($"UserGame.Join actor:{actorId}");
             // IGame.Players(Notifier<IPlayer>)經框架遞迴綁定供應 IPlayer ghost 給 client;
             // 沒有這條 Bind,client 端不會收到任何 IPlayer。
-            var gameSoul = _Binder.Bind<IGame>(this);
-            _DisposeHandlers.Add(() => _Binder.Unbind(gameSoul));
+            _Games.Add(this);
+            _DisposeHandlers.Add(() => { _Games.Remove(this); });
 
-            var viewSoul = _Binder.Bind<IView>(world);
-            _DisposeHandlers.Add(() => _Binder.Unbind(viewSoul));
+            _Views.Items.Add(world);
+            _DisposeHandlers.Add(() => _Views.Items.Remove(world));
 
             var playersAddObs = world.Players.SupplyEvent().Where(p => p.ActorId == actorId).Take(1);
             var disposablePlayersAddObs = playersAddObs.Subscribe(_Start);
@@ -127,22 +139,23 @@ namespace PinionCore.Project2.Users
         private void _Start(ICharactor charactor)
         {
             _Charactors.Items.Add(charactor);
-
-            // todo:尚未實作下面狀態 先通過編譯
-            //_ToAdventure(charactor);
+            
+            _ToConscious(charactor);
         }
 
-        private void _ToAdventure(ICharactor charactor)
+
+
+        private void _ToConscious(ICharactor charactor)
         {
-            var status = new UserGameAdventure(charactor);
-            status.BattleEvent += () => _ToBattle(charactor);
+            var status = new UserGameConscious(_Moveables ,charactor);
+            status.UnconsciousEvent += () => _ToUnconscious(charactor);
             _StatusMachine.Push(status);
         }
 
-        private void _ToBattle(ICharactor charactor)
+        private void _ToUnconscious(ICharactor charactor)
         {
-            var status = new UserGameBattle(charactor);
-            status.AdventureEvent += () => _ToAdventure(charactor)  ;
+            var status = new UserGameUnconscious(charactor);
+            status.ConsciousEvent += () => _ToConscious(charactor)  ;
             _StatusMachine.Push(status);
         }
 

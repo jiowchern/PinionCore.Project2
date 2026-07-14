@@ -130,9 +130,13 @@ namespace PinionCore.Project2.Tests
             var universe = _Scenes.FindComponent<PinionCore.Project2.Worlds.Universe>("World", "Universe");
             Assert.NotNull(universe, "World 場景應有 Universe");
 
-            // 先建等待再登入,避免漏接 IActor 供應
+            // 先建等待再登入,避免漏接 IActor 供應;
+            // IActor 沿合約鏈(IUserEntry.Games → IGame.Players → IPlayer.Actors)取得
             var actorSupply = TestWait.First(
-                _Client.Queryer.QueryNotifier<IActor>().SupplyEvent(),
+                _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
+                    .SelectMany(entry => entry.Games.SupplyEvent())
+                    .SelectMany(game => game.Players.SupplyEvent())
+                    .SelectMany(player => player.Actors.SupplyEvent()),
                 System.TimeSpan.FromSeconds(15));
 
             yield return _VerifyAs(PlayerName);
@@ -156,7 +160,8 @@ namespace PinionCore.Project2.Tests
         IEnumerator _VerifyAs(string playerName)
         {
             var verifiableSupply = TestWait.First(
-                _Client.Queryer.QueryNotifier<IVerifiable>().SupplyEvent(),
+                _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
+                    .SelectMany(entry => entry.Verifiables.SupplyEvent()),
                 System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
             TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifiable");

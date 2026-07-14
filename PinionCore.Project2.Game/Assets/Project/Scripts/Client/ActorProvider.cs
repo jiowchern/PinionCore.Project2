@@ -53,12 +53,21 @@ namespace PinionCore.Project2.Client
 
         void Start()
         {
-            var createObs = from actor in Client.Queryer.QueryNotifier<IActor>().SupplyEvent()
+            // 統一入口:只 query IUserEntry,IActor 沿合約鏈
+            // (entry.Games → game.Players → player.Actors)取得
+            var players = from entry in Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
+                          from game in entry.Games.SupplyEvent()
+                          from player in game.Players.SupplyEvent()
+                          select player;
+
+            var createObs = from player in players
+                            from actor in player.Actors.SupplyEvent()
                             select actor;
             var createDispose = createObs.Subscribe(_Create);
             _disposables.Add(createDispose);
 
-            var destroyObs = from actor in Client.Queryer.QueryNotifier<IActor>().UnsupplyEvent()
+            var destroyObs = from player in players
+                             from actor in player.Actors.UnsupplyEvent()
                              select actor;
             var destroyDispose = destroyObs.Subscribe(_Destroy);
             _disposables.Add(destroyDispose);

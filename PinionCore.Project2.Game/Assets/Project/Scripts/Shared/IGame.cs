@@ -6,7 +6,7 @@ namespace PinionCore.Project2.Shared
     
     public interface IGame : Remote.Protocolable
     {
-        
+        PinionCore.Remote.Notifier<IView> Views { get; }
 
         PinionCore.Remote.Property<string> WorldName { get; }
 

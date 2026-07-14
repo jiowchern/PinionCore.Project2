@@ -90,9 +90,11 @@ namespace PinionCore.Project2.Tests
         [Timeout(120000)]
         public IEnumerator VerifyThenReceiveTimeTicksTest()
         {
-            // 1. 連上 Gateway 後,Router 把 session 路由到 User 服務,收到 IVerifiable
+            // 1. 連上 Gateway 後,Router 把 session 路由到 User 服務,
+            //    沿統一入口取得 IVerifiable(IUserEntry.Verifiables)
             var verifiableSupply = TestWait.First(
-                _Client.Queryer.QueryNotifier<IVerifiable>().SupplyEvent(),
+                _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
+                    .SelectMany(entry => entry.Verifiables.SupplyEvent()),
                 System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
             TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifiable");
@@ -106,9 +108,11 @@ namespace PinionCore.Project2.Tests
             TestWait.AssertDone(verifyResult, "Verify 未收到回傳值");
             Assert.IsTrue(verifyResult.Result, "首次註冊的名字 Verify 應回傳 true");
 
-            // 3. Verify 後 UserGame 會進入世界,把 World 以 IView 綁回 client session
+            // 3. Verify 後 UserGame 會進入世界,把 World 以 IView 供應到 IGame.Views
             var viewSupply = TestWait.First(
-                _Client.Queryer.QueryNotifier<IView>().SupplyEvent(),
+                _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
+                    .SelectMany(entry => entry.Games.SupplyEvent())
+                    .SelectMany(game => game.Views.SupplyEvent()),
                 System.TimeSpan.FromSeconds(15));
             yield return viewSupply;
             TestWait.AssertDone(viewSupply, "Verify 通過後 client 應收到 IView");

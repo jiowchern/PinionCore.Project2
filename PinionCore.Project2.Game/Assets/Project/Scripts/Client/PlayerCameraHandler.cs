@@ -22,12 +22,20 @@ namespace PinionCore.Project2.Client
             // Provider.SupplyEvent() 會 replay 既有殼,IPlayer 先到或殼先建立兩種順序都成立;
             // 等殼 activeSelf(首個 MoveEvent 已定位 Target)才綁定,避免鏡頭先吸到原點;
             // Switch:新一輪 supply 取消上一輪還在等的訂閱
-            var bind = from player in Client.Queryer.QueryNotifier<Shared.IPlayer>().SupplyEvent()
+            // 統一入口:只 query IUserEntry,IPlayer 沿合約鏈(entry.Games → game.Players)取得
+            var games = from entry in Client.Queryer.QueryNotifier<Shared.IUserEntry>().SupplyEvent()
+                        from game in entry.Games.SupplyEvent()
+                        select game;
+
+            var bind = from game in games
+                       from player in game.Players.SupplyEvent()
                        select _ResolveShell(player.ActorId);
             bind.Switch().Subscribe(_Bind).AddTo(this);
 
             // 玩家 ghost 消失(登出/斷線)→ 解除跟隨
-            Client.Queryer.QueryNotifier<Shared.IPlayer>().UnsupplyEvent()
+            (from game in games
+             from player in game.Players.UnsupplyEvent()
+             select player)
                 .Subscribe(_ => _Unbind()).AddTo(this);
 
             // 綁定中的殼被銷毀(actor unsupply 先於 player unsupply)→ 解除跟隨

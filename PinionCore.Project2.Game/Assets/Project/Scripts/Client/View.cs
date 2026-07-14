@@ -6,7 +6,6 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 using PinionCore.Project2.Shared;
 using PinionCore.NetSync.Gateways;
 using UniRx;
-using System.Linq;
 using PinionCore.NetSync.UniRx;
 namespace PinionCore.Project2.Client
 {
@@ -26,7 +25,10 @@ namespace PinionCore.Project2.Client
 
         public void Start()
         {
-            var obs = from view in Gateway.Queryer.QueryNotifier<IView>().SupplyEvent()                      
+            // 統一入口:只 query IUserEntry,其餘沿合約鏈(entry.Games → game.Views)取得
+            var obs = from entry in Gateway.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
+                      from game in entry.Games.SupplyEvent()
+                      from view in game.Views.SupplyEvent()
                       select view;
             obs.Subscribe(_Setup).AddTo(this);
         }

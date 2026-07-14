@@ -26,7 +26,10 @@ namespace PinionCore.Project2.Client
         // Start is called once before the first execution of Update after the MonoBehaviour is created
         void Start()
         {
-            var obs = from view in Client.Queryer.QueryNotifier<Shared.IView>().SupplyEvent()
+            // 統一入口:只 query IUserEntry,其餘沿合約鏈(entry.Games → game.Views)取得
+            var obs = from entry in Client.Queryer.QueryNotifier<Shared.IUserEntry>().SupplyEvent()
+                      from game in entry.Games.SupplyEvent()
+                      from view in game.Views.SupplyEvent()
                       from ticks in UniRx.Observable.FromEvent<long>(h => view.TimeTicksEvent += h, h => view.TimeTicksEvent -= h)
                       select ticks;
 

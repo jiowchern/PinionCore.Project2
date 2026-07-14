@@ -6,30 +6,27 @@ namespace PinionCore.Project2.Users
 {
     class UserVerifier : PinionCore.Utility.IStatus , PinionCore.Project2.Shared.Users.IVerifiable
     {
-        private readonly ISessionBinder _Binder;
-        readonly System.Collections.Generic.List<ISoul> _Souls;
+        private readonly System.Collections.Generic.ICollection<IVerifiable> _Verifiables;
+        
         private readonly Roster _Roster;
 
         public event Action<Shared.ActorInfo> OnVerified;
 
-        public UserVerifier(ISessionBinder binder, Roster roster)
+        public UserVerifier(System.Collections.Generic.ICollection<IVerifiable> verifiables, Roster roster)
         {
-            _Souls= new System.Collections.Generic.List<ISoul>();
-            _Binder = binder;
+        
+            _Verifiables = verifiables;
             _Roster = roster;
         }
 
         void IStatus.Enter()
         {
-            _Souls.Add(_Binder.Bind<IVerifiable>(this));
+            _Verifiables.Add(this);
         }
 
         void IStatus.Leave()
         {
-            foreach (var soul in _Souls)
-            {
-                _Binder.Unbind(soul);
-            }           
+            _Verifiables.Remove(this);           
         }
 
         void IStatus.Update()

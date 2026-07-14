@@ -35,7 +35,7 @@ namespace PinionCore.Project2.Client
 
             // Take(1):Supply 會重播既有的 IMoveable,一次 Move 只發一次 RPC,
             // 不讓訂閱殘留到未來的 re-supply 重發 Move
-            var obs = from moveable in GatewayClient.Queryer.QueryNotifier<Shared.IMoveable>().SupplyEvent().Take(1)
+            var obs = from moveable in _Moveables().Take(1)
                       from result in moveable.Move(direction).RemoteValue()
                       select result;
             var disp = obs.Subscribe(result => responded?.Invoke(result));
@@ -51,11 +51,20 @@ namespace PinionCore.Project2.Client
         {
             _Disposable.Clear();
 
-            var obs = from moveable in GatewayClient.Queryer.QueryNotifier<Shared.IMoveable>().SupplyEvent().Take(1)
+            var obs = from moveable in _Moveables().Take(1)
                       from result in moveable.Stop().RemoteValue()
                       select result;
             var disp = obs.Subscribe(result => responded?.Invoke(result));
             _Disposable.Add(disp);
+        }
+
+        // 統一入口:只 query IUserEntry,IMoveable 沿合約鏈(entry.Games → game.Moveables)取得
+        IObservable<Shared.IMoveable> _Moveables()
+        {
+            return from entry in GatewayClient.Queryer.QueryNotifier<Shared.IUserEntry>().SupplyEvent()
+                   from game in entry.Games.SupplyEvent()
+                   from moveable in game.Moveables.SupplyEvent()
+                   select moveable;
         }
 
         void OnDestroy()

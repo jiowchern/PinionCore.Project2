@@ -3,13 +3,13 @@ using PinionCore.Utility;
 
 namespace PinionCore.Project2.Users
 {
-    internal class UserGameAdventure : IStatus
+    internal class UserGameUnconscious : IStatus
     {
         private ICharactor _Charactor;
+        
+        public event System.Action ConsciousEvent;
 
-
-        public event System.Action BattleEvent;
-        public UserGameAdventure(ICharactor charactor)
+        public UserGameUnconscious(ICharactor charactor)
         {
             this._Charactor = charactor;
         }

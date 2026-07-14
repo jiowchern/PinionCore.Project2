@@ -118,9 +118,9 @@ namespace PinionCore.Project2.Tests
             // 先建等待(建構即訂閱)再登入,避免漏接進場廣播;
             // 逾時 60s 從訂閱(登入前)起算,涵蓋兩段 Verify(各自另有 10s 逾時)
             var actorsA = TestWait.Count(
-                _ClientA.Queryer.QueryNotifier<IActor>().SupplyEvent(), 2, System.TimeSpan.FromSeconds(60));
+                _Actors(_ClientA.Queryer), 2, System.TimeSpan.FromSeconds(60));
             var actorsB = TestWait.Count(
-                _ClientB.Queryer.QueryNotifier<IActor>().SupplyEvent(), 2, System.TimeSpan.FromSeconds(60));
+                _Actors(_ClientB.Queryer), 2, System.TimeSpan.FromSeconds(60));
 
             yield return _Verify(_ClientA.Queryer, PlayerNameA);
             yield return _Verify(_ClientB.Queryer, PlayerNameB);
@@ -147,11 +147,21 @@ namespace PinionCore.Project2.Tests
             TestWait.AssertDone(shells, "Client 場景 ActorRoot 底下應有兩個 ActorShell");
         }
 
+        // 統一入口:IActor 沿合約鏈(IUserEntry.Games → IGame.Players → IPlayer.Actors)取得
+        System.IObservable<IActor> _Actors(PinionCore.Remote.INotifierQueryable queryer)
+        {
+            return queryer.QueryNotifier<IUserEntry>().SupplyEvent()
+                .SelectMany(entry => entry.Games.SupplyEvent())
+                .SelectMany(game => game.Players.SupplyEvent())
+                .SelectMany(player => player.Actors.SupplyEvent());
+        }
+
         // 單一 client 的登入流程:等 IVerifiable → Verify 通過
         IEnumerator _Verify(PinionCore.Remote.INotifierQueryable queryer, string playerName)
         {
             var verifiableSupply = TestWait.First(
-                queryer.QueryNotifier<IVerifiable>().SupplyEvent(),
+                queryer.QueryNotifier<IUserEntry>().SupplyEvent()
+                    .SelectMany(entry => entry.Verifiables.SupplyEvent()),
                 System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
             TestWait.AssertDone(verifiableSupply, $"{playerName}:連線後 client 應從 User 服務收到 IVerifiable");

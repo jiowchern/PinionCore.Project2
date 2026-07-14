@@ -162,7 +162,8 @@ namespace PinionCore.Project2.Tests
         IEnumerator _EnterWorld(string playerName)
         {
             var verifiableSupply = TestWait.First(
-                _Client.Queryer.QueryNotifier<IVerifiable>().SupplyEvent(),
+                _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
+                    .SelectMany(entry => entry.Verifiables.SupplyEvent()),
                 System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
             TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifiable");
@@ -175,7 +176,9 @@ namespace PinionCore.Project2.Tests
             Assert.IsTrue(verifyResult.Result, "首次註冊的名字 Verify 應回傳 true");
 
             var playerSupply = TestWait.First(
-                _Client.Queryer.QueryNotifier<IPlayer>().SupplyEvent(),
+                _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
+                    .SelectMany(entry => entry.Games.SupplyEvent())
+                    .SelectMany(game => game.Players.SupplyEvent()),
                 System.TimeSpan.FromSeconds(15));
             yield return playerSupply;
             TestWait.AssertDone(playerSupply, "Verify 通過後 client 應收到 IPlayer");

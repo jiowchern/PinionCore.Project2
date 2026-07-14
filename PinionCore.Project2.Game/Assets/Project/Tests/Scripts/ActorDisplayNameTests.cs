@@ -93,9 +93,11 @@ namespace PinionCore.Project2.Tests
         {
             const string PlayerName = "ActorTester";
 
-            // 1. 連上 Gateway 後,Router 把 session 路由到 User 服務,收到 IVerifiable
+            // 1. 連上 Gateway 後,Router 把 session 路由到 User 服務,
+            //    沿統一入口取得 IVerifiable(IUserEntry.Verifiables)
             var verifiableSupply = TestWait.First(
-                _Client.Queryer.QueryNotifier<IVerifiable>().SupplyEvent(),
+                _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
+                    .SelectMany(entry => entry.Verifiables.SupplyEvent()),
                 System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
             TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifiable");
@@ -109,9 +111,13 @@ namespace PinionCore.Project2.Tests
             TestWait.AssertDone(verifyResult, "Verify 未收到回傳值");
             Assert.IsTrue(verifyResult.Result, "首次註冊的名字 Verify 應回傳 true");
 
-            // 3. Verify 後 UserGame 進入世界,World 把玩家以 IActor 同步回 client
+            // 3. Verify 後 UserGame 進入世界,IActor 沿合約鏈
+            //    (IUserEntry.Games → IGame.Players → IPlayer.Actors)同步回 client
             var actorSupply = TestWait.First(
-                _Client.Queryer.QueryNotifier<IActor>().SupplyEvent(),
+                _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
+                    .SelectMany(entry => entry.Games.SupplyEvent())
+                    .SelectMany(game => game.Players.SupplyEvent())
+                    .SelectMany(player => player.Actors.SupplyEvent()),
                 System.TimeSpan.FromSeconds(15));
             yield return actorSupply;
             TestWait.AssertDone(actorSupply, "Verify 通過後 client 應收到 IActor");

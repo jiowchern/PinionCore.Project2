@@ -65,11 +65,19 @@ namespace PinionCore.Project2.Client
             // 與 PlayerCameraHandler 相同的解析模式:每次 IPlayer supply(含斷線重連的
             // re-supply)都重新解析本地殼;等殼 activeSelf(首個 MoveEvent 已定位)才綁定;
             // Switch:新一輪 supply 取消上一輪還在等的訂閱
-            var bind = from player in Client.Queryer.QueryNotifier<Shared.IPlayer>().SupplyEvent()
+            // 統一入口:只 query IUserEntry,IPlayer 沿合約鏈(entry.Games → game.Players)取得
+            var games = from entry in Client.Queryer.QueryNotifier<Shared.IUserEntry>().SupplyEvent()
+                        from game in entry.Games.SupplyEvent()
+                        select game;
+
+            var bind = from game in games
+                       from player in game.Players.SupplyEvent()
                        select _ResolveShell(player.ActorId);
             bind.Switch().Subscribe(shell => _shell = shell).AddTo(this);
 
-            Client.Queryer.QueryNotifier<Shared.IPlayer>().UnsupplyEvent()
+            (from game in games
+             from player in game.Players.UnsupplyEvent()
+             select player)
                 .Subscribe(_ => _Unbind()).AddTo(this);
 
             Provider.UnsupplyEvent()
