@@ -114,6 +114,22 @@ namespace PinionCore.Project2.Worlds
 
         }
 
+        // 冒險/戰鬥狀態:與 MoveEvent 同樣「訂閱即 replay」,晚訂閱的殼立即取得當前狀態
+        StatusType _Status;
+        event Action<StatusType> _StatusEvent;
+        event Action<StatusType> IActor.StatusEvent
+        {
+            add
+            {
+                _StatusEvent += value;
+                value(_Status);
+            }
+            remove
+            {
+                _StatusEvent -= value;
+            }
+        }
+
         // 以當下時間取樣權威位置/朝向,作為新 MoveInfo 的起點。
         void _SampleNow(out Vector2 position, out Vector2 facing, out long now)
         {
@@ -295,6 +311,12 @@ namespace PinionCore.Project2.Worlds
                 Speed = _MoveSpeed * tangentLength,
                 StartTicks = ticksAtContact
             };
+        }
+
+        void ICharactor.SetStatus(StatusType status)
+        {
+            _Status = status;
+            _StatusEvent?.Invoke(status);
         }
     }
 }

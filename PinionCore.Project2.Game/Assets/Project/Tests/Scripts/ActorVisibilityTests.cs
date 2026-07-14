@@ -152,7 +152,7 @@ namespace PinionCore.Project2.Tests
         {
             return queryer.QueryNotifier<IUserEntry>().SupplyEvent()
                 .SelectMany(entry => entry.Games.SupplyEvent())
-                .SelectMany(game => game.Players.SupplyEvent())
+                .SelectMany(game => game.Player.SupplyEvent())
                 .SelectMany(player => player.Actors.SupplyEvent());
         }
 
@@ -167,7 +167,7 @@ namespace PinionCore.Project2.Tests
             TestWait.AssertDone(verifiableSupply, $"{playerName}:連線後 client 應從 User 服務收到 IVerifiable");
 
             var verifyResult = TestWait.First(
-                verifiableSupply.Result.Verify(playerName).RemoteValue(),
+                verifiableSupply.Result.Verify(playerName, CharactorType.Cube).RemoteValue(),
                 System.TimeSpan.FromSeconds(10));
             yield return verifyResult;
             TestWait.AssertDone(verifyResult, $"{playerName}:Verify 未收到回傳值");

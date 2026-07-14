@@ -102,7 +102,7 @@ namespace PinionCore.Project2.Tests
 
             // 2. Verify 通過
             var verifyResult = TestWait.First(
-                verifiable.Verify("TimeTicksTester").RemoteValue(),
+                verifiable.Verify("TimeTicksTester", CharactorType.Cube).RemoteValue(),
                 System.TimeSpan.FromSeconds(10));
             yield return verifyResult;
             TestWait.AssertDone(verifyResult, "Verify 未收到回傳值");
@@ -112,7 +112,7 @@ namespace PinionCore.Project2.Tests
             var viewSupply = TestWait.First(
                 _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
                     .SelectMany(entry => entry.Games.SupplyEvent())
-                    .SelectMany(game => game.Views.SupplyEvent()),
+                    .SelectMany(game => game.View.SupplyEvent()),
                 System.TimeSpan.FromSeconds(15));
             yield return viewSupply;
             TestWait.AssertDone(viewSupply, "Verify 通過後 client 應收到 IView");

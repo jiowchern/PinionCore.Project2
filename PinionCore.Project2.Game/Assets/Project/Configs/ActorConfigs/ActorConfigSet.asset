@@ -11,6 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dc627af4ba144dbf95254ff73dfcc5de, type: 3}
   m_Name: ActorConfigSet
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   Configs:
   - {fileID: 11400000, guid: 57239c638d804d7419b931f15445b1d1, type: 2}
+  - {fileID: 11400000, guid: 33d1da0e370e1b84d8311e1886aea993, type: 2}

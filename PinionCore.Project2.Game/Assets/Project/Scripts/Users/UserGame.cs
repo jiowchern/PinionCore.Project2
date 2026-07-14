@@ -21,22 +21,29 @@ namespace PinionCore.Project2.Users
         // Leave 已跑;Enter 回應在這之後才抵達時要走補償退場(見 _EnterWorld)
         bool _Done;
 
-        Property<string> _WorldName;
+        readonly Property<string> _WorldName;
         Property<string> IGame.WorldName => _WorldName;
 
-        PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor> _Charactors;
-        Remote.Notifier<IPlayer> _PlayersNotifier;
-        Remote.Notifier<IPlayer> IGame.Players => _PlayersNotifier;
+        readonly PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor> _Charactors;
+        readonly Remote.Notifier<IPlayer> _PlayersNotifier;
+        Remote.Notifier<IPlayer> IGame.Player => _PlayersNotifier;
 
 
-        PinionCore.Remote.Depot<PinionCore.Project2.Shared.IMoveable> _Moveables;
-        Remote.Notifier<IMoveable> _MoveablesNotifier;
-        Remote.Notifier<IMoveable> IGame.Moveables => _MoveablesNotifier;
+        readonly PinionCore.Remote.Depot<PinionCore.Project2.Shared.IMoveable> _Moveables;
+        readonly Remote.Notifier<IMoveable> _MoveablesNotifier;
+        Remote.Notifier<IMoveable> IGame.Moveable => _MoveablesNotifier;
 
 
         readonly Depot<IView> _Views;
-        Remote.Notifier<IView> _ViewsNotifier;
-        Remote.Notifier<IView> IGame.Views => _ViewsNotifier;
+        readonly Remote.Notifier<IView> _ViewsNotifier;
+        Remote.Notifier<IView> IGame.View => _ViewsNotifier;
+
+
+        readonly PinionCore.Remote.Depot<PinionCore.Project2.Shared.IAdventure> _Adventures;
+        public Remote.Notifier<IAdventure> Adventure { get; private set; }
+
+        readonly PinionCore.Remote.Depot<PinionCore.Project2.Shared.IBattle> _Battles;
+        public Remote.Notifier<IBattle> Battle { get; private set; }
 
         public event System.Action DoneEvent;
 
@@ -51,8 +58,14 @@ namespace PinionCore.Project2.Users
             _MoveablesNotifier = _Moveables.ToNotifier<IMoveable>();
 
             _WorldName = new Property<string>(string.Empty);
-            _DisposeHandlers = new System.Collections.Generic.List<System.Action>();            
-            
+            _DisposeHandlers = new System.Collections.Generic.List<System.Action>();
+
+            _Adventures = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.IAdventure>();
+            Adventure = _Adventures.ToNotifier<IAdventure>();
+
+            _Battles = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.IBattle>();
+            Battle = _Battles.ToNotifier<IBattle>();
+
             this._WorldNotifer = worldNotifer;
             this._ActorInfo = actor;
             _Views = new PinionCore.Remote.Depot<IView>();
@@ -147,7 +160,7 @@ namespace PinionCore.Project2.Users
 
         private void _ToConscious(ICharactor charactor)
         {
-            var status = new UserGameConscious(_Moveables ,charactor);
+            var status = new UserGameConscious(_Moveables ,_Adventures,_Battles ,charactor);
             status.UnconsciousEvent += () => _ToUnconscious(charactor);
             _StatusMachine.Push(status);
         }

@@ -28,13 +28,13 @@ namespace PinionCore.Project2.Client
                         select game;
 
             var bind = from game in games
-                       from player in game.Players.SupplyEvent()
+                       from player in game.Player.SupplyEvent()
                        select _ResolveShell(player.ActorId);
             bind.Switch().Subscribe(_Bind).AddTo(this);
 
             // 玩家 ghost 消失(登出/斷線)→ 解除跟隨
             (from game in games
-             from player in game.Players.UnsupplyEvent()
+             from player in game.Player.UnsupplyEvent()
              select player)
                 .Subscribe(_ => _Unbind()).AddTo(this);
 

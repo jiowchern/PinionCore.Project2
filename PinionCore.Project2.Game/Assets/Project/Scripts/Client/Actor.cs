@@ -31,6 +31,15 @@ namespace PinionCore.Project2.Client
         // 收到第一個 MoveEvent(訂閱時必有 replay)前殼保持隱藏。
         MoveInfo? _MoveInfo;
 
+        // 冒險/戰鬥狀態:來自 IActor.StatusEvent(訂閱時必有 replay),驅動 Animator 的 status 參數
+        public StatusType Status { get; private set; }
+
+        // 模型上的 Animator(TestActor1 等模型 prefab 自帶,controller 指向 Configs/AnimatorController);
+        // 模型非同步載入,參數由 _Step 每幀套用,晚到也會在下一幀接上
+        Animator _animator;
+        static readonly int _AnimSpeed = Animator.StringToHash("speed");
+        static readonly int _AnimStatus = Animator.StringToHash("status");
+
         IActor _Actor;
 
         void Awake()
@@ -50,6 +59,9 @@ namespace PinionCore.Project2.Client
             // 事件 replay 需一個網路往返才到,期間沒有位置資訊,先隱藏避免閃現在原點
             gameObject.SetActive(false);
             _MoveFirst(actor);
+
+            var statusObs = UniRx.Observable.FromEvent<StatusType>(h => actor.StatusEvent += h, h => actor.StatusEvent -= h);
+            statusObs.Subscribe(s => Status = s).AddTo(this);
         }
 
         private void _MoveFirst(IActor actor)
@@ -101,6 +113,13 @@ namespace PinionCore.Project2.Client
             MoveSampler.Sample(info, elapsed, out var position, out var facing);
             Target.position = new Vector3(position.x, Target.position.y, position.y);
             Target.rotation = Quaternion.LookRotation(new Vector3(facing.x, 0f, facing.y), Vector3.up);
+
+            // 動作驅動:speed 直接用伺服器線速度(>0 走路、0 駐留),status 切換冒險/戰鬥動作組
+            if (_animator != null)
+            {
+                _animator.SetFloat(_AnimSpeed, info.Speed);
+                _animator.SetInteger(_AnimStatus, (int)Status);
+            }
         }
 
         public void LoadModel(AssetReferenceGameObject modelPrefab)
@@ -123,7 +142,9 @@ namespace PinionCore.Project2.Client
                 if (_destroyed)
                 {
                     Addressables.ReleaseInstance(op.Result);
+                    return;
                 }
+                _animator = op.Result.GetComponentInChildren<Animator>();
             };
         }
 

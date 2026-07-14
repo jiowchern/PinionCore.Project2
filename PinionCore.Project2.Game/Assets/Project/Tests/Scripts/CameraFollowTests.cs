@@ -169,7 +169,7 @@ namespace PinionCore.Project2.Tests
             TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifiable");
 
             var verifyResult = TestWait.First(
-                verifiableSupply.Result.Verify(playerName).RemoteValue(),
+                verifiableSupply.Result.Verify(playerName, CharactorType.Cube).RemoteValue(),
                 System.TimeSpan.FromSeconds(10));
             yield return verifyResult;
             TestWait.AssertDone(verifyResult, "Verify 未收到回傳值");
@@ -178,7 +178,7 @@ namespace PinionCore.Project2.Tests
             var playerSupply = TestWait.First(
                 _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
                     .SelectMany(entry => entry.Games.SupplyEvent())
-                    .SelectMany(game => game.Players.SupplyEvent()),
+                    .SelectMany(game => game.Player.SupplyEvent()),
                 System.TimeSpan.FromSeconds(15));
             yield return playerSupply;
             TestWait.AssertDone(playerSupply, "Verify 通過後 client 應收到 IPlayer");

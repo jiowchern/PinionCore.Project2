@@ -57,7 +57,7 @@ namespace PinionCore.Project2.Client
             // (entry.Games → game.Players → player.Actors)取得
             var players = from entry in Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
                           from game in entry.Games.SupplyEvent()
-                          from player in game.Players.SupplyEvent()
+                          from player in game.Player.SupplyEvent()
                           select player;
 
             var createObs = from player in players

@@ -63,7 +63,7 @@ namespace PinionCore.Project2.Client
         {
             return from entry in GatewayClient.Queryer.QueryNotifier<Shared.IUserEntry>().SupplyEvent()
                    from game in entry.Games.SupplyEvent()
-                   from moveable in game.Moveables.SupplyEvent()
+                   from moveable in game.Moveable.SupplyEvent()
                    select moveable;
         }
 

@@ -71,12 +71,12 @@ namespace PinionCore.Project2.Client
                         select game;
 
             var bind = from game in games
-                       from player in game.Players.SupplyEvent()
+                       from player in game.Player.SupplyEvent()
                        select _ResolveShell(player.ActorId);
             bind.Switch().Subscribe(shell => _shell = shell).AddTo(this);
 
             (from game in games
-             from player in game.Players.UnsupplyEvent()
+             from player in game.Player.UnsupplyEvent()
              select player)
                 .Subscribe(_ => _Unbind()).AddTo(this);
 
