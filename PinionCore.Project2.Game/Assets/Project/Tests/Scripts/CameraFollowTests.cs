@@ -154,7 +154,7 @@ namespace PinionCore.Project2.Tests
         // 斷線後整個世界(殼、ghost)凍結,鏡頭停在凍結的殼上與整體行為一致;
         // PlayerCameraHandler 的解綁路徑只在連線中的正常 unsupply(離開世界、actor 銷毀)生效。
 
-        ICharactor _PlayerGhost;
+        IPlayer _PlayerGhost;
         PinionCore.Project2.Client.Actor _Shell;
         PinionCore.Project2.Client.Player _ClientPlayer;
 
@@ -175,7 +175,7 @@ namespace PinionCore.Project2.Tests
             Assert.IsTrue(verifyResult.Result, "首次註冊的名字 Verify 應回傳 true");
 
             var playerSupply = TestWait.First(
-                _Client.Queryer.QueryNotifier<ICharactor>().SupplyEvent(),
+                _Client.Queryer.QueryNotifier<IPlayer>().SupplyEvent(),
                 System.TimeSpan.FromSeconds(15));
             yield return playerSupply;
             TestWait.AssertDone(playerSupply, "Verify 通過後 client 應收到 IPlayer");

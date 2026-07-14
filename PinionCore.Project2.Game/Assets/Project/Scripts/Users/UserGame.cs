@@ -8,6 +8,7 @@ using System.Reflection;
 using UniRx;
 namespace PinionCore.Project2.Users
 {
+    
     internal class UserGame : PinionCore.Utility.IStatus ,IGame
     {
         private readonly ISessionBinder _Binder;
@@ -23,14 +24,17 @@ namespace PinionCore.Project2.Users
         Property<string> IGame.WorldName => _WorldName;
 
         PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor> _Players;
-        Remote.Notifier<ICharactor> _PlayersNotifier;        
-        Remote.Notifier<ICharactor> IGame.Players => _PlayersNotifier;
+        Remote.Notifier<IPlayer> _PlayersNotifier;        
+        Remote.Notifier<IPlayer> IGame.Players => _PlayersNotifier;
 
         public event System.Action DoneEvent;
+
+        readonly PinionCore.Utility.StatusMachine _StatusMachine;
         public UserGame(ISessionBinder binder, INotifierQueryable worldNotifer, ActorInfo actor)
         {
+            _StatusMachine = new StatusMachine();
             _Players = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor>();
-            _PlayersNotifier = _Players.ToNotifier<ICharactor>();
+            _PlayersNotifier = _Players.ToNotifier<IPlayer>();
 
             _WorldName = new Property<string>(string.Empty);
             _DisposeHandlers = new System.Collections.Generic.List<System.Action>();            
@@ -48,7 +52,6 @@ namespace PinionCore.Project2.Users
                       select world;
 
             IDisposable disposable = obs.Subscribe(_EnterWorld);
-
 
             _DisposeHandlers.Add(() => {
                 disposable.Dispose();
@@ -76,6 +79,8 @@ namespace PinionCore.Project2.Users
         private void _Join(IWorld world,Guid actorId)
         {
             PinionCore.Utility.Log.Instance.WriteInfo($"UserGame.Join actor:{actorId}");
+            // IGame.Players(Notifier<IPlayer>)經框架遞迴綁定供應 IPlayer ghost 給 client;
+            // 沒有這條 Bind,client 端不會收到任何 IPlayer。
             var gameSoul = _Binder.Bind<IGame>(this);
             _DisposeHandlers.Add(() => _Binder.Unbind(gameSoul));
 
@@ -90,7 +95,7 @@ namespace PinionCore.Project2.Users
             var disposablePlayersRemoveObs = playersRemoveObs.Subscribe((p) => _Players.Items.Remove(p));
             _DisposeHandlers.Add(() => disposablePlayersRemoveObs.Dispose());
 
-            // IActor 供應改由 ICharactor.Actors 承載:綁給 client 的 ICharactor ghost
+            // IActor 供應由 IPlayer.Actors 承載:綁給 client 的 IPlayer ghost
             // 其 Actors 屬性由框架遞迴綁定自動轉發,User 端不需再手動搬運。
 
             _DisposeHandlers.Add(() =>
@@ -100,12 +105,20 @@ namespace PinionCore.Project2.Users
                     r => PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Leave result:{r}"),
                     e => PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Leave error:{e.Message}"));
             });
+
+            _ToAdventure();
         }
 
-       
+        private void _ToAdventure()
+        {
+            //var status = new UserAdventure(_Binder, _WorldNotifer, _ActorInfo);
+            //status.
+            //_StatusMachine.Push(status);
+        }
 
         void IStatus.Leave()
         {
+            _StatusMachine.Termination();
             PinionCore.Utility.Log.Instance.WriteInfo($"UserGame.Leave handlers:{_DisposeHandlers.Count}");
             _Done = true;
             foreach (var handler in _DisposeHandlers)
@@ -117,7 +130,7 @@ namespace PinionCore.Project2.Users
 
         void IStatus.Update()
         {
-         
+            _StatusMachine.Update();
         }
     }
 }

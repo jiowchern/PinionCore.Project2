@@ -103,7 +103,7 @@ namespace PinionCore.Project2.Tests
 
             // 先建等待(建構即訂閱)再送指令;訂閱當下的 replay 是駐留態,被 predicate 濾掉
             var moving = TestWait.First(
-                TestWait.MoveEvents(_PlayerGhost), i => i.Speed > 0f, System.TimeSpan.FromSeconds(15));
+                TestWait.MoveEvents(_ActorGhost), i => i.Speed > 0f, System.TimeSpan.FromSeconds(15));
 
             var startPos = _Shell.Target.position;
             _ClientPlayer.Move(new Vector2(0f, 1f));
@@ -145,7 +145,7 @@ namespace PinionCore.Project2.Tests
             //(曾觀測到 "Soul not found" 的 Advance Error),單次嘗試逾時就重訂閱
             //(觸發 replay 取回當下狀態)並重送 Move,兩種掉失模式都能恢復
             var moving = TestWait.FirstWithRetry(
-                () => TestWait.MoveEvents(_PlayerGhost).Where(i => i.Speed > 0f),
+                () => TestWait.MoveEvents(_ActorGhost).Where(i => i.Speed > 0f),
                 onAttempt: () => _ClientPlayer.Move(new Vector2(halfSqrt2, halfSqrt2)), // 世界右前 45°
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
@@ -155,7 +155,7 @@ namespace PinionCore.Project2.Tests
             // 可能仍有較新的 MoveInfo 在途(重試重送),等事件靜默 0.5 秒取最後一筆作為預測依據;
             // 新訂閱的 replay(當下最新狀態)會進窗並成為最後一筆,語意正確
             var settled = TestWait.Quiet(
-                TestWait.MoveEvents(_PlayerGhost).Where(i => i.Speed > 0f),
+                TestWait.MoveEvents(_ActorGhost).Where(i => i.Speed > 0f),
                 seed: moving.Result,
                 quiet: System.TimeSpan.FromSeconds(0.5),
                 timeout: System.TimeSpan.FromSeconds(15));
@@ -221,7 +221,7 @@ namespace PinionCore.Project2.Tests
 
             // 先建等待再送指令;訂閱當下的 replay 是駐留態,被 predicate 濾掉
             var firstMove = TestWait.First(
-                TestWait.MoveEvents(_PlayerGhost),
+                TestWait.MoveEvents(_ActorGhost),
                 i => i.Speed > 0f && i.Facing.x > 0.5f,
                 System.TimeSpan.FromSeconds(15));
             _ClientPlayer.Move(new Vector2(halfSqrt2, halfSqrt2)); // 世界右前 45°
@@ -239,7 +239,7 @@ namespace PinionCore.Project2.Tests
 
             // 改向:先建等待(replay 是右前態,被 predicate 濾掉)再送指令
             var secondMove = TestWait.First(
-                TestWait.MoveEvents(_PlayerGhost),
+                TestWait.MoveEvents(_ActorGhost),
                 i => i.Facing.x < -0.5f,
                 System.TimeSpan.FromSeconds(15));
             _ClientPlayer.Move(new Vector2(-halfSqrt2, halfSqrt2)); // 途中改世界左前 45°
@@ -280,7 +280,7 @@ namespace PinionCore.Project2.Tests
             // 先建等待再喊停:訂閱當下的 replay 是移動態,被 predicate 濾掉,
             // 只會等到 Stop 產生的駐留 MoveInfo(Speed==0)
             var stand = TestWait.First(
-                TestWait.MoveEvents(_PlayerGhost), i => i.Speed == 0f, System.TimeSpan.FromSeconds(10));
+                TestWait.MoveEvents(_ActorGhost), i => i.Speed == 0f, System.TimeSpan.FromSeconds(10));
             _ClientPlayer.Stop();
 
             yield return stand;
@@ -328,7 +328,7 @@ namespace PinionCore.Project2.Tests
 
             // 收集器(事件驅動):訂閱當下的 replay 是駐留態(Speed==0),不會進 movingInfos
             var movingInfos = new System.Collections.Generic.List<MoveInfo>();
-            var moveSub = TestWait.MoveEvents(_PlayerGhost)
+            var moveSub = TestWait.MoveEvents(_ActorGhost)
                 .Subscribe(info =>
                 {
                     if (info.Speed > 0f)
@@ -359,7 +359,7 @@ namespace PinionCore.Project2.Tests
             // 等事件靜默,確保被接受指令的 MoveEvent 都已抵達
             //(柵欄自己的訂閱會收到一筆 replay,只進柵欄的流,不污染收集器)
             var fence = TestWait.Quiet(
-                TestWait.MoveEvents(_PlayerGhost),
+                TestWait.MoveEvents(_ActorGhost),
                 seed: default(MoveInfo),
                 quiet: System.TimeSpan.FromSeconds(0.5),
                 timeout: System.TimeSpan.FromSeconds(10));
@@ -387,7 +387,7 @@ namespace PinionCore.Project2.Tests
 
             // Stop 已生效:收到駐留 MoveInfo(晚訂閱安全:若已駐留,replay 即滿足條件)
             var stand = TestWait.First(
-                TestWait.MoveEvents(_PlayerGhost), i => i.Speed == 0f, System.TimeSpan.FromSeconds(10));
+                TestWait.MoveEvents(_ActorGhost), i => i.Speed == 0f, System.TimeSpan.FromSeconds(10));
             yield return stand;
             TestWait.AssertDone(stand, "Stop 後應收到駐留 MoveInfo");
 
@@ -399,7 +399,7 @@ namespace PinionCore.Project2.Tests
 
             // 先建等待再送指令(replay 是駐留態,被 predicate 濾掉)
             var resumeMove = TestWait.First(
-                TestWait.MoveEvents(_PlayerGhost),
+                TestWait.MoveEvents(_ActorGhost),
                 i => i.Speed > 0f && i.Facing.x < -0.9f,
                 System.TimeSpan.FromSeconds(10));
             var resumeResult = TestWait.First(
@@ -416,7 +416,8 @@ namespace PinionCore.Project2.Tests
             moveSub.Dispose();
         }
 
-        ICharactor _PlayerGhost;
+        IPlayer _PlayerGhost;
+        IActor _ActorGhost;
         PinionCore.Project2.Client.Actor _Shell;
         PinionCore.Project2.Client.Player _ClientPlayer;
 
@@ -437,12 +438,20 @@ namespace PinionCore.Project2.Tests
             Assert.IsTrue(verifyResult.Result, "首次註冊的名字 Verify 應回傳 true");
 
             var playerSupply = TestWait.First(
-                _Client.Queryer.QueryNotifier<ICharactor>().SupplyEvent(),
+                _Client.Queryer.QueryNotifier<IPlayer>().SupplyEvent(),
                 System.TimeSpan.FromSeconds(15));
             yield return playerSupply;
             TestWait.AssertDone(playerSupply, "Verify 通過後 client 應收到 IPlayer");
             _PlayerGhost = playerSupply.Result;
             System.Guid actorId = _PlayerGhost.ActorId;
+
+            // 自身的 IActor ghost(經 IPlayer.Actors 供應):MoveEvent 的權威狀態來源
+            var actorSupply = TestWait.First(
+                _Client.Queryer.QueryNotifier<IActor>().SupplyEvent(), a => a.ActorId == actorId,
+                System.TimeSpan.FromSeconds(15));
+            yield return actorSupply;
+            TestWait.AssertDone(actorSupply, "client 應收到自身的 IActor ghost");
+            _ActorGhost = actorSupply.Result;
 
             // ActorProvider.SupplyEvent 會 replay 既有殼,晚訂閱安全
             var provider = _Scenes.FindComponent<PinionCore.Project2.Client.ActorProvider>("Client", "Handlers");

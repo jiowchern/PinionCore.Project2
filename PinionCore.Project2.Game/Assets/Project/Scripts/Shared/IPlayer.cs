@@ -6,7 +6,7 @@ namespace PinionCore.Project2.Shared
 {
     // 角色的控制功能跟私有顯示資訊
     // 只曝光給 client 的擁有者
-    public interface IPlayer
+    public interface IPlayer : IIdentity
     {
         // direction 為世界座標 XZ 方向(x=+X、y=+Z)。
         // 瞬轉直走:朝向即刻設為該方向,沿直線前進直到下一個 Move 或 Stop。

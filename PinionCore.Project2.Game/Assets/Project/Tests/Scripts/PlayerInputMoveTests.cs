@@ -128,7 +128,7 @@ namespace PinionCore.Project2.Tests
             // 等首個移動中的 MoveInfo;指令掉失由 handler 的低頻重檢(RecheckInterval)自癒,
             // 事件註冊可能與 session/soul 綁定流程競態掉失,單次逾時重訂閱(replay 取回當下狀態)
             var firstMoving = TestWait.FirstWithRetry(
-                () => TestWait.MoveEvents(_PlayerGhost).Where(i => i.Speed > 0f),
+                () => TestWait.MoveEvents(_ActorGhost).Where(i => i.Speed > 0f),
                 onAttempt: null,
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
@@ -143,7 +143,7 @@ namespace PinionCore.Project2.Tests
             // 幀長與對時往前跳的合法落差以「兩次量測間 world time 前進量 × 速度」作 slack 扣除。
             // 持久訂閱接手最新 MoveInfo(新訂閱的 replay 會補上當下狀態)
             var lastMove = firstMoving.Result;
-            var moveSub = TestWait.MoveEvents(_PlayerGhost).Subscribe(info => lastMove = info);
+            var moveSub = TestWait.MoveEvents(_ActorGhost).Subscribe(info => lastMove = info);
 
             var prevTicks = _Shell.WorldTime.CurrentTime.Ticks;
             yield return null;
@@ -192,7 +192,7 @@ namespace PinionCore.Project2.Tests
             // 先建等待再放開:訂閱當下的 replay 是移動態,被 predicate 濾掉,
             // 只會等到 Stop 產生的駐留 MoveInfo(Speed==0)
             var stand = TestWait.First(
-                TestWait.MoveEvents(_PlayerGhost), i => i.Speed == 0f, System.TimeSpan.FromSeconds(10));
+                TestWait.MoveEvents(_ActorGhost), i => i.Speed == 0f, System.TimeSpan.FromSeconds(10));
             _InputHandler.InputSource = () => Vector2.zero;
 
             yield return stand;
@@ -203,7 +203,7 @@ namespace PinionCore.Project2.Tests
             // 收集窗自己的訂閱必收到一筆「當下駐留態」的 replay(StartTicks 同 standInfo),
             // 除此之外不得有任何新事件
             var extras = TestWait.CollectFor(
-                TestWait.MoveEvents(_PlayerGhost), System.TimeSpan.FromSeconds(1));
+                TestWait.MoveEvents(_ActorGhost), System.TimeSpan.FromSeconds(1));
             yield return extras;
             foreach (var extra in extras.Result)
             {
@@ -229,7 +229,8 @@ namespace PinionCore.Project2.Tests
             Assert.IsFalse(held.Result, "放開後殼不應再移動");
         }
 
-        ICharactor _PlayerGhost;
+        IPlayer _PlayerGhost;
+        IActor _ActorGhost;
         PinionCore.Project2.Client.Actor _Shell;
         PinionCore.Project2.Client.PlayerInputHandler _InputHandler;
 
@@ -258,12 +259,20 @@ namespace PinionCore.Project2.Tests
             Assert.IsTrue(verifyResult.Result, "首次註冊的名字 Verify 應回傳 true");
 
             var playerSupply = TestWait.First(
-                _Client.Queryer.QueryNotifier<ICharactor>().SupplyEvent(),
+                _Client.Queryer.QueryNotifier<IPlayer>().SupplyEvent(),
                 System.TimeSpan.FromSeconds(15));
             yield return playerSupply;
             TestWait.AssertDone(playerSupply, "Verify 通過後 client 應收到 IPlayer");
             _PlayerGhost = playerSupply.Result;
             System.Guid actorId = _PlayerGhost.ActorId;
+
+            // 自身的 IActor ghost(經 IPlayer.Actors 供應):MoveEvent 的權威狀態來源
+            var actorSupply = TestWait.First(
+                _Client.Queryer.QueryNotifier<IActor>().SupplyEvent(), a => a.ActorId == actorId,
+                System.TimeSpan.FromSeconds(15));
+            yield return actorSupply;
+            TestWait.AssertDone(actorSupply, "client 應收到自身的 IActor ghost");
+            _ActorGhost = actorSupply.Result;
 
             // ActorProvider.SupplyEvent 會 replay 既有殼,晚訂閱安全
             var provider = _Scenes.FindComponent<PinionCore.Project2.Client.ActorProvider>("Client", "Handlers");
