@@ -23,9 +23,12 @@ namespace PinionCore.Project2.Users
         Property<string> _WorldName;
         Property<string> IGame.WorldName => _WorldName;
 
-        PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor> _Players;
-        Remote.Notifier<IPlayer> _PlayersNotifier;        
+        PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor> _Charactors;
+        Remote.Notifier<IPlayer> _PlayersNotifier;
         Remote.Notifier<IPlayer> IGame.Players => _PlayersNotifier;
+
+        Remote.Notifier<IMoveable> _MoveablesNotifier;
+        Remote.Notifier<IMoveable> IGame.Moveables => _MoveablesNotifier;
 
         public event System.Action DoneEvent;
 
@@ -33,8 +36,9 @@ namespace PinionCore.Project2.Users
         public UserGame(ISessionBinder binder, INotifierQueryable worldNotifer, ActorInfo actor)
         {
             _StatusMachine = new StatusMachine();
-            _Players = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor>();
-            _PlayersNotifier = _Players.ToNotifier<IPlayer>();
+            _Charactors = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor>();
+            _PlayersNotifier = _Charactors.ToNotifier<IPlayer>();
+            _MoveablesNotifier = _Charactors.ToNotifier<IMoveable>();
 
             _WorldName = new Property<string>(string.Empty);
             _DisposeHandlers = new System.Collections.Generic.List<System.Action>();            
@@ -88,11 +92,11 @@ namespace PinionCore.Project2.Users
             _DisposeHandlers.Add(() => _Binder.Unbind(viewSoul));
 
             var playersAddObs = world.Players.SupplyEvent().Where(p => p.ActorId == actorId).Take(1);
-            var disposablePlayersAddObs = playersAddObs.Subscribe(_Players.Items.Add);
+            var disposablePlayersAddObs = playersAddObs.Subscribe(_Start);
             _DisposeHandlers.Add(() => disposablePlayersAddObs.Dispose());
 
             var playersRemoveObs = world.Players.UnsupplyEvent().Where(p => p.ActorId == actorId).Take(1);
-            var disposablePlayersRemoveObs = playersRemoveObs.Subscribe((p) => _Players.Items.Remove(p));
+            var disposablePlayersRemoveObs = playersRemoveObs.Subscribe(_End);
             _DisposeHandlers.Add(() => disposablePlayersRemoveObs.Dispose());
 
             // IActor 供應由 IPlayer.Actors 承載:綁給 client 的 IPlayer ghost
@@ -106,14 +110,40 @@ namespace PinionCore.Project2.Users
                     e => PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Leave error:{e.Message}"));
             });
 
-            _ToAdventure();
+            
         }
 
-        private void _ToAdventure()
+        private void _End(ICharactor charactor)
         {
-            //var status = new UserAdventure(_Binder, _WorldNotifer, _ActorInfo);
-            //status.
-            //_StatusMachine.Push(status);
+            _Charactors.Items.Remove(charactor);
+            _ToExit();
+        }
+
+        private void _ToExit()
+        {
+            _StatusMachine.Empty();
+        }
+
+        private void _Start(ICharactor charactor)
+        {
+            _Charactors.Items.Add(charactor);
+
+            // todo:尚未實作下面狀態 先通過編譯
+            //_ToAdventure(charactor);
+        }
+
+        private void _ToAdventure(ICharactor charactor)
+        {
+            var status = new UserGameAdventure(charactor);
+            status.BattleEvent += () => _ToBattle(charactor);
+            _StatusMachine.Push(status);
+        }
+
+        private void _ToBattle(ICharactor charactor)
+        {
+            var status = new UserGameBattle(charactor);
+            status.AdventureEvent += () => _ToAdventure(charactor)  ;
+            _StatusMachine.Push(status);
         }
 
         void IStatus.Leave()

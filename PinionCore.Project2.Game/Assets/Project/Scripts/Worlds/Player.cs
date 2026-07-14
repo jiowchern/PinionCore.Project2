@@ -8,7 +8,7 @@ using UnityEngine;
 namespace PinionCore.Project2.Worlds
 {
     /// <summary>
-    /// 封裝一顆 DOTS entity 的玩家物件:對外(協議)提供 IPlayer/IActor 的檢視與控制,
+    /// 封裝一顆 DOTS entity 的玩家物件:對外(協議)提供 IPlayer/IActor 的檢視與 IMoveable 的控制,
     /// entity 的建立與銷毀由 World 負責,Player 只持有參考。
     /// </summary>
     public class Player : ICharactor
@@ -122,7 +122,7 @@ namespace PinionCore.Project2.Worlds
             MoveSampler.Sample(_MoveInfo, elapsed, out position, out facing);
         }
 
-        Value<bool> IPlayer.Move(Vector2 direction)
+        Value<bool> IMoveable.Move(Vector2 direction)
         {
             if (_MoveSpeed <= 0f || direction.sqrMagnitude <= 1e-6f)
                 return false;
@@ -148,7 +148,7 @@ namespace PinionCore.Project2.Worlds
             return true;
         }
 
-        Value<bool> IPlayer.Stop()
+        Value<bool> IMoveable.Stop()
         {
             _ProcessDueRedirects(_World.ElapsedTicks);
             if (_MoveInfo.Speed == 0f)

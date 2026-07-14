@@ -341,10 +341,10 @@ namespace PinionCore.Project2.Tests
             foreach (var deg in degrees)
             {
                 var dir = new Vector2(Mathf.Sin(deg * Mathf.Deg2Rad), Mathf.Cos(deg * Mathf.Deg2Rad));
-                results.Add(_PlayerGhost.Move(dir).RemoteValue()
+                results.Add(_MoveableGhost.Move(dir).RemoteValue()
                     .First().Timeout(System.TimeSpan.FromSeconds(10)).ToYieldInstruction(throwOnError: false));
             }
-            var stopResult = _PlayerGhost.Stop().RemoteValue()
+            var stopResult = _MoveableGhost.Stop().RemoteValue()
                 .First().Timeout(System.TimeSpan.FromSeconds(10)).ToYieldInstruction(throwOnError: false);
 
             foreach (var r in results)
@@ -403,7 +403,7 @@ namespace PinionCore.Project2.Tests
                 i => i.Speed > 0f && i.Facing.x < -0.9f,
                 System.TimeSpan.FromSeconds(10));
             var resumeResult = TestWait.First(
-                _PlayerGhost.Move(new Vector2(-1f, 0f)).RemoteValue(),
+                _MoveableGhost.Move(new Vector2(-1f, 0f)).RemoteValue(),
                 System.TimeSpan.FromSeconds(10));
             yield return resumeResult;
             TestWait.AssertDone(resumeResult, "間隔後的 Move 未收到回傳值");
@@ -417,6 +417,7 @@ namespace PinionCore.Project2.Tests
         }
 
         IPlayer _PlayerGhost;
+        IMoveable _MoveableGhost;
         IActor _ActorGhost;
         PinionCore.Project2.Client.Actor _Shell;
         PinionCore.Project2.Client.Player _ClientPlayer;
@@ -444,6 +445,14 @@ namespace PinionCore.Project2.Tests
             TestWait.AssertDone(playerSupply, "Verify 通過後 client 應收到 IPlayer");
             _PlayerGhost = playerSupply.Result;
             System.Guid actorId = _PlayerGhost.ActorId;
+
+            // 移動控制介面已從 IPlayer 拆出:Move/Stop RPC 走 IMoveable ghost
+            var moveableSupply = TestWait.First(
+                _Client.Queryer.QueryNotifier<IMoveable>().SupplyEvent(), m => m.ActorId == actorId,
+                System.TimeSpan.FromSeconds(15));
+            yield return moveableSupply;
+            TestWait.AssertDone(moveableSupply, "client 應收到自身的 IMoveable ghost");
+            _MoveableGhost = moveableSupply.Result;
 
             // 自身的 IActor ghost(經 IPlayer.Actors 供應):MoveEvent 的權威狀態來源
             var actorSupply = TestWait.First(
