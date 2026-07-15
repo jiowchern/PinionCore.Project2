@@ -18,9 +18,6 @@ namespace PinionCore.Project2.Users
 
         readonly System.Collections.Generic.List< System.Action > _DisposeHandlers;
 
-        // Leave 已跑;Enter 回應在這之後才抵達時要走補償退場(見 _EnterWorld)
-        bool _Done;
-
         readonly Property<string> _WorldName;
         Property<string> IGame.WorldName => _WorldName;
 
@@ -37,11 +34,10 @@ namespace PinionCore.Project2.Users
 
         public event System.Action DoneEvent;
 
-        readonly PinionCore.Utility.StatusMachine _StatusMachine;
+        
         public UserGame(ICollection<IGame> games, INotifierQueryable worldNotifer, ActorInfo actor)
         {
-            _Games = games;
-            _StatusMachine = new StatusMachine();
+            _Games = games;            
             _Charactors = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor>();
             _PlayersNotifier = _Charactors.ToNotifier<IPlayer>();
 
@@ -57,12 +53,13 @@ namespace PinionCore.Project2.Users
         void IStatus.Enter()
         {
             PinionCore.Utility.Log.Instance.WriteInfo("UserGame.Enter");
+            var actorId = Guid.NewGuid();
             var obs = from uni in _WorldNotifer.QueryNotifier<IUniverse>().SupplyEvent()
                       from worldId in uni.QueryWorld("Test1").RemoteValue()
                       from world in uni.WorldNotifier.SupplyEvent().Where(w => w.Id == worldId).Take(1)
                       select world;
 
-            IDisposable disposable = obs.Subscribe(_EnterWorld);
+            IDisposable disposable = obs.Subscribe(world => _EnterWorld(world, actorId));
 
             _DisposeHandlers.Add(() => {
                 disposable.Dispose();
@@ -70,21 +67,28 @@ namespace PinionCore.Project2.Users
 
         }
 
-        private void _EnterWorld(IWorld world)
+        private void _EnterWorld(IWorld world, Guid actorId)
         {
-            // Enter 送出後伺服器側就有 actor,回應的消化不能依賴 session 存活:
-            // 若回應抵達前 session 已收尾(Leave 已跑),立即補償退場,避免 actor 殘留在 World。
-            // 因此這條訂閱不掛進 _DisposeHandlers,由回呼自行了結(RemoteValue 發完一筆即完成)。
-            world.Enter(_ActorInfo).RemoteValue().Subscribe(actorId =>
+            // actorId 由 user 端先產生:Leave 在送出 Enter 的同一刻註冊進 _DisposeHandlers,
+            // 即使 Enter 回應未消化前 session 就收尾,也保證送出 world.Leave(補償退場)。
+            // Enter RPC 先送、Leave RPC 收尾才送,伺服器依序處理不會漏清。
+            _DisposeHandlers.Add(() =>
             {
-                if (_Done)
-                {
-                    PinionCore.Utility.Log.Instance.WriteInfo($"UserGame enter-after-leave, compensating leave actor:{actorId}");
-                    world.Leave(actorId).RemoteValue().Subscribe();
-                    return;
-                }
-                _Join(world, actorId);
+                PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Leave send actor:{actorId}");
+                world.Leave(actorId).RemoteValue().Subscribe(
+                    r => PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Leave result:{r}"),
+                    e => PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Leave error:{e.Message}"));
             });
+
+            // 回應訂閱掛進 _DisposeHandlers:session 收尾後 _Join 不可能再跑。
+            IDisposable disposable = world.Enter(actorId, _ActorInfo).RemoteValue().Subscribe(ok =>
+            {
+                if (ok)
+                    _Join(world, actorId);
+                else
+                    PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Enter rejected actor:{actorId}");
+            });
+            _DisposeHandlers.Add(() => disposable.Dispose());
         }
 
         private void _Join(IWorld world,Guid actorId)
@@ -108,28 +112,18 @@ namespace PinionCore.Project2.Users
 
             // IActor 供應由 IPlayer.Actors 承載:綁給 client 的 IPlayer ghost
             // 其 Actors 屬性由框架遞迴綁定自動轉發,User 端不需再手動搬運。
-
-            _DisposeHandlers.Add(() =>
-            {
-                PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Leave send actor:{actorId}");
-                world.Leave(actorId).RemoteValue().Subscribe(
-                    r => PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Leave result:{r}"),
-                    e => PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Leave error:{e.Message}"));
-            });
-
-            
+            // world.Leave 的補償退場已在 _EnterWorld 註冊,這裡不再重複。
         }
 
         private void _End(ICharactor charactor)
         {
             _Charactors.Items.Remove(charactor);
-            _ToExit();
+            // 玩家被 world 移除(Unsupply)→ 通知 User 回到 verify + Roster.Unregister。
+            // 斷線收尾不會走到這:dispose 時 UnsupplyEvent 訂閱已先解除。
+            DoneEvent?.Invoke();
         }
 
-        private void _ToExit()
-        {
-            _StatusMachine.Empty();
-        }
+
 
         private void _Start(ICharactor charactor)
         {
@@ -140,9 +134,8 @@ namespace PinionCore.Project2.Users
 
         void IStatus.Leave()
         {
-            _StatusMachine.Termination();
+            
             PinionCore.Utility.Log.Instance.WriteInfo($"UserGame.Leave handlers:{_DisposeHandlers.Count}");
-            _Done = true;
             foreach (var handler in _DisposeHandlers)
             {
                 handler();
@@ -152,7 +145,7 @@ namespace PinionCore.Project2.Users
 
         void IStatus.Update()
         {
-            _StatusMachine.Update();
+            
         }
     }
 }

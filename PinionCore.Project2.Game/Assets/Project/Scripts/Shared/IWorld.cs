@@ -13,7 +13,9 @@ namespace PinionCore.Project2.Shared
     {
         PinionCore.Remote.Property<System.Guid> Id { get; }
 
-        PinionCore.Remote.Value<System.Guid> Enter(ActorInfo actor);
+        // actorId 由呼叫端產生:進場方能在送出 Enter 的同一刻註冊 Leave(actorId),
+        // 即使回應未消化前 session 就收尾,補償退場也結構性成立。
+        PinionCore.Remote.Value<bool> Enter(System.Guid actorId, ActorInfo actor);
         PinionCore.Remote.Value<bool> Leave(System.Guid actorId);
 
         PinionCore.Remote.Notifier<ICharactor> Players { get; }

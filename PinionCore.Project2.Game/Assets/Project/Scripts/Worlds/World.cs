@@ -52,18 +52,17 @@ namespace PinionCore.Project2.Worlds
         Property<Guid> IWorld.Id => new Property<Guid>(Id);
 
 
-        Depot<Player> _Players ;
+        // 每個 Player 一個 controller:協議曝光面(ICharactor)+ 狀態機編排,與 Player 生命週期同進退;
+        // 以 ICharactor 介面供應給 user 端(IWorld.Players)。
+        readonly Depot<PlayerController> _Controllers;
         Notifier<ICharactor> _PlayersNotifier;
         Notifier<ICharactor> IWorld.Players => _PlayersNotifier;
 
         // 供 editor 除錯繪製(WorldDebugDrawer)走訪權威玩家狀態
-        internal System.Collections.Generic.IEnumerable<Player> PlayerItems => _Players.Items;
-
-        // 每個 Player 一個 controller:狀態機編排(能力供應開關)與 Player 生命週期同進退
-        readonly System.Collections.Generic.List<PlayerController> _Controllers;
+        internal System.Collections.Generic.IEnumerable<Player> PlayerItems => _Controllers.Items.Select(c => c.Player);
 
         // 供測試直接觸發狀態轉換(ToConscious/ToUnconscious)
-        internal System.Collections.Generic.IEnumerable<PlayerController> ControllerItems => _Controllers;
+        internal System.Collections.Generic.IEnumerable<PlayerController> ControllerItems => _Controllers.Items;
 
         // TimeSpan ticks(100ns),與 TimeTicksEvent / 前端 WorldTimeHandler.CurrentTime 同單位;
         // 不可用 Stopwatch.ElapsedTicks(原始計數,頻率依平台)。
@@ -75,7 +74,7 @@ namespace PinionCore.Project2.Worlds
         readonly System.Diagnostics.Stopwatch _elapsedWatch ;
         readonly System.Diagnostics.Stopwatch _UpdateWatch ;
 
-        // 視野評估:Burst job 判定距離 + 遮蔽,結果增刪各 Player.VisibleActors;節流 stopwatch 控制頻率
+        // 視野評估:Burst job 判定距離 + 遮蔽,結果增刪各 PlayerController.VisibleActors;節流 stopwatch 控制頻率
         readonly Sight _Sight;
         readonly System.Diagnostics.Stopwatch _SightWatch;
 
@@ -85,9 +84,8 @@ namespace PinionCore.Project2.Worlds
             _UpdateWatch = Stopwatch.StartNew();
             _Sight = new Sight();
             _SightWatch = Stopwatch.StartNew();
-            _Players = new Depot<Player>();
-            _PlayersNotifier = _Players.ToNotifier<ICharactor>();
-            _Controllers = new System.Collections.Generic.List<PlayerController>();
+            _Controllers = new Depot<PlayerController>();
+            _PlayersNotifier = _Controllers.ToNotifier<ICharactor>();
 
             Id = id;
             _info = worldInfo;
@@ -118,13 +116,12 @@ namespace PinionCore.Project2.Worlds
 
         public void Dispose()
         {
-            // 先清掉殘留玩家讓 Unsupply 通知送出;entity 隨 _dots.Dispose() 一併銷毀。
-            foreach (var controller in _Controllers)
+            // 先清掉殘留玩家讓 Unsupply 通知送出(能力 → 視野 → 根解綁);entity 隨 _dots.Dispose() 一併銷毀。
+            foreach (var controller in _Controllers.Items)
                 controller.Shutdown();
-            _Controllers.Clear();
-            foreach (var player in _Players.Items)
-                player.VisibleActors.Items.Clear();
-            _Players.Items.Clear();
+            foreach (var controller in _Controllers.Items)
+                controller.VisibleActors.Items.Clear();
+            _Controllers.Items.Clear();
             _terrainQuery?.Dispose();
             if (_terrainCollider.IsCreated)
                 _terrainCollider.Dispose();
@@ -210,57 +207,56 @@ namespace PinionCore.Project2.Worlds
             em.AddComponent<TerrainTag>(entity);
         }
 
-        Value<Guid> IWorld.Enter(ActorInfo actor)
+        Value<bool> IWorld.Enter(Guid actorId, ActorInfo actor)
         {
-            // ModelName 必須存在於 actorConfigs 才允許進入;Value<T> 沒有錯誤通道,失敗以 Guid.Empty 表示。
+            // actorId 由呼叫端產生;Value<T> 沒有錯誤通道,拒絕以 false 表示。
+            if (actorId == Guid.Empty || _Controllers.Items.Any(c => c.ActorId == actorId))
+                return false;
+
+            // ModelName 必須存在於 actorConfigs 才允許進入。
             var config = actorConfigs.FirstOrDefault(c => c.Name == actor.ModelName);
             if (config == null)
-                return Guid.Empty;
+                return false;
 
             var em = _dots.EntityManager;
             var entity = em.CreateEntity();
             em.AddComponentData(entity, LocalTransform.FromPosition(_info.Entrance));
 
-            var actorId = Guid.NewGuid();
             var player = new Player(actorId, actor, entity, em, config.MoveSpeed, config.MoveAcceptInterval, config.Radius, config.SightRadius, config.Actions, _info.Entrance, this);
+            var controller = new PlayerController(player);
 
             // 自己永遠可見;其餘互見交給 Sight 依「距離 + 遮蔽」判定。
             // 先投影全體 transform(ctor 去穿透可能把出生點推離 Entrance)再評估;
-            // 先填好新玩家的名單再加入 _Players,綁定時的 replay 會送出完整名單。
-            player.VisibleActors.Items.Add(player);
-            var evaluated = new System.Collections.Generic.List<Player>(_Players.Items) { player };
-            foreach (var p in evaluated)
-                p.Update();
+            // 只投影 Player、不泵 controller 狀態機(能力供應時序維持在 World.Update);
+            // 先填好新玩家的名單再加入 _Controllers,綁定時的 replay 會送出完整名單。
+            controller.VisibleActors.Items.Add(controller);
+            var evaluated = new System.Collections.Generic.List<PlayerController>(_Controllers.Items) { controller };
+            foreach (var c in evaluated)
+                c.Player.Update();
             _Sight.Tick(evaluated, em, _terrainQuery);
 
-            _Controllers.Add(new PlayerController(player));
-            _Players.Items.Add(player);
-            return actorId;
+            _Controllers.Items.Add(controller);
+            return true;
         }
 
         Value<bool> IWorld.Leave(Guid actorId)
         {
-            var player = _Players.Items.FirstOrDefault(p => p.ActorId == actorId);
-            PinionCore.Utility.Log.Instance.WriteInfo($"World.Leave actor:{actorId} found:{player != null}");
-            if (player == null)
+            var controller = _Controllers.Items.FirstOrDefault(c => c.ActorId == actorId);
+            PinionCore.Utility.Log.Instance.WriteInfo($"World.Leave actor:{actorId} found:{controller != null}");
+            if (controller == null)
                 return false;
 
             // 從所有玩家(含自己)的視野移除,讓 Unsupply 先送達;離開不走 debounce,立即移除
-            foreach (var other in _Players.Items)
-                other.VisibleActors.Items.Remove(player);
-            player.VisibleActors.Items.Clear();
-            _Sight.Forget(player);
+            foreach (var other in _Controllers.Items)
+                other.VisibleActors.Items.Remove(controller);
+            controller.VisibleActors.Items.Clear();
+            _Sight.Forget(actorId);
 
             // 結束狀態機:當前狀態 Leave 收回能力供應,Unsupply 先於根解綁送達
-            var controller = _Controllers.FirstOrDefault(c => c.Player == player);
-            if (controller != null)
-            {
-                controller.Shutdown();
-                _Controllers.Remove(controller);
-            }
+            controller.Shutdown();
 
-            _Players.Items.Remove(player);
-            _dots.EntityManager.DestroyEntity(player.Entity);
+            _Controllers.Items.Remove(controller);
+            _dots.EntityManager.DestroyEntity(controller.Player.Entity);
             return true;
         }
 
@@ -274,13 +270,13 @@ namespace PinionCore.Project2.Worlds
             }
 
             // 先推進各 controller 的狀態機(能力供應開關),再把 MoveInfo 取樣結果投影到 entity。
-            foreach (var controller in _Controllers)
+            foreach (var controller in _Controllers.Items)
                 controller.Update();
 
             // 視野判定節流:transform 投影完才評估,結果增刪 VisibleActors → Supply/Unsupply
             if (_SightWatch.Elapsed.TotalSeconds >= Sight.UpdateIntervalSeconds)
             {
-                _Sight.Tick(new System.Collections.Generic.List<Player>(_Players.Items), _dots.EntityManager, _terrainQuery);
+                _Sight.Tick(new System.Collections.Generic.List<PlayerController>(_Controllers.Items), _dots.EntityManager, _terrainQuery);
                 _SightWatch.Restart();
             }
         }
@@ -290,10 +286,11 @@ namespace PinionCore.Project2.Worlds
         /// </summary>
         internal void TickSight()
         {
-            var players = new System.Collections.Generic.List<Player>(_Players.Items);
-            foreach (var player in players)
-                player.Update();
-            _Sight.Tick(players, _dots.EntityManager, _terrainQuery);
+            // 只投影 Player、不泵 controller 狀態機(能力供應時序維持在 World.Update)
+            var controllers = new System.Collections.Generic.List<PlayerController>(_Controllers.Items);
+            foreach (var controller in controllers)
+                controller.Player.Update();
+            _Sight.Tick(controllers, _dots.EntityManager, _terrainQuery);
         }
     }
 }

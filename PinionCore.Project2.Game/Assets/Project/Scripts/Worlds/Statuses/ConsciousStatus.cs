@@ -9,31 +9,31 @@ namespace PinionCore.Project2.Worlds.Statuses
     /// </summary>
     internal class ConsciousStatus : IStatus
     {
-        readonly Player _Player;
+        readonly PlayerController _Controller;
         readonly StatusMachine _Machine;
 
-        public ConsciousStatus(Player player)
+        public ConsciousStatus(PlayerController controller)
         {
-            _Player = player;
+            _Controller = controller;
             _Machine = new StatusMachine();
         }
 
         void IStatus.Enter()
         {
-            _Player.Moveables.Items.Add(_Player);
+            _Controller.Moveables.Items.Add(_Controller);
             _ToAdventure();
         }
 
         void _ToAdventure()
         {
-            var status = new AdventureStatus(_Player);
+            var status = new AdventureStatus(_Controller);
             status.BattleEvent += _ToBattle;
             _Machine.Push(status);
         }
 
         void _ToBattle()
         {
-            var status = new BattleStatus(_Player);
+            var status = new BattleStatus(_Controller);
             status.AdventureEvent += _ToAdventure;
             _Machine.Push(status);
         }
@@ -41,7 +41,7 @@ namespace PinionCore.Project2.Worlds.Statuses
         void IStatus.Leave()
         {
             _Machine.Termination();
-            _Player.Moveables.Items.Remove(_Player);
+            _Controller.Moveables.Items.Remove(_Controller);
         }
 
         void IStatus.Update()

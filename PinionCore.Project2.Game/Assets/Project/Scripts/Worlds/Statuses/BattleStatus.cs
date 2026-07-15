@@ -11,24 +11,24 @@ namespace PinionCore.Project2.Worlds.Statuses
     /// </summary>
     internal class BattleStatus : IStatus, IBattle
     {
-        readonly Player _Player;
+        readonly PlayerController _Controller;
 
         public event System.Action AdventureEvent;
 
-        public BattleStatus(Player player)
+        public BattleStatus(PlayerController controller)
         {
-            _Player = player;
+            _Controller = controller;
         }
 
         void IStatus.Enter()
         {
-            _Player.SetStatus(StatusType.Battle);
-            _Player.Battles.Items.Add(this);
+            _Controller.Player.SetStatus(StatusType.Battle);
+            _Controller.Battles.Items.Add(this);
         }
 
         void IStatus.Leave()
         {
-            _Player.Battles.Items.Remove(this);
+            _Controller.Battles.Items.Remove(this);
         }
 
         void IStatus.Update()
@@ -44,7 +44,7 @@ namespace PinionCore.Project2.Worlds.Statuses
         Value<bool> IBattle.Attack()
         {
             // 玩家觸發路徑(force: false):動作進行中不可重入,拒收回 false
-            return _Player.StartAction(ActionType.Attack, force: false);
+            return _Controller.Player.StartAction(ActionType.Attack, force: false);
         }
     }
 }

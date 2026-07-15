@@ -46,36 +46,37 @@ namespace PinionCore.Project2.Tests
             _world = null;
         }
 
-        PinionCore.Project2.Worlds.Player _Enter(string name)
+        PinionCore.Project2.Worlds.PlayerController _Enter(string name)
         {
             IWorld world = _world;
-            var actorId = System.Guid.Empty;
-            world.Enter(new ActorInfo { ModelName = "TestActor", DisplayName = name }).OnValue += (id, error) => actorId = id;
-            Assert.AreNotEqual(System.Guid.Empty, actorId, $"{name} Enter 應成功");
-            return _world.PlayerItems.First(p => p.ActorId == actorId);
+            var actorId = System.Guid.NewGuid();
+            var entered = false;
+            world.Enter(actorId, new ActorInfo { ModelName = "TestActor", DisplayName = name }).OnValue += (ok, error) => entered = ok;
+            Assert.IsTrue(entered, $"{name} Enter 應成功");
+            return _world.ControllerItems.First(c => c.ActorId == actorId);
         }
 
-        static bool _Sees(PinionCore.Project2.Worlds.Player observer, PinionCore.Project2.Worlds.Player target)
+        static bool _Sees(PinionCore.Project2.Worlds.PlayerController observer, PinionCore.Project2.Worlds.PlayerController target)
         {
             return observer.VisibleActors.Items.Contains(target);
         }
 
         // 以當下世界時間取樣權威位置(MoveInfo 是等速直線,不需要跑 world.Update)
-        Vector2 _Position(PinionCore.Project2.Worlds.Player player)
+        Vector2 _Position(PinionCore.Project2.Worlds.PlayerController controller)
         {
-            var info = player.CurrentMoveInfo;
+            var info = controller.Player.CurrentMoveInfo;
             var elapsed = (_world.ElapsedTicks - info.StartTicks) / (double)System.TimeSpan.TicksPerSecond;
             MoveSampler.Sample(info, System.Math.Max(0.0, elapsed), out var position, out _);
             return position;
         }
 
-        float _Distance(PinionCore.Project2.Worlds.Player a, PinionCore.Project2.Worlds.Player b)
+        float _Distance(PinionCore.Project2.Worlds.PlayerController a, PinionCore.Project2.Worlds.PlayerController b)
         {
             return Vector2.Distance(_Position(a), _Position(b));
         }
 
         // 朝 direction 走到 arrived 成立即 Stop;過程零視野 tick(視野變化全由測試顯式驅動)
-        IEnumerator _WalkUntil(PinionCore.Project2.Worlds.Player mover, Vector2 direction, System.Func<bool> arrived, float timeoutSeconds)
+        IEnumerator _WalkUntil(PinionCore.Project2.Worlds.PlayerController mover, Vector2 direction, System.Func<bool> arrived, float timeoutSeconds)
         {
             ICharactor remote = mover;
             var accepted = false;

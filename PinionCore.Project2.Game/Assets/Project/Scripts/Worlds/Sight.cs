@@ -11,7 +11,7 @@ namespace PinionCore.Project2.Worlds
 {
     /// <summary>
     /// 每個 World 一份的視野評估器:Burst job 算原始可見性(距離 + 地形遮蔽),
-    /// 主執行緒套 hysteresis(進/出半徑 + 移除去彈跳)後增刪各 Player 的 VisibleActors。
+    /// 主執行緒套 hysteresis(進/出半徑 + 移除去彈跳)後增刪各 PlayerController 的 VisibleActors。
     /// 自己對自己的成員資格不在此管理,由 World 的 Enter/Leave 直接處理。
     /// </summary>
     class Sight
@@ -33,7 +33,7 @@ namespace PinionCore.Project2.Worlds
         /// 對 players 全體做一次視野判定並增刪 VisibleActors。
         /// 呼叫前各 entity 的 LocalTransform 必須已由 Player.Update 投影到最新位置。
         /// </summary>
-        public void Tick(IReadOnlyList<Player> players, EntityManager entityManager, TerrainQuery terrain)
+        public void Tick(IReadOnlyList<PlayerController> players, EntityManager entityManager, TerrainQuery terrain)
         {
             var n = players.Count;
             if (n <= 1)
@@ -47,13 +47,13 @@ namespace PinionCore.Project2.Worlds
 
             for (var i = 0; i < n; i++)
             {
-                var player = players[i];
+                var player = players[i].Player;
                 var transform = entityManager.GetComponentData<LocalTransform>(player.Entity);
                 positions[i] = new float2(transform.Position.x, transform.Position.z);
                 rayHeights[i] = player.Radius;   // 球心高度慣例:與碰撞查詢同高
                 sightRadii[i] = player.SightRadius;
                 for (var j = 0; j < n; j++)
-                    prevVisible[i * n + j] = i != j && player.VisibleActors.Items.Contains(players[j]);
+                    prevVisible[i * n + j] = i != j && players[i].VisibleActors.Items.Contains(players[j]);
             }
 
             var job = new SightJob
@@ -115,9 +115,8 @@ namespace PinionCore.Project2.Worlds
         }
 
         /// <summary>玩家離開世界時清掉與其相關的 streak(observer 與 target 兩向)。</summary>
-        public void Forget(Player player)
+        public void Forget(Guid id)
         {
-            Guid id = player.ActorId;
             var stale = new List<(Guid, Guid)>();
             foreach (var key in _InvisibleStreaks.Keys)
             {

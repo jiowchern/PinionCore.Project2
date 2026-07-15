@@ -9,6 +9,6 @@ namespace PinionCore.Project2.Shared
 
         PinionCore.Remote.Property<string> WorldName { get; }
 
-        PinionCore.Remote.Notifier<IPlayer> Player { get; }
+        PinionCore.Remote.Notifier<IPlayer> Player { get; } 
     }
 }

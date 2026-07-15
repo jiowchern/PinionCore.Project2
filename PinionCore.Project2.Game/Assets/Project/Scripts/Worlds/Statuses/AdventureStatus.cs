@@ -10,24 +10,24 @@ namespace PinionCore.Project2.Worlds.Statuses
     /// </summary>
     internal class AdventureStatus : IStatus, IAdventure
     {
-        readonly Player _Player;
+        readonly PlayerController _Controller;
 
         public event System.Action BattleEvent;
 
-        public AdventureStatus(Player player)
+        public AdventureStatus(PlayerController controller)
         {
-            _Player = player;
+            _Controller = controller;
         }
 
         void IStatus.Enter()
         {
-            _Player.SetStatus(StatusType.Adventure);
-            _Player.Adventures.Items.Add(this);
+            _Controller.Player.SetStatus(StatusType.Adventure);
+            _Controller.Adventures.Items.Add(this);
         }
 
         void IStatus.Leave()
         {
-            _Player.Adventures.Items.Remove(this);
+            _Controller.Adventures.Items.Remove(this);
         }
 
         void IStatus.Update()

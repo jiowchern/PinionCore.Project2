@@ -67,19 +67,19 @@ namespace PinionCore.Project2.Tests
         PinionCore.Project2.Worlds.Player _Enter(out List<MoveInfo> moveEvents, out List<ActionInfo> actionEvents)
         {
             IWorld world = _world;
-            var actorId = System.Guid.Empty;
-            world.Enter(new ActorInfo { ModelName = "TestActor", DisplayName = "Tester" }).OnValue += (id, error) => actorId = id;
-            Assert.AreNotEqual(System.Guid.Empty, actorId, "Enter 應成功");
+            var actorId = System.Guid.NewGuid();
+            var entered = false;
+            world.Enter(actorId, new ActorInfo { ModelName = "TestActor", DisplayName = "Tester" }).OnValue += (ok, error) => entered = ok;
+            Assert.IsTrue(entered, "Enter 應成功");
 
             var player = _world.PlayerItems.First();
-            IActor actor = player;
 
             var moves = new List<MoveInfo>();
-            actor.MoveEvent += info => moves.Add(info);
+            player.MoveEvent += info => moves.Add(info);
             moves.Clear();   // 丟掉訂閱 replay
 
             var actions = new List<ActionInfo>();
-            actor.ActionEvent += info => actions.Add(info);
+            player.ActionEvent += info => actions.Add(info);
             Assert.AreEqual(1, actions.Count, "ActionEvent 訂閱應 replay 一次");
             Assert.AreEqual(ActionType.None, actions[0].Action, "初始動作狀態應為 None");
             actions.Clear();
@@ -153,18 +153,17 @@ namespace PinionCore.Project2.Tests
         public IEnumerator MoveRejectedDuringActionTest()
         {
             var player = _Enter(out _, out var actionEvents);
-            ICharactor remote = player;
 
             player.StartAction(ActionType.Attack, force: false);
             Assert.AreEqual(1, actionEvents.Count, "前置條件:動作已開始");
 
             // 動作進行中:Move / Stop / 重入出招一律拒收
             var moveAccepted = true;
-            remote.Move(new Vector2(1f, 0f)).OnValue += (r, error) => moveAccepted = r;
+            player.Move(new Vector2(1f, 0f)).OnValue += (r, error) => moveAccepted = r;
             Assert.IsFalse(moveAccepted, "動作進行中 Move 應被拒收");
 
             var stopAccepted = true;
-            remote.Stop().OnValue += (r, error) => stopAccepted = r;
+            player.Stop().OnValue += (r, error) => stopAccepted = r;
             Assert.IsFalse(stopAccepted, "動作進行中 Stop 應被拒收");
 
             var replayAccepted = player.StartAction(ActionType.Attack, force: false);
@@ -177,7 +176,7 @@ namespace PinionCore.Project2.Tests
 
             // 結束後移動恢復可用
             var acceptedAfter = false;
-            remote.Move(new Vector2(1f, 0f)).OnValue += (r, error) => acceptedAfter = r;
+            player.Move(new Vector2(1f, 0f)).OnValue += (r, error) => acceptedAfter = r;
             Assert.IsTrue(acceptedAfter, "動作結束後 Move 應恢復可用");
         }
 
@@ -185,11 +184,10 @@ namespace PinionCore.Project2.Tests
         public IEnumerator LungeIntoWallTest()
         {
             var player = _Enter(out var moveEvents, out var actionEvents);
-            ICharactor remote = player;
 
             // 先朝牆(-Z)走到 z ≤ -1.4 讓朝向面牆,再出招:
             // 前衝 1m 的目標 z ≤ -2.4 超出接觸面(-2.2),必定撞牆
-            remote.Move(new Vector2(0f, -1f));
+            player.Move(new Vector2(0f, -1f));
             yield return _PumpUntil(
                 () => _SamplePosition(player.CurrentMoveInfo, _world.ElapsedTicks).y <= -1.4f,
                 timeoutSeconds: 5f);
@@ -226,7 +224,6 @@ namespace PinionCore.Project2.Tests
         public IEnumerator ReplaySemanticsTest()
         {
             var player = _Enter(out _, out var actionEvents);
-            IActor actor = player;
 
             player.StartAction(ActionType.Attack, force: false);
             var attackStart = actionEvents[0].StartTicks;
@@ -234,11 +231,11 @@ namespace PinionCore.Project2.Tests
             // 動作進行中新訂閱:replay 應為 Attack + 原 StartTicks(晚加入者以此算動畫偏移)
             var midReplay = new List<ActionInfo>();
             System.Action<ActionInfo> midHandler = info => midReplay.Add(info);
-            actor.ActionEvent += midHandler;
+            player.ActionEvent += midHandler;
             Assert.AreEqual(1, midReplay.Count, "訂閱應立即 replay");
             Assert.AreEqual(ActionType.Attack, midReplay[0].Action, "動作進行中 replay 應為 Attack");
             Assert.AreEqual(attackStart, midReplay[0].StartTicks, "replay 應帶原始 StartTicks");
-            actor.ActionEvent -= midHandler;
+            player.ActionEvent -= midHandler;
 
             yield return _PumpUntil(
                 () => actionEvents.Any(a => a.Action == ActionType.None),
@@ -247,10 +244,10 @@ namespace PinionCore.Project2.Tests
             // 結束後新訂閱:replay 應為 None(不得憑空重播過期的攻擊)
             var lateReplay = new List<ActionInfo>();
             System.Action<ActionInfo> lateHandler = info => lateReplay.Add(info);
-            actor.ActionEvent += lateHandler;
+            player.ActionEvent += lateHandler;
             Assert.AreEqual(1, lateReplay.Count);
             Assert.AreEqual(ActionType.None, lateReplay[0].Action, "動作結束後 replay 應為 None");
-            actor.ActionEvent -= lateHandler;
+            player.ActionEvent -= lateHandler;
         }
 
         [UnityTest]

@@ -54,14 +54,14 @@ namespace PinionCore.Project2.Tests
         PinionCore.Project2.Worlds.Player _Enter(out List<MoveInfo> events)
         {
             IWorld world = _world;
-            var actorId = System.Guid.Empty;
-            world.Enter(new ActorInfo { ModelName = "TestActor", DisplayName = "Tester" }).OnValue += (id, error) => actorId = id;
-            Assert.AreNotEqual(System.Guid.Empty, actorId, "Enter 應成功");
+            var actorId = System.Guid.NewGuid();
+            var entered = false;
+            world.Enter(actorId, new ActorInfo { ModelName = "TestActor", DisplayName = "Tester" }).OnValue += (ok, error) => entered = ok;
+            Assert.IsTrue(entered, "Enter 應成功");
 
             var player = _world.PlayerItems.First();
             var received = new List<MoveInfo>();
-            IActor actor = player;
-            actor.MoveEvent += info => received.Add(info);
+            player.MoveEvent += info => received.Add(info);
             received.Clear();   // 丟掉訂閱 replay 的初始狀態
             events = received;
             return player;
@@ -90,10 +90,9 @@ namespace PinionCore.Project2.Tests
         public IEnumerator HeadOnStopTest()
         {
             var player = _Enter(out var events);
-            ICharactor remote = player;
 
             var accepted = false;
-            remote.Move(new Vector2(0f, -1f)).OnValue += (r, error) => accepted = r;
+            player.Move(new Vector2(0f, -1f)).OnValue += (r, error) => accepted = r;
             Assert.IsTrue(accepted, "朝牆的 Move 應被接受(撞牆是伺服器的事,不是拒收)");
 
             // 直到停下為止,每幀檢查不可穿牆不變量
@@ -117,10 +116,9 @@ namespace PinionCore.Project2.Tests
         public IEnumerator SlideAlongWallTest()
         {
             var player = _Enter(out var events);
-            ICharactor remote = player;
 
             // 45 度斜向入射:撞牆後應沿 +X 滑行,速度縮為 MoveSpeed/√2
-            remote.Move(new Vector2(1f, -1f).normalized);
+            player.Move(new Vector2(1f, -1f).normalized);
 
             yield return _PumpUntil(
                 () => events.Count >= 2,   // Move + 滑行 redirect
@@ -151,10 +149,9 @@ namespace PinionCore.Project2.Tests
         public IEnumerator MoveIntoTouchingWallTest()
         {
             var player = _Enter(out var events);
-            ICharactor remote = player;
 
             // 先正面撞停
-            remote.Move(new Vector2(0f, -1f));
+            player.Move(new Vector2(0f, -1f));
             yield return _PumpUntil(() => player.CurrentMoveInfo.Speed == 0f, timeoutSeconds: 5f);
             Assert.AreEqual(0f, player.CurrentMoveInfo.Speed, "前置條件:已撞牆停止");
 
@@ -164,7 +161,7 @@ namespace PinionCore.Project2.Tests
             var positionBefore = player.CurrentMoveInfo.Position;
 
             var accepted = false;
-            remote.Move(new Vector2(0f, -1f)).OnValue += (r, error) => accepted = r;
+            player.Move(new Vector2(0f, -1f)).OnValue += (r, error) => accepted = r;
             Assert.IsTrue(accepted, "貼牆朝牆的 Move 仍應被接受");
             Assert.AreEqual(1, events.Count, "貼牆即滑應只發一個(已處理過碰撞的)MoveInfo");
             Assert.AreEqual(0f, events[0].Speed, "正對牆的貼牆 Move 應立即轉為停狀態");

@@ -87,21 +87,22 @@ namespace PinionCore.Project2.Tests
             world.Players.Base.Supply += p => supplied = p;
             world.Players.Base.Unsupply += p => unsupplied = p;
 
-            // Enter:ModelName 不在 actorConfigs 內 → 拒絕,回 Guid.Empty,無任何 Supply。
-            var invalidEnterId = System.Guid.NewGuid();
-            world.Enter(new ActorInfo { ModelName = "Unknown", DisplayName = "Nobody" })
-                .RemoteValue().Subscribe(id => invalidEnterId = id);
-            Assert.AreEqual(System.Guid.Empty, invalidEnterId, "不合法的 ModelName 應回傳 Guid.Empty");
+            // Enter:ModelName 不在 actorConfigs 內 → 拒絕,回 false,無任何 Supply。
+            var invalidEnterResult = true;
+            world.Enter(System.Guid.NewGuid(), new ActorInfo { ModelName = "Unknown", DisplayName = "Nobody" })
+                .RemoteValue().Subscribe(r => invalidEnterResult = r);
+            Assert.IsFalse(invalidEnterResult, "不合法的 ModelName 應回傳 false");
             Assert.IsNull(supplied, "不合法的 Enter 不應加入玩家");
 
-            // Enter:合法 ModelName → 取得 actorId,Players 發出 Supply,DOTS 世界多一顆玩家實體。
-            var actorId = System.Guid.Empty;
-            world.Enter(new ActorInfo { ModelName = "TestActor", DisplayName = "Tester" })
-                .RemoteValue().Subscribe(id => actorId = id);
-            Assert.AreNotEqual(System.Guid.Empty, actorId, "合法的 Enter 應回傳 actorId");
+            // Enter:合法 ModelName + 呼叫端自產 actorId → 回 true,Players 發出 Supply,DOTS 世界多一顆玩家實體。
+            var actorId = System.Guid.NewGuid();
+            var enterResult = false;
+            world.Enter(actorId, new ActorInfo { ModelName = "TestActor", DisplayName = "Tester" })
+                .RemoteValue().Subscribe(r => enterResult = r);
+            Assert.IsTrue(enterResult, "合法的 Enter 應回傳 true");
             Assert.IsNotNull(supplied, "Enter 後 Players 應發出 Supply");
             System.Guid suppliedActorId = supplied.ActorId;
-            Assert.AreEqual(actorId, suppliedActorId, "Supply 的玩家 ActorId 應與 Enter 回傳一致");
+            Assert.AreEqual(actorId, suppliedActorId, "Supply 的玩家 ActorId 應與呼叫端傳入的一致");
             string suppliedModelName = supplied.ModelName;
             Assert.AreEqual("TestActor", suppliedModelName);
             string suppliedDisplayName = supplied.DisplayName;

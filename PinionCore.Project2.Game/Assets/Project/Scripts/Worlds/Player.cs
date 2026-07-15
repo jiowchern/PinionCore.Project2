@@ -8,10 +8,11 @@ using UnityEngine;
 namespace PinionCore.Project2.Worlds
 {
     /// <summary>
-    /// 封裝一顆 DOTS entity 的玩家物件:對外(協議)提供 IPlayer/IActor 的檢視與 IMoveable 的控制,
+    /// 封裝一顆 DOTS entity 的玩家純模擬核心:MoveInfo 權威狀態、碰撞、動作排程與 transform 投影。
+    /// 協議曝光面(ICharactor)由 PlayerController 承載並委派到此處的公開成員;
     /// entity 的建立與銷毀由 World 負責,Player 只持有參考。
     /// </summary>
-    public class Player : ICharactor
+    public class Player
     {
         // World 在 Leave 時據此銷毀 entity。
         public readonly Unity.Entities.Entity Entity;
@@ -49,37 +50,6 @@ namespace PinionCore.Project2.Worlds
         public Property<Guid> ActorId { get; private set; }
         public Property<string> DisplayName { get; private set; }
         public Property<string> ModelName { get; private set; }
-
-        // 視野內角色(含自己);由 World 的 Sight 依「距離 + 地形遮蔽」判定增刪,
-        // Enter/Leave 時由 World 直接增刪(self 成員資格也由 World 管)。
-        readonly Depot<Player> _VisibleActors;
-        readonly Notifier<IActor> _ActorsNotifier;
-        Notifier<IActor> IPlayer.Actors => _ActorsNotifier;
-
-        // 供 World 增刪可見角色
-        internal Depot<Player> VisibleActors => _VisibleActors;
-
-        // 可移動能力:由 PlayerController 的角色狀態機(Conscious/Unconscious)控制供應,
-        // supply = client 可移動,unsupply = 能力收回(秒級,如無意識)。
-        // 動作進行中的拒收(毫秒級)仍走 Move/Stop 的動作閘,兩者是不同時間尺度的閘。
-        readonly Depot<Player> _Moveables;
-        readonly Notifier<IMoveable> _MoveablesNotifier;
-        Notifier<IMoveable> IPlayer.Moveable => _MoveablesNotifier;
-
-        // 供 PlayerController 的狀態增刪供應(同 VisibleActors 模式)
-        internal Depot<Player> Moveables => _Moveables;
-
-        // 冒險/戰鬥能力:由 Conscious 內的 Adventure/Battle 子狀態互斥供應,
-        // 狀態類(AdventureStatus/BattleStatus)自身即協議實作,Enter 供應自己、Leave 收回。
-        readonly Depot<IAdventure> _Adventures;
-        readonly Notifier<IAdventure> _AdventuresNotifier;
-        Notifier<IAdventure> IPlayer.Adventure => _AdventuresNotifier;
-        internal Depot<IAdventure> Adventures => _Adventures;
-
-        readonly Depot<IBattle> _Battles;
-        readonly Notifier<IBattle> _BattlesNotifier;
-        Notifier<IBattle> IPlayer.Battle => _BattlesNotifier;
-        internal Depot<IBattle> Battles => _Battles;
 
         // 權威狀態的唯一真相:等速直線 MoveInfo,任意時刻以 MoveSampler 取樣;
         // entity 的 LocalTransform 只是取樣結果的投影(供未來碰撞查詢使用)。
@@ -147,14 +117,6 @@ namespace PinionCore.Project2.Worlds
             _BaseSpeed = moveSpeed;
             _LastMoveAcceptedTicks = long.MinValue / 4;
             _LastRedirectTicks = long.MinValue / 4;
-            _VisibleActors = new Depot<Player>();
-            _ActorsNotifier = _VisibleActors.ToNotifier<IActor>();
-            _Moveables = new Depot<Player>();
-            _MoveablesNotifier = _Moveables.ToNotifier<IMoveable>();
-            _Adventures = new Depot<IAdventure>();
-            _AdventuresNotifier = _Adventures.ToNotifier<IAdventure>();
-            _Battles = new Depot<IBattle>();
-            _BattlesNotifier = _Battles.ToNotifier<IBattle>();
             ActorId = new Property<Guid>(actorId);
             DisplayName = new Property<string>(info.DisplayName);
             ModelName = new Property<string>(info.ModelName);
@@ -171,7 +133,7 @@ namespace PinionCore.Project2.Worlds
         }
 
         event Action<MoveInfo> _MoveEvent;
-        event Action<MoveInfo> IActor.MoveEvent
+        public event Action<MoveInfo> MoveEvent
         {
             add
             {
@@ -189,7 +151,7 @@ namespace PinionCore.Project2.Worlds
         // 冒險/戰鬥狀態:與 MoveEvent 同樣「訂閱即 replay」,晚訂閱的殼立即取得當前狀態
         StatusType _Status;
         event Action<StatusType> _StatusEvent;
-        event Action<StatusType> IActor.StatusEvent
+        public event Action<StatusType> StatusEvent
         {
             add
             {
@@ -206,7 +168,7 @@ namespace PinionCore.Project2.Worlds
         // 結束時也以 None 發出 —— 這是 client 解除旋轉凍結的唯一權威訊號。
         ActionInfo _ActionInfo;
         event Action<ActionInfo> _ActionEvent;
-        event Action<ActionInfo> IActor.ActionEvent
+        public event Action<ActionInfo> ActionEvent
         {
             add
             {
@@ -333,7 +295,7 @@ namespace PinionCore.Project2.Worlds
             MoveSampler.Sample(_MoveInfo, elapsed, out position, out facing);
         }
 
-        Value<bool> IMoveable.Move(Vector2 direction)
+        public Value<bool> Move(Vector2 direction)
         {
             if (_MoveSpeed <= 0f || direction.sqrMagnitude <= 1e-6f)
                 return false;
@@ -364,7 +326,7 @@ namespace PinionCore.Project2.Worlds
             return true;
         }
 
-        Value<bool> IMoveable.Stop()
+        public Value<bool> Stop()
         {
             _ProcessDueRedirects(_World.ElapsedTicks);
             if (_CurrentAction != null)
