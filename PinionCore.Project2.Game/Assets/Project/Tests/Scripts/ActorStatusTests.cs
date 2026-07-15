@@ -14,7 +14,7 @@ namespace PinionCore.Project2.Tests
     /// 比照 ActorMoveTests 的四場景 Standalone 流程,進場後驗證
     /// IActor.StatusEvent 訂閱即 replay 初始冒險狀態;
     /// 經 IAdventure.ToBattle / IBattle.ToAdventure 切換伺服器狀態機時,
-    /// 狀態經 ICharactor.SetStatus 廣播到 IActor ghost,殼(Client.Actor.Status)跟著切換。
+    /// 狀態由 world 端 Adventure/Battle 子狀態切換時廣播到 IActor ghost,殼(Client.Actor.Status)跟著切換。
     /// </summary>
     public class ActorStatusTests
     {
@@ -98,9 +98,10 @@ namespace PinionCore.Project2.Tests
             Assert.AreEqual(StatusType.Adventure, replay.Result, "進場初始狀態應為冒險");
             Assert.AreEqual(StatusType.Adventure, _Shell.Status, "殼的初始狀態應為冒險");
 
-            // IAdventure 只供應給本地玩家;進場即冒險狀態,replay 保證晚訂閱可取得
+            // IAdventure 只供應給本地玩家(IPlayer.Adventure,world 端子狀態開關);
+            // 進場即冒險狀態,replay 保證晚訂閱可取得
             var adventureSupply = TestWait.First(
-                _Games().SelectMany(g => g.Adventure.SupplyEvent()),
+                _PlayerGhost.Adventure.SupplyEvent(),
                 System.TimeSpan.FromSeconds(15));
             yield return adventureSupply;
             TestWait.AssertDone(adventureSupply, "進場後應供應 IAdventure");
@@ -109,7 +110,7 @@ namespace PinionCore.Project2.Tests
             // IBattle 供應抵達 = 伺服器狀態機已切換
             var adventure = adventureSupply.Result;
             var battleSupply = TestWait.FirstWithRetry(
-                () => _Games().SelectMany(g => g.Battle.SupplyEvent()),
+                () => _PlayerGhost.Battle.SupplyEvent(),
                 onAttempt: () => adventure.ToBattle().RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
@@ -129,7 +130,7 @@ namespace PinionCore.Project2.Tests
             // 切回冒險(同樣的重送保護;ToAdventure 重送若打在已解除的 soul 上會被靜默丟棄,無害)
             var battle = battleSupply.Result;
             var adventureBack = TestWait.FirstWithRetry(
-                () => _Games().SelectMany(g => g.Adventure.SupplyEvent()),
+                () => _PlayerGhost.Adventure.SupplyEvent(),
                 onAttempt: () => battle.ToAdventure().RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
@@ -150,7 +151,7 @@ namespace PinionCore.Project2.Tests
         IActor _ActorGhost;
         PinionCore.Project2.Client.Actor _Shell;
 
-        // 統一入口:entry.Games 合約鏈(IAdventure/IBattle 由 IGame 供應)
+        // 統一入口:entry.Games 合約鏈(能力介面 IAdventure/IBattle 由 IPlayer 供應)
         System.IObservable<IGame> _Games()
         {
             return _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()

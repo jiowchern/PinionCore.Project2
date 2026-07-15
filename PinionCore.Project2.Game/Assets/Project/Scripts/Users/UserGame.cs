@@ -28,22 +28,12 @@ namespace PinionCore.Project2.Users
         readonly Remote.Notifier<IPlayer> _PlayersNotifier;
         Remote.Notifier<IPlayer> IGame.Player => _PlayersNotifier;
 
-
-        readonly PinionCore.Remote.Depot<PinionCore.Project2.Shared.IMoveable> _Moveables;
-        readonly Remote.Notifier<IMoveable> _MoveablesNotifier;
-        Remote.Notifier<IMoveable> IGame.Moveable => _MoveablesNotifier;
-
+        // IMoveable/IAdventure/IBattle 供應已下沉 world:由 IPlayer 的對應 Notifier 承載,
+        // world 端角色狀態機(PlayerController)控制開關,user 零經手
 
         readonly Depot<IView> _Views;
         readonly Remote.Notifier<IView> _ViewsNotifier;
         Remote.Notifier<IView> IGame.View => _ViewsNotifier;
-
-
-        readonly PinionCore.Remote.Depot<PinionCore.Project2.Shared.IAdventure> _Adventures;
-        public Remote.Notifier<IAdventure> Adventure { get; private set; }
-
-        readonly PinionCore.Remote.Depot<PinionCore.Project2.Shared.IBattle> _Battles;
-        public Remote.Notifier<IBattle> Battle { get; private set; }
 
         public event System.Action DoneEvent;
 
@@ -53,18 +43,10 @@ namespace PinionCore.Project2.Users
             _Games = games;
             _StatusMachine = new StatusMachine();
             _Charactors = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor>();
-            _Moveables = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.IMoveable>();    
             _PlayersNotifier = _Charactors.ToNotifier<IPlayer>();
-            _MoveablesNotifier = _Moveables.ToNotifier<IMoveable>();
 
             _WorldName = new Property<string>(string.Empty);
             _DisposeHandlers = new System.Collections.Generic.List<System.Action>();
-
-            _Adventures = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.IAdventure>();
-            Adventure = _Adventures.ToNotifier<IAdventure>();
-
-            _Battles = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.IBattle>();
-            Battle = _Battles.ToNotifier<IBattle>();
 
             this._WorldNotifer = worldNotifer;
             this._ActorInfo = actor;
@@ -151,25 +133,9 @@ namespace PinionCore.Project2.Users
 
         private void _Start(ICharactor charactor)
         {
+            // 角色流程(意識/冒險/戰鬥)已全數下沉 world 端狀態機;
+            // user 只負責把 ICharactor ghost 供應給 client(IPlayer)
             _Charactors.Items.Add(charactor);
-            
-            _ToConscious(charactor);
-        }
-
-
-
-        private void _ToConscious(ICharactor charactor)
-        {
-            var status = new UserGameConscious(_Moveables ,_Adventures,_Battles ,charactor);
-            status.UnconsciousEvent += () => _ToUnconscious(charactor);
-            _StatusMachine.Push(status);
-        }
-
-        private void _ToUnconscious(ICharactor charactor)
-        {
-            var status = new UserGameUnconscious(charactor);
-            status.ConsciousEvent += () => _ToConscious(charactor)  ;
-            _StatusMachine.Push(status);
         }
 
         void IStatus.Leave()

@@ -74,20 +74,24 @@ namespace PinionCore.Project2.Client
             _AttackDisposable.Add(disp);
         }
 
-        // 統一入口:只 query IUserEntry,IMoveable 沿合約鏈(entry.Games → game.Moveables)取得
+        // 統一入口:只 query IUserEntry,IMoveable 沿合約鏈(entry.Games → game.Player → player.Moveable)取得;
+        // 供應由 world 端角色狀態機開關(無意識時 unsupply,此流不發射,Move 由上層逾時處理)
         IObservable<Shared.IMoveable> _Moveables()
         {
             return from entry in GatewayClient.Queryer.QueryNotifier<Shared.IUserEntry>().SupplyEvent()
                    from game in entry.Games.SupplyEvent()
-                   from moveable in game.Moveable.SupplyEvent()
+                   from player in game.Player.SupplyEvent()
+                   from moveable in player.Moveable.SupplyEvent()
                    select moveable;
         }
 
+        // IBattle 只在戰鬥狀態被供應(world 端子狀態互斥開關),沿 game.Player → player.Battle 取得
         IObservable<Shared.IBattle> _Battles()
         {
             return from entry in GatewayClient.Queryer.QueryNotifier<Shared.IUserEntry>().SupplyEvent()
                    from game in entry.Games.SupplyEvent()
-                   from battle in game.Battle.SupplyEvent()
+                   from player in game.Player.SupplyEvent()
+                   from battle in player.Battle.SupplyEvent()
                    select battle;
         }
 

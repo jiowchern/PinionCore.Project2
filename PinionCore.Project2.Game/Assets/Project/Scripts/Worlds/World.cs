@@ -59,6 +59,12 @@ namespace PinionCore.Project2.Worlds
         // 供 editor 除錯繪製(WorldDebugDrawer)走訪權威玩家狀態
         internal System.Collections.Generic.IEnumerable<Player> PlayerItems => _Players.Items;
 
+        // 每個 Player 一個 controller:狀態機編排(能力供應開關)與 Player 生命週期同進退
+        readonly System.Collections.Generic.List<PlayerController> _Controllers;
+
+        // 供測試直接觸發狀態轉換(ToConscious/ToUnconscious)
+        internal System.Collections.Generic.IEnumerable<PlayerController> ControllerItems => _Controllers;
+
         // TimeSpan ticks(100ns),與 TimeTicksEvent / 前端 WorldTimeHandler.CurrentTime 同單位;
         // 不可用 Stopwatch.ElapsedTicks(原始計數,頻率依平台)。
         public long ElapsedTicks { get => _elapsedWatch.Elapsed.Ticks; }
@@ -81,6 +87,7 @@ namespace PinionCore.Project2.Worlds
             _SightWatch = Stopwatch.StartNew();
             _Players = new Depot<Player>();
             _PlayersNotifier = _Players.ToNotifier<ICharactor>();
+            _Controllers = new System.Collections.Generic.List<PlayerController>();
 
             Id = id;
             _info = worldInfo;
@@ -112,6 +119,9 @@ namespace PinionCore.Project2.Worlds
         public void Dispose()
         {
             // 先清掉殘留玩家讓 Unsupply 通知送出;entity 隨 _dots.Dispose() 一併銷毀。
+            foreach (var controller in _Controllers)
+                controller.Shutdown();
+            _Controllers.Clear();
             foreach (var player in _Players.Items)
                 player.VisibleActors.Items.Clear();
             _Players.Items.Clear();
@@ -223,6 +233,7 @@ namespace PinionCore.Project2.Worlds
                 p.Update();
             _Sight.Tick(evaluated, em, _terrainQuery);
 
+            _Controllers.Add(new PlayerController(player));
             _Players.Items.Add(player);
             return actorId;
         }
@@ -240,6 +251,14 @@ namespace PinionCore.Project2.Worlds
             player.VisibleActors.Items.Clear();
             _Sight.Forget(player);
 
+            // 結束狀態機:當前狀態 Leave 收回能力供應,Unsupply 先於根解綁送達
+            var controller = _Controllers.FirstOrDefault(c => c.Player == player);
+            if (controller != null)
+            {
+                controller.Shutdown();
+                _Controllers.Remove(controller);
+            }
+
             _Players.Items.Remove(player);
             _dots.EntityManager.DestroyEntity(player.Entity);
             return true;
@@ -254,9 +273,9 @@ namespace PinionCore.Project2.Worlds
                 _UpdateWatch.Restart();
             }
 
-            // 把所有玩家的 MoveInfo 取樣結果投影到 entity。
-            foreach (var player in _Players.Items)
-                player.Update();
+            // 先推進各 controller 的狀態機(能力供應開關),再把 MoveInfo 取樣結果投影到 entity。
+            foreach (var controller in _Controllers)
+                controller.Update();
 
             // 視野判定節流:transform 投影完才評估,結果增刪 VisibleActors → Supply/Unsupply
             if (_SightWatch.Elapsed.TotalSeconds >= Sight.UpdateIntervalSeconds)

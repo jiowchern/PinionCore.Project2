@@ -59,12 +59,34 @@ namespace PinionCore.Project2.Worlds
         // 供 World 增刪可見角色
         internal Depot<Player> VisibleActors => _VisibleActors;
 
+        // 可移動能力:由 PlayerController 的角色狀態機(Conscious/Unconscious)控制供應,
+        // supply = client 可移動,unsupply = 能力收回(秒級,如無意識)。
+        // 動作進行中的拒收(毫秒級)仍走 Move/Stop 的動作閘,兩者是不同時間尺度的閘。
+        readonly Depot<Player> _Moveables;
+        readonly Notifier<IMoveable> _MoveablesNotifier;
+        Notifier<IMoveable> IPlayer.Moveable => _MoveablesNotifier;
+
+        // 供 PlayerController 的狀態增刪供應(同 VisibleActors 模式)
+        internal Depot<Player> Moveables => _Moveables;
+
+        // 冒險/戰鬥能力:由 Conscious 內的 Adventure/Battle 子狀態互斥供應,
+        // 狀態類(AdventureStatus/BattleStatus)自身即協議實作,Enter 供應自己、Leave 收回。
+        readonly Depot<IAdventure> _Adventures;
+        readonly Notifier<IAdventure> _AdventuresNotifier;
+        Notifier<IAdventure> IPlayer.Adventure => _AdventuresNotifier;
+        internal Depot<IAdventure> Adventures => _Adventures;
+
+        readonly Depot<IBattle> _Battles;
+        readonly Notifier<IBattle> _BattlesNotifier;
+        Notifier<IBattle> IPlayer.Battle => _BattlesNotifier;
+        internal Depot<IBattle> Battles => _Battles;
+
         // 權威狀態的唯一真相:等速直線 MoveInfo,任意時刻以 MoveSampler 取樣;
         // entity 的 LocalTransform 只是取樣結果的投影(供未來碰撞查詢使用)。
         MoveInfo _MoveInfo;
 
         // 自帶位移動作:烘焙成分段等速直線,依絕對 tick 排程逐段發出 MoveInfo。
-        // _BoundaryTicks[i] = 第 i 段的結束時刻,PlayAction 時一次算定;撞牆不平移排程,
+        // _BoundaryTicks[i] = 第 i 段的結束時刻,StartAction 時一次算定;撞牆不平移排程,
         // 下一段從邊界時刻取樣到的實際位置重新起步(正面撞牆的突進停牆邊,後續段照常)。
         readonly ActionConfig[] _Actions;
         ActionConfig _CurrentAction;     // null = 無動作進行中
@@ -127,6 +149,12 @@ namespace PinionCore.Project2.Worlds
             _LastRedirectTicks = long.MinValue / 4;
             _VisibleActors = new Depot<Player>();
             _ActorsNotifier = _VisibleActors.ToNotifier<IActor>();
+            _Moveables = new Depot<Player>();
+            _MoveablesNotifier = _Moveables.ToNotifier<IMoveable>();
+            _Adventures = new Depot<IAdventure>();
+            _AdventuresNotifier = _Adventures.ToNotifier<IAdventure>();
+            _Battles = new Depot<IBattle>();
+            _BattlesNotifier = _Battles.ToNotifier<IBattle>();
             ActorId = new Property<Guid>(actorId);
             DisplayName = new Property<string>(info.DisplayName);
             ModelName = new Property<string>(info.ModelName);
@@ -195,11 +223,6 @@ namespace PinionCore.Project2.Worlds
         {
             _ActionInfo = info;
             _ActionEvent?.Invoke(info);
-        }
-
-        Value<bool> ICharactor.PlayAction(ActionType action)
-        {
-            return StartAction(action, force: false);
         }
 
         /// <summary>
@@ -520,7 +543,8 @@ namespace PinionCore.Project2.Worlds
             };
         }
 
-        void ICharactor.SetStatus(StatusType status)
+        // 由 Adventure/Battle 狀態的 Enter 呼叫,經 IActor.StatusEvent 廣播給所有看得到的 client
+        internal void SetStatus(StatusType status)
         {
             _Status = status;
             _StatusEvent?.Invoke(status);

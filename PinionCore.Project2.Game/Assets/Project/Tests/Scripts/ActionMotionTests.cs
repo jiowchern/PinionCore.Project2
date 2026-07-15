@@ -111,13 +111,12 @@ namespace PinionCore.Project2.Tests
         public IEnumerator TwoSegmentDisplacementTest()
         {
             var player = _Enter(out var moveEvents, out var actionEvents);
-            ICharactor remote = player;
 
             var start = player.CurrentMoveInfo.Position;
 
-            var accepted = false;
-            remote.PlayAction(ActionType.Attack).OnValue += (r, error) => accepted = r;
-            Assert.IsTrue(accepted, "無動作進行中的 PlayAction 應被接受");
+            // 玩家觸發路徑 = StartAction(force: false);RPC 端到端由 ActorAttackTests 的 IBattle.Attack 覆蓋
+            var accepted = player.StartAction(ActionType.Attack, force: false);
+            Assert.IsTrue(accepted, "無動作進行中的出招應被接受");
             Assert.AreEqual(1, actionEvents.Count, "接受後應立即發出 ActionInfo");
             Assert.AreEqual(ActionType.Attack, actionEvents[0].Action);
 
@@ -156,10 +155,10 @@ namespace PinionCore.Project2.Tests
             var player = _Enter(out _, out var actionEvents);
             ICharactor remote = player;
 
-            remote.PlayAction(ActionType.Attack);
+            player.StartAction(ActionType.Attack, force: false);
             Assert.AreEqual(1, actionEvents.Count, "前置條件:動作已開始");
 
-            // 動作進行中:Move / Stop / 重入 PlayAction 一律拒收
+            // 動作進行中:Move / Stop / 重入出招一律拒收
             var moveAccepted = true;
             remote.Move(new Vector2(1f, 0f)).OnValue += (r, error) => moveAccepted = r;
             Assert.IsFalse(moveAccepted, "動作進行中 Move 應被拒收");
@@ -168,8 +167,7 @@ namespace PinionCore.Project2.Tests
             remote.Stop().OnValue += (r, error) => stopAccepted = r;
             Assert.IsFalse(stopAccepted, "動作進行中 Stop 應被拒收");
 
-            var replayAccepted = true;
-            remote.PlayAction(ActionType.Attack).OnValue += (r, error) => replayAccepted = r;
+            var replayAccepted = player.StartAction(ActionType.Attack, force: false);
             Assert.IsFalse(replayAccepted, "動作進行中不可重入");
 
             yield return _PumpUntil(
@@ -199,8 +197,7 @@ namespace PinionCore.Project2.Tests
             moveEvents.Clear();
             actionEvents.Clear();
 
-            var accepted = false;
-            remote.PlayAction(ActionType.Attack).OnValue += (r, error) => accepted = r;
+            var accepted = player.StartAction(ActionType.Attack, force: false);
             Assert.IsTrue(accepted, "面牆出招應被接受(撞牆是伺服器的事,不是拒收)");
             var attackStart = actionEvents[0].StartTicks;
 
@@ -229,10 +226,9 @@ namespace PinionCore.Project2.Tests
         public IEnumerator ReplaySemanticsTest()
         {
             var player = _Enter(out _, out var actionEvents);
-            ICharactor remote = player;
             IActor actor = player;
 
-            remote.PlayAction(ActionType.Attack);
+            player.StartAction(ActionType.Attack, force: false);
             var attackStart = actionEvents[0].StartTicks;
 
             // 動作進行中新訂閱:replay 應為 Attack + 原 StartTicks(晚加入者以此算動畫偏移)
@@ -261,9 +257,8 @@ namespace PinionCore.Project2.Tests
         public IEnumerator ForceOverrideTest()
         {
             var player = _Enter(out var moveEvents, out var actionEvents);
-            ICharactor remote = player;
 
-            remote.PlayAction(ActionType.Attack);
+            player.StartAction(ActionType.Attack, force: false);
             var firstStart = actionEvents[0].StartTicks;
 
             // 泵到第一段中途(尚未結束)

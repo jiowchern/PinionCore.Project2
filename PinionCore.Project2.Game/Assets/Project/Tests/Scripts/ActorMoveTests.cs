@@ -449,11 +449,9 @@ namespace PinionCore.Project2.Tests
             _PlayerGhost = playerSupply.Result;
             System.Guid actorId = _PlayerGhost.ActorId;
 
-            // 移動控制介面已從 IPlayer 拆出:Move/Stop RPC 走 IMoveable ghost(IGame.Moveables 供應)
+            // 移動控制介面由 IPlayer.Moveable 供應(world 端角色狀態機控制開關)
             var moveableSupply = TestWait.First(
-                _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
-                    .SelectMany(entry => entry.Games.SupplyEvent())
-                    .SelectMany(game => game.Moveable.SupplyEvent()), m => m.ActorId == actorId,
+                _PlayerGhost.Moveable.SupplyEvent(), m => m.ActorId == actorId,
                 System.TimeSpan.FromSeconds(15));
             yield return moveableSupply;
             TestWait.AssertDone(moveableSupply, "client 應收到自身的 IMoveable ghost");

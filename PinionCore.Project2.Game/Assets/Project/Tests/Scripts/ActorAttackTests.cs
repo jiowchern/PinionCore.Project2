@@ -110,15 +110,15 @@ namespace PinionCore.Project2.Tests
             TestWait.AssertDone(actionReplay, "ActionEvent 訂閱後應 replay 當前狀態");
             Assert.AreEqual(ActionType.None, actionReplay.Result.Action, "進場初始應無動作進行中");
 
-            // 進戰鬥(冒險態沒有 IBattle,攻擊無從觸發)
+            // 進戰鬥(冒險態沒有 IBattle,攻擊無從觸發);IAdventure/IBattle 由 IPlayer 供應(world 端子狀態互斥開關)
             var adventureSupply = TestWait.First(
-                _Games().SelectMany(g => g.Adventure.SupplyEvent()),
+                _PlayerGhost.Adventure.SupplyEvent(),
                 System.TimeSpan.FromSeconds(15));
             yield return adventureSupply;
             TestWait.AssertDone(adventureSupply, "進場後應供應 IAdventure");
 
             var battleSupply = TestWait.FirstWithRetry(
-                () => _Games().SelectMany(g => g.Battle.SupplyEvent()),
+                () => _PlayerGhost.Battle.SupplyEvent(),
                 onAttempt: () => adventureSupply.Result.ToBattle().RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
@@ -166,8 +166,9 @@ namespace PinionCore.Project2.Tests
             TestWait.AssertDone(settled, "動作結束後殼應停在前衝距離附近");
 
             // 動作結束後移動恢復可用:Move 被接受會廣播 Speed > 0 的 MoveEvent
+            //(IMoveable 由 IPlayer.Moveable 供應,world 端狀態機控制開關)
             var moveableSupply = TestWait.First(
-                _Games().SelectMany(g => g.Moveable.SupplyEvent()),
+                _PlayerGhost.Moveable.SupplyEvent(),
                 System.TimeSpan.FromSeconds(10));
             yield return moveableSupply;
             TestWait.AssertDone(moveableSupply, "應供應 IMoveable");
@@ -201,15 +202,15 @@ namespace PinionCore.Project2.Tests
             var animator = _Shell.Target.GetComponentInChildren<Animator>();
             Assert.IsFalse(animator.applyRootMotion, "client 模型不得啟用 root motion(位置權威在伺服器)");
 
-            // 進戰鬥 → 出招 → 等動作結束
+            // 進戰鬥 → 出招 → 等動作結束(IAdventure/IBattle 由 IPlayer 供應)
             var adventureSupply = TestWait.First(
-                _Games().SelectMany(g => g.Adventure.SupplyEvent()),
+                _PlayerGhost.Adventure.SupplyEvent(),
                 System.TimeSpan.FromSeconds(15));
             yield return adventureSupply;
             TestWait.AssertDone(adventureSupply, "進場後應供應 IAdventure");
 
             var battleSupply = TestWait.FirstWithRetry(
-                () => _Games().SelectMany(g => g.Battle.SupplyEvent()),
+                () => _PlayerGhost.Battle.SupplyEvent(),
                 onAttempt: () => adventureSupply.Result.ToBattle().RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
@@ -242,7 +243,7 @@ namespace PinionCore.Project2.Tests
         IActor _ActorGhost;
         PinionCore.Project2.Client.Actor _Shell;
 
-        // 統一入口:entry.Games 合約鏈(IAdventure/IBattle/IMoveable 由 IGame 供應)
+        // 統一入口:entry.Games 合約鏈(能力介面 IMoveable/IAdventure/IBattle 均由 IPlayer 供應)
         System.IObservable<IGame> _Games()
         {
             return _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
