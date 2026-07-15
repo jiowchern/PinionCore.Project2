@@ -53,6 +53,24 @@ namespace PinionCore.Project2.Worlds
                     Gizmos.DrawRay(pos, fwd * 3f);
                 }
 
+                // 動作進行中:畫預定路徑折線(橘色,頂點小球 = 段邊界);
+                // 殼的實際軌跡偏離此線 = 牆面干涉(滑行/停牆邊)
+                if (player.ActionActive)
+                {
+                    Gizmos.color = new Color(1f, 0.55f, 0f);
+                    var hasPrevious = false;
+                    var previous = Vector3.zero;
+                    foreach (var point in player.ActionPlannedPath)
+                    {
+                        var current = new Vector3(point.x, player.Radius, point.y);
+                        if (hasPrevious)
+                            Gizmos.DrawLine(previous, current);
+                        Gizmos.DrawWireSphere(current, 0.05f);
+                        previous = current;
+                        hasPrevious = true;
+                    }
+                }
+
                 // 視野圈:實線 = 進入半徑,淡色 = 離開半徑(hysteresis 緩衝帶)
                 if (drawSightRadius)
                 {

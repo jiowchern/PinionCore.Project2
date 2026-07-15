@@ -422,6 +422,7 @@ MonoBehaviour:
   ShowPinionCoreLog: 1
   Visible: 1
   WindowId: 0
+  HistoryCapacity: 20
 --- !u!4 &440969113
 Transform:
   m_ObjectHideFlags: 0
@@ -566,6 +567,7 @@ GameObject:
   - component: {fileID: 800024550}
   - component: {fileID: 800024551}
   - component: {fileID: 800024552}
+  - component: {fileID: 800024553}
   m_Layer: 0
   m_Name: Handlers
   m_TagString: Untagged
@@ -683,6 +685,24 @@ MonoBehaviour:
   MinSendInterval: 0.05
   RecheckInterval: 1
   DeadZone: 0.2
+--- !u!114 &800024553
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 800024545}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ad543110798477c4cac793cfff6481fa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.PlayerAttackHandler
+  Client: {fileID: 213339232}
+  Provider: {fileID: 800024547}
+  ClientPlayer: {fileID: 800024549}
+  InputHandler: {fileID: 800024552}
+  AttackAction: {fileID: 1120369429361536294, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  ResponseTimeout: 2
 --- !u!1 &914587121
 GameObject:
   m_ObjectHideFlags: 0

@@ -14,9 +14,13 @@ namespace PinionCore.Project2.Client
 
 
         readonly UniRx.CompositeDisposable _Disposable;
+        // 攻擊用獨立容器:與 Move/Stop 共用 Clear 會取消在途移動回應,
+        // 害 PlayerInputHandler 的在途鎖永久卡死
+        readonly UniRx.CompositeDisposable _AttackDisposable;
         public Player()
         {
             _Disposable = new UniRx.CompositeDisposable();
+            _AttackDisposable = new UniRx.CompositeDisposable();
         }
 
 
@@ -58,6 +62,18 @@ namespace PinionCore.Project2.Client
             _Disposable.Add(disp);
         }
 
+        // 出招:IBattle 只在戰鬥狀態被供應,冒險態下訂閱不會發射(由上層以逾時處理)
+        public void Attack(Action<bool> responded)
+        {
+            _AttackDisposable.Clear();
+
+            var obs = from battle in _Battles().Take(1)
+                      from result in battle.Attack().RemoteValue()
+                      select result;
+            var disp = obs.Subscribe(result => responded?.Invoke(result));
+            _AttackDisposable.Add(disp);
+        }
+
         // 統一入口:只 query IUserEntry,IMoveable 沿合約鏈(entry.Games → game.Moveables)取得
         IObservable<Shared.IMoveable> _Moveables()
         {
@@ -67,9 +83,18 @@ namespace PinionCore.Project2.Client
                    select moveable;
         }
 
+        IObservable<Shared.IBattle> _Battles()
+        {
+            return from entry in GatewayClient.Queryer.QueryNotifier<Shared.IUserEntry>().SupplyEvent()
+                   from game in entry.Games.SupplyEvent()
+                   from battle in game.Battle.SupplyEvent()
+                   select battle;
+        }
+
         void OnDestroy()
         {
             _Disposable.Dispose();
+            _AttackDisposable.Dispose();
         }
     }
 }

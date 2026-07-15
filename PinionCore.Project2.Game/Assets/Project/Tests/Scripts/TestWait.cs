@@ -131,5 +131,11 @@ namespace PinionCore.Project2.Tests
         {
             return Observable.FromEvent<StatusType>(h => ghost.StatusEvent += h, h => ghost.StatusEvent -= h);
         }
+
+        // ghost ActionEvent 的標準 stream(與 MoveEvent 同為訂閱即 replay;None = 無動作/已結束)
+        public static IObservable<ActionInfo> ActionEvents(IActor ghost)
+        {
+            return Observable.FromEvent<ActionInfo>(h => ghost.ActionEvent += h, h => ghost.ActionEvent -= h);
+        }
     }
 }

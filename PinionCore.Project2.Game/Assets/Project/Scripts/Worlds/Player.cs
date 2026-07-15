@@ -63,6 +63,20 @@ namespace PinionCore.Project2.Worlds
         // entity 的 LocalTransform 只是取樣結果的投影(供未來碰撞查詢使用)。
         MoveInfo _MoveInfo;
 
+        // 自帶位移動作:烘焙成分段等速直線,依絕對 tick 排程逐段發出 MoveInfo。
+        // _BoundaryTicks[i] = 第 i 段的結束時刻,PlayAction 時一次算定;撞牆不平移排程,
+        // 下一段從邊界時刻取樣到的實際位置重新起步(正面撞牆的突進停牆邊,後續段照常)。
+        readonly ActionConfig[] _Actions;
+        ActionConfig _CurrentAction;     // null = 無動作進行中
+        long[] _BoundaryTicks;
+        int _NextBoundary;
+        // 動作起始朝向基底:段位移以此局部空間(x=右, y=前)轉世界座標;
+        // 也是動作結束時恢復的視覺朝向(client 在動作期間凍結旋轉)
+        Vector2 _ActionForward;
+        Vector2 _ActionRight;
+        // 目前直線段的名目速度:撞牆滑行的速度縮放基準(一般移動 = _MoveSpeed,動作段 = 段速度)
+        float _BaseSpeed;
+
         // 供 editor 除錯繪製(WorldDebugDrawer)讀取當前 MoveInfo / 半徑 / 預計撞點
         internal MoveInfo CurrentMoveInfo => _MoveInfo;
         internal float Radius => _Radius;
@@ -70,7 +84,35 @@ namespace PinionCore.Project2.Worlds
         internal bool HasPendingHit => _HasPendingHit;
         internal Vector2 PendingHitPosition => _HitContactPos;
 
-        public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveSpeed, float moveAcceptInterval, float radius, float sightRadius, Vector3 spawnPosition, World world)
+        // 供 editor 除錯繪製:動作進行中的預定路徑折線。
+        // 目前段沿現行 MoveInfo 外推到段邊界(撞牆滑行/停止已反映),其餘段疊加理想位移;
+        // 未來的撞牆不預測 —— 實際軌跡偏離此線即代表牆面干涉。
+        internal bool ActionActive => _CurrentAction != null;
+        internal System.Collections.Generic.IEnumerable<Vector2> ActionPlannedPath
+        {
+            get
+            {
+                if (_CurrentAction == null)
+                    yield break;
+
+                _SampleNow(out var position, out _, out _);
+                yield return position;
+
+                var boundary = _BoundaryTicks[_NextBoundary];
+                var elapsed = (boundary - _MoveInfo.StartTicks) / (double)TimeSpan.TicksPerSecond;
+                MoveSampler.Sample(_MoveInfo, Math.Max(0.0, elapsed), out var cursor, out _);
+                yield return cursor;
+
+                for (var i = _NextBoundary + 1; i < _CurrentAction.Segments.Length; i++)
+                {
+                    var offset = _CurrentAction.Segments[i].LocalOffset;
+                    cursor += _ActionRight * offset.x + _ActionForward * offset.y;
+                    yield return cursor;
+                }
+            }
+        }
+
+        public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveSpeed, float moveAcceptInterval, float radius, float sightRadius, ActionConfig[] actions, Vector3 spawnPosition, World world)
         {
             _World = world;
             Entity = entity;
@@ -79,6 +121,8 @@ namespace PinionCore.Project2.Worlds
             _MoveAcceptIntervalTicks = (long)(moveAcceptInterval * TimeSpan.TicksPerSecond);
             _Radius = radius;
             _SightRadius = sightRadius;
+            _Actions = actions ?? Array.Empty<ActionConfig>();
+            _BaseSpeed = moveSpeed;
             _LastMoveAcceptedTicks = long.MinValue / 4;
             _LastRedirectTicks = long.MinValue / 4;
             _VisibleActors = new Depot<Player>();
@@ -130,6 +174,134 @@ namespace PinionCore.Project2.Worlds
             }
         }
 
+        // 動作播放狀態:與 Move/StatusEvent 同款「訂閱即 replay」;Action == None 表示無動作,
+        // 結束時也以 None 發出 —— 這是 client 解除旋轉凍結的唯一權威訊號。
+        ActionInfo _ActionInfo;
+        event Action<ActionInfo> _ActionEvent;
+        event Action<ActionInfo> IActor.ActionEvent
+        {
+            add
+            {
+                _ActionEvent += value;
+                value(_ActionInfo);
+            }
+            remove
+            {
+                _ActionEvent -= value;
+            }
+        }
+
+        void _SetActionInfo(ActionInfo info)
+        {
+            _ActionInfo = info;
+            _ActionEvent?.Invoke(info);
+        }
+
+        Value<bool> ICharactor.PlayAction(ActionType action)
+        {
+            return StartAction(action, force: false);
+        }
+
+        /// <summary>
+        /// 開始播放自帶位移動作。force = false 為玩家觸發路徑(進行中不可重入);
+        /// force = true 供伺服器主動覆蓋(僵直/死亡等,未來傷害管線使用):
+        /// 直接作廢舊排程,發新 ActionInfo 即同時取代 replay 值,client 收到即換動畫。
+        /// </summary>
+        internal bool StartAction(ActionType action, bool force)
+        {
+            if (action == ActionType.None)
+                return false;
+
+            ActionConfig config = null;
+            foreach (var c in _Actions)
+            {
+                if (c != null && c.Action == action)
+                {
+                    config = c;
+                    break;
+                }
+            }
+            if (config == null || config.Segments == null || config.Segments.Length == 0)
+                return false;
+
+            // 先結清到期事件:可能包含「動作剛好已結束」,避免誤判進行中
+            _ProcessDueRedirects(_World.ElapsedTicks);
+            if (_CurrentAction != null && !force)
+                return false;
+
+            _SampleNow(out var position, out var facing, out var now);
+
+            // 覆蓋進行中的動作時,基底沿用原動作的視覺朝向(當前段的速度方向可能是側移/滑行方向)
+            var forward = _CurrentAction != null ? _ActionForward : facing;
+            _CurrentAction = config;
+            _ActionForward = forward;
+            _ActionRight = new Vector2(forward.y, -forward.x);
+
+            _BoundaryTicks = new long[config.Segments.Length];
+            var boundary = now;
+            for (var i = 0; i < config.Segments.Length; i++)
+            {
+                // 以 double 計 tick,避免 float 乘法在長時長時掉精度
+                boundary += (long)(Math.Max(0.0, config.Segments[i].Duration) * TimeSpan.TicksPerSecond);
+                _BoundaryTicks[i] = boundary;
+            }
+            _NextBoundary = 0;
+
+            _SetActionInfo(new ActionInfo { Action = action, StartTicks = now });
+            _StartSegment(0, position, now);
+            return true;
+        }
+
+        /// <summary>以段的局部位移(動作起始朝向基底)組出等速直線 MoveInfo 並提交;零位移段 = 原地駐留。</summary>
+        void _StartSegment(int index, Vector2 position, long startTicks)
+        {
+            var segment = _CurrentAction.Segments[index];
+            var offset = _ActionRight * segment.LocalOffset.x + _ActionForward * segment.LocalOffset.y;
+            var distance = offset.magnitude;
+
+            MoveInfo candidate;
+            if (distance <= 1e-6f || segment.Duration <= 0f)
+            {
+                _BaseSpeed = 0f;
+                candidate = new MoveInfo
+                {
+                    Position = position,
+                    Facing = _ActionForward,
+                    Speed = 0f,
+                    StartTicks = startTicks
+                };
+            }
+            else
+            {
+                var speed = distance / segment.Duration;
+                _BaseSpeed = speed;   // 撞牆滑行以段速度為基準,不是走路速度
+                candidate = new MoveInfo
+                {
+                    Position = position,
+                    Facing = offset / distance,
+                    Speed = speed,
+                    StartTicks = startTicks
+                };
+            }
+            _SetMoveInfo(candidate, emit: true);
+        }
+
+        /// <summary>動作結束:發終停 MoveInfo(恢復視覺朝向)與 ActionInfo.None,解除移動鎖定。</summary>
+        void _EndAction(Vector2 position, long tick)
+        {
+            _CurrentAction = null;
+            _BoundaryTicks = null;
+            _BaseSpeed = _MoveSpeed;
+            _SetMoveInfo(new MoveInfo
+            {
+                Position = position,
+                Facing = _ActionForward,
+                Speed = 0f,
+                StartTicks = tick
+            }, emit: true);
+            _SetActionInfo(new ActionInfo { Action = ActionType.None, StartTicks = tick });
+        }
+
         // 以當下時間取樣權威位置/朝向,作為新 MoveInfo 的起點。
         void _SampleNow(out Vector2 position, out Vector2 facing, out long now)
         {
@@ -149,6 +321,11 @@ namespace PinionCore.Project2.Worlds
 
             // 取樣前先結清已到期的撞牆 redirect,避免以穿牆的外推位置當新起點
             _ProcessDueRedirects(_World.ElapsedTicks);
+
+            // 動作進行中位移權威屬於動作排程,玩家移動輸入一律拒收(結清後動作可能剛好結束)
+            if (_CurrentAction != null)
+                return false;
+
             _SampleNow(out var position, out _, out var now);
 
             // 瞬轉直走:朝向即刻設為指令方向(世界座標),直線前進直到下一個 Move/Stop;
@@ -167,6 +344,8 @@ namespace PinionCore.Project2.Worlds
         Value<bool> IMoveable.Stop()
         {
             _ProcessDueRedirects(_World.ElapsedTicks);
+            if (_CurrentAction != null)
+                return false;
             if (_MoveInfo.Speed == 0f)
                 return false;
 
@@ -228,31 +407,58 @@ namespace PinionCore.Project2.Worlds
             _RecomputeImpact();
         }
 
-        /// <summary>結清所有已到期的撞牆 redirect;每個 redirect 都以撞擊時刻(非當下)為起點,幀率再低也不穿牆。</summary>
+        /// <summary>
+        /// 結清所有已到期的事件:撞牆 redirect 與動作段邊界按時間順序交錯處理,
+        /// 每個事件都以其發生時刻(非當下)為新 MoveInfo 起點,幀率再低也不穿牆、段時長也不漂移。
+        /// </summary>
         void _ProcessDueRedirects(long now)
         {
-            var guard = 0;
-            while (_HasPendingHit && now >= _HitTicks)
+            var redirectGuard = 0;
+            while (true)
             {
-                if (++guard > MaxRedirectsPerFrame)
-                {
-                    // 病態幾何(如極窄縫隙)造成單幀鏈式 redirect 過多:強制停住並回報
-                    UnityEngine.Debug.LogWarning("[Player] 單幀撞牆 redirect 超過上限,強制停止");
-                    _MoveInfo = new MoveInfo
-                    {
-                        Position = _HitContactPos,
-                        Facing = _MoveInfo.Facing,
-                        Speed = 0f,
-                        StartTicks = _HitTicks
-                    };
-                    _MoveEvent?.Invoke(_MoveInfo);
-                    _HasPendingHit = false;
+                var nextHit = _HasPendingHit ? _HitTicks : long.MaxValue;
+                var nextBoundary = _CurrentAction != null ? _BoundaryTicks[_NextBoundary] : long.MaxValue;
+                if (nextHit > now && nextBoundary > now)
                     return;
-                }
 
-                _MoveInfo = _ProjectOntoTangent(_MoveInfo, _HitNormal, _HitContactPos, _HitTicks);
-                _MoveEvent?.Invoke(_MoveInfo);
-                _RecomputeImpact();
+                if (nextHit <= nextBoundary)
+                {
+                    if (++redirectGuard > MaxRedirectsPerFrame)
+                    {
+                        // 病態幾何(如極窄縫隙)造成單幀鏈式 redirect 過多:強制停住並回報;
+                        // 動作段邊界不受影響,之後的 Update 照常結清
+                        UnityEngine.Debug.LogWarning("[Player] 單幀撞牆 redirect 超過上限,強制停止");
+                        _MoveInfo = new MoveInfo
+                        {
+                            Position = _HitContactPos,
+                            Facing = _MoveInfo.Facing,
+                            Speed = 0f,
+                            StartTicks = _HitTicks
+                        };
+                        _MoveEvent?.Invoke(_MoveInfo);
+                        _HasPendingHit = false;
+                        return;
+                    }
+
+                    _MoveInfo = _ProjectOntoTangent(_MoveInfo, _HitNormal, _HitContactPos, _HitTicks);
+                    _MoveEvent?.Invoke(_MoveInfo);
+                    _RecomputeImpact();
+                }
+                else
+                {
+                    // 段邊界到期:以邊界時刻取樣實際位置(撞牆滑行/停止都已反映在 _MoveInfo)起下一段
+                    var elapsed = (nextBoundary - _MoveInfo.StartTicks) / (double)TimeSpan.TicksPerSecond;
+                    MoveSampler.Sample(_MoveInfo, elapsed, out var position, out _);
+                    if (_NextBoundary == _CurrentAction.Segments.Length - 1)
+                    {
+                        _EndAction(position, nextBoundary);
+                    }
+                    else
+                    {
+                        _NextBoundary++;
+                        _StartSegment(_NextBoundary, position, nextBoundary);
+                    }
+                }
             }
         }
 
@@ -308,7 +514,8 @@ namespace PinionCore.Project2.Worlds
             {
                 Position = contactPos,
                 Facing = tangent / tangentLength,
-                Speed = _MoveSpeed * tangentLength,
+                // 以目前段的名目速度縮放(一般移動 = 走速;動作段 = 段速度,遠快於走速也不會被錯誤重設)
+                Speed = _BaseSpeed * tangentLength,
                 StartTicks = ticksAtContact
             };
         }

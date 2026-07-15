@@ -34,6 +34,27 @@ namespace PinionCore.Project2.Client
         // 冒險/戰鬥狀態:來自 IActor.StatusEvent(訂閱時必有 replay),驅動 Animator 的 status 參數
         public StatusType Status { get; private set; }
 
+        // 自帶位移動作:來自 IActor.ActionEvent(訂閱時必有 replay)。位移仍由 MoveEvent 驅動
+        //(伺服器把動作播成分段 MoveInfo,殼照常取樣就描出 root 路徑);這裡只負責表現:
+        // 動作期間凍結旋轉(段 Facing 是速度方向,側移/滑行不該讓角色轉身)、以時間偏移播動畫。
+        ActionInfo _actionInfo;
+        Quaternion _heldRotation;
+        bool _rotationHeld;
+        // 已套用動畫的 ActionInfo(Action + StartTicks):伺服器覆蓋動作(僵直/死亡)時
+        // StartTicks 必變,據此重新 CrossFade;不能用單一 bool
+        ActionType _appliedAction = ActionType.None;
+        long _appliedActionTicks = long.MinValue;
+
+        // ActionType → Animator state 名稱(動作 state 只靠 code CrossFade 進入,不掛參數轉換)
+        static readonly System.Collections.Generic.Dictionary<ActionType, string> _ActionStates =
+            new System.Collections.Generic.Dictionary<ActionType, string>
+            {
+                { ActionType.Attack, "Battle Attack" },
+            };
+
+        // 供輸入層(PlayerAttackHandler)觀察動作進行狀態;None = 結束(解鎖補送 Move 的訊號)
+        public event Action<ActionInfo> ActionEvent;
+
         // 模型上的 Animator(TestActor1 等模型 prefab 自帶,controller 指向 Configs/AnimatorController);
         // 模型非同步載入,參數由 _Step 每幀套用,晚到也會在下一幀接上
         Animator _animator;
@@ -62,6 +83,25 @@ namespace PinionCore.Project2.Client
 
             var statusObs = UniRx.Observable.FromEvent<StatusType>(h => actor.StatusEvent += h, h => actor.StatusEvent -= h);
             statusObs.Subscribe(s => Status = s).AddTo(this);
+
+            var actionObs = UniRx.Observable.FromEvent<ActionInfo>(h => actor.ActionEvent += h, h => actor.ActionEvent -= h);
+            actionObs.Subscribe(_OnActionEvent).AddTo(this);
+        }
+
+        private void _OnActionEvent(ActionInfo info)
+        {
+            // StartTicks 也是對時來源(與 MoveEvent 同款):讓晚加入者的動畫偏移正確
+            WorldTime.ObserveServerTicks(info.StartTicks);
+            _actionInfo = info;
+            if (info.Action == ActionType.None)
+            {
+                // None 是解除旋轉凍結的唯一權威訊號(不靠本地計時);
+                // 下一幀 _Step 會以終停 MoveInfo 的 Facing(伺服器恢復的視覺朝向)重新定向
+                _rotationHeld = false;
+                _appliedAction = ActionType.None;
+                _appliedActionTicks = long.MinValue;
+            }
+            ActionEvent?.Invoke(info);
         }
 
         private void _MoveFirst(IActor actor)
@@ -112,13 +152,45 @@ namespace PinionCore.Project2.Client
 
             MoveSampler.Sample(info, elapsed, out var position, out var facing);
             Target.position = new Vector3(position.x, Target.position.y, position.y);
-            Target.rotation = Quaternion.LookRotation(new Vector3(facing.x, 0f, facing.y), Vector3.up);
+
+            var actionActive = _actionInfo.Action != ActionType.None;
+            if (actionActive)
+            {
+                // 凍結旋轉:動作段的 Facing 是速度方向(側移/撞牆滑行),不是視覺朝向;
+                // 首次進入動作時捕捉當下旋轉(動作開始前最後一次套用的朝向)並保持到 None
+                if (!_rotationHeld)
+                {
+                    _heldRotation = Target.rotation;
+                    _rotationHeld = true;
+                }
+                Target.rotation = _heldRotation;
+            }
+            else
+            {
+                Target.rotation = Quaternion.LookRotation(new Vector3(facing.x, 0f, facing.y), Vector3.up);
+            }
 
             // 動作驅動:speed 直接用伺服器線速度(>0 走路、0 駐留),status 切換冒險/戰鬥動作組
             if (_animator != null)
             {
                 _animator.SetFloat(_AnimSpeed, info.Speed);
                 _animator.SetInteger(_AnimStatus, (int)Status);
+
+                // 動作動畫:每顆 ActionInfo 只 CrossFade 一次,以 world time 差當起播偏移
+                //(晚加入者/模型晚載入都在此收斂到正確的動畫時間點)
+                if (actionActive &&
+                    (_appliedAction != _actionInfo.Action || _appliedActionTicks != _actionInfo.StartTicks))
+                {
+                    if (_ActionStates.TryGetValue(_actionInfo.Action, out var stateName))
+                    {
+                        var offset = (float)((WorldTime.CurrentTime.Ticks - _actionInfo.StartTicks) / (double)TimeSpan.TicksPerSecond);
+                        if (offset < 0f)
+                            offset = 0f;
+                        _animator.CrossFadeInFixedTime(stateName, 0.1f, 0, offset);
+                    }
+                    _appliedAction = _actionInfo.Action;
+                    _appliedActionTicks = _actionInfo.StartTicks;
+                }
             }
         }
 
@@ -145,6 +217,12 @@ namespace PinionCore.Project2.Client
                     return;
                 }
                 _animator = op.Result.GetComponentInChildren<Animator>();
+                // 位置權威在伺服器(Target 由 MoveInfo 取樣驅動),模型只是 Target 的子物件;
+                // FBX 匯入的 Animator 預設 applyRootMotion = true(unitychan 等),
+                // 不關掉的話帶位移的 clip 會把 root motion 疊進子物件 localPosition,
+                // 模型永久漂離殼(伺服器推一次、模型自己再走一次)。一律強制關閉。
+                if (_animator != null)
+                    _animator.applyRootMotion = false;
             };
         }
 

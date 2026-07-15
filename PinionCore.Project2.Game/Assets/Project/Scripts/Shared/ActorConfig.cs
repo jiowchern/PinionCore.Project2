@@ -14,6 +14,9 @@ namespace PinionCore.Project2.Shared
         // Move 指令的最小接受間隔(秒):間隔內的 Move 被拒絕(回傳 false),Stop 不受限
         public float MoveAcceptInterval = 0.1f;
 
+        // 此角色可播放的自帶位移動作(攻擊等);伺服器依 ActionType 查表
+        public ActionConfig[] Actions = System.Array.Empty<ActionConfig>();
+
         // 序列化欄位是 fallback / build 烘焙值:Editor 下若 ModelPrefab 有 ActorMetrics,
         // getter 以 metrics 為準(setter 寫入的值會被蓋過);player build 一律讀此欄位,
         // 由 build 前的 ActorConfigBaker 保證與 metrics 同步。測試不設 ModelPrefab,setter 有效。

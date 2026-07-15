@@ -2,7 +2,9 @@
     "name": "PinionCore.Project2.Shared.Editor",
     "rootNamespace": "",
     "references": [
-        "PinionCore.Project2.Shared"
+        "PinionCore.Project2.Shared",
+        "Unity.Addressables",
+        "Unity.ResourceManager"
     ],
     "includePlatforms": [
         "Editor"

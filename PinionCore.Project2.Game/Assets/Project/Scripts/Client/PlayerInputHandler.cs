@@ -169,6 +169,17 @@ namespace PinionCore.Project2.Client
             _awaitingResponse = false;
         }
 
+        /// <summary>
+        /// 強制下一幀重評估輸入:動作(攻擊等)結束時由 PlayerAttackHandler 呼叫。
+        /// 動作期間伺服器拒收 Move,而本層是邊緣觸發 —— 按住方向鍵出招,結束後
+        /// _moving 仍為 true 且方向未變,永遠不會補送;重置後按住的鍵自然重新起步。
+        /// </summary>
+        public void ForceResend()
+        {
+            _moving = false;
+            _lastSendTime = float.MinValue;
+        }
+
         Vector2 _ShellFacing()
         {
             var f = _shell.Target.forward;

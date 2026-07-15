@@ -212,7 +212,7 @@ namespace PinionCore.Project2.Worlds
             em.AddComponentData(entity, LocalTransform.FromPosition(_info.Entrance));
 
             var actorId = Guid.NewGuid();
-            var player = new Player(actorId, actor, entity, em, config.MoveSpeed, config.MoveAcceptInterval, config.Radius, config.SightRadius, _info.Entrance, this);
+            var player = new Player(actorId, actor, entity, em, config.MoveSpeed, config.MoveAcceptInterval, config.Radius, config.SightRadius, config.Actions, _info.Entrance, this);
 
             // 自己永遠可見;其餘互見交給 Sight 依「距離 + 遮蔽」判定。
             // 先投影全體 transform(ctor 去穿透可能把出生點推離 Entrance)再評估;

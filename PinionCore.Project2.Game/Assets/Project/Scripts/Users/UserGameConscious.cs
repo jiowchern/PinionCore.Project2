@@ -41,7 +41,7 @@ namespace PinionCore.Project2.Users
         private void _ToBattle()
         {
             _Charactor.SetStatus(StatusType.Battle);
-            var status = new UserGameConsciousBattle(_Battles);
+            var status = new UserGameConsciousBattle(_Battles, _Charactor);
             status.AdventureEvent += _ToAdventures;
             _Machine.Push(status);
         }
