@@ -68,7 +68,7 @@ namespace PinionCore.Project2.Client
             _AttackDisposable.Clear();
 
             var obs = from battle in _Battles().Take(1)
-                      from result in battle.Attack().RemoteValue()
+                      from result in battle.Attack(Shared.ActionType.Attack).RemoteValue()
                       select result;
             var disp = obs.Subscribe(result => responded?.Invoke(result));
             _AttackDisposable.Add(disp);

@@ -1,4 +1,6 @@
+using PinionCore.Project2.Shared;
 using PinionCore.Utility;
+using System;
 
 namespace PinionCore.Project2.Worlds.Statuses
 {
@@ -11,17 +13,35 @@ namespace PinionCore.Project2.Worlds.Statuses
     {
         readonly PlayerController _Controller;
         readonly StatusMachine _Machine;
+        private readonly State _state;
 
-        public ConsciousStatus(PlayerController controller)
+        public event Action<ActionType> CastEvent;
+
+        public enum State
         {
+            Adventure,
+            Battle,
+        }
+
+        public ConsciousStatus(PlayerController controller, State state)
+        {
+            CastEvent += (type) => { }; // 避免 null reference
             _Controller = controller;
             _Machine = new StatusMachine();
+            _state = state;
         }
 
         void IStatus.Enter()
         {
             _Controller.Moveables.Items.Add(_Controller);
-            _ToAdventure();
+            if (_state == State.Adventure)
+            {
+                _ToAdventure();
+            }
+            else
+            {
+                _ToBattle();
+            }
         }
 
         void _ToAdventure()
@@ -35,7 +55,13 @@ namespace PinionCore.Project2.Worlds.Statuses
         {
             var status = new BattleStatus(_Controller);
             status.AdventureEvent += _ToAdventure;
+            status.CastEvent += _ToCast;
             _Machine.Push(status);
+        }
+
+        private void _ToCast(ActionType type)
+        {
+            CastEvent(type);
         }
 
         void IStatus.Leave()

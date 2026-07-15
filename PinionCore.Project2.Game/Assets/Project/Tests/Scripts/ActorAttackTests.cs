@@ -134,7 +134,7 @@ namespace PinionCore.Project2.Tests
             var battle = battleSupply.Result;
             var attackEvent = TestWait.FirstWithRetry(
                 () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.Attack),
-                onAttempt: () => battle.Attack().RemoteValue().Subscribe(),
+                onAttempt: () => battle.Attack(ActionType.Attack).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return attackEvent;
@@ -220,7 +220,7 @@ namespace PinionCore.Project2.Tests
             var battle = battleSupply.Result;
             var attackEvent = TestWait.FirstWithRetry(
                 () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.Attack),
-                onAttempt: () => battle.Attack().RemoteValue().Subscribe(),
+                onAttempt: () => battle.Attack(ActionType.Attack).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return attackEvent;

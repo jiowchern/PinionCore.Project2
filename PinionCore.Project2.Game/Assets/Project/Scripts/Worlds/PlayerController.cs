@@ -89,13 +89,27 @@ namespace PinionCore.Project2.Worlds
             _BattlesNotifier = _Battles.ToNotifier<IBattle>();
 
             // 進世界即有意識;首次 Update 進入狀態並供應 IMoveable(Notifier 有 replay,晚訂閱安全)
-            ToConscious();
+            ToConscious(Statuses.ConsciousStatus.State.Adventure);
         }
 
         /// <summary>回到有意識:恢復供應 IMoveable 與 Adventure/Battle 子狀態(進入即冒險態)。</summary>
-        internal void ToConscious()
+        internal void ToConscious(Statuses.ConsciousStatus.State state)
         {
-            _StatusMachine.Push(new Statuses.ConsciousStatus(this));
+            var status = new Statuses.ConsciousStatus(this, state);
+            status.CastEvent += _ToCast;
+            _StatusMachine.Push(status);
+        }
+
+        private void _ToCast(ActionType type)
+        {
+            var status = new Statuses.CastStatus(this, type);
+            status.DoneEvent += _ToBattle;
+            _StatusMachine.Push(status);
+        }
+
+        private void _ToBattle(bool result)
+        {
+            ToConscious(Statuses.ConsciousStatus.State.Battle);
         }
 
         /// <summary>進入無意識(僵直/死亡等,未來由戰鬥管線觸發):收回全部能力供應。</summary>

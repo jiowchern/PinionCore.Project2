@@ -14,6 +14,7 @@ namespace PinionCore.Project2.Worlds.Statuses
         readonly PlayerController _Controller;
 
         public event System.Action AdventureEvent;
+        public event System.Action<ActionType> CastEvent;
 
         public BattleStatus(PlayerController controller)
         {
@@ -41,10 +42,14 @@ namespace PinionCore.Project2.Worlds.Statuses
             return true;
         }
 
-        Value<bool> IBattle.Attack()
+        Value<bool> IBattle.Attack(ActionType type)
         {
-            // 玩家觸發路徑(force: false):動作進行中不可重入,拒收回 false
-            return _Controller.Player.StartAction(ActionType.Attack, force: false);
+
+            // todo : 這裡應該要有一個判斷,檢查 type 是否為可攻擊的技能,若不是則回傳 false,不觸發事件
+
+
+            CastEvent?.Invoke(type);
+            return true;
         }
     }
 }
