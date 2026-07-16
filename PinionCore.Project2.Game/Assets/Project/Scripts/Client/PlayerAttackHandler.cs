@@ -89,6 +89,10 @@ namespace PinionCore.Project2.Client
 
         void _OnActionEvent(ActionInfo info)
         {
+            // 走路(Locomotion)不佔用攻擊鎖:循環動作直到 Stop 才發 None,
+            // 視為進行中會永久擋住攻擊輸入;攻擊取代走路時照常上鎖
+            if (ActionTypes.IsLocomotion(info.Action))
+                return;
             if (info.Action != ActionType.None)
             {
                 _actionActive = true;

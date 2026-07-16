@@ -20,8 +20,7 @@ namespace PinionCore.Project2.Tests
     /// </summary>
     public class ActorMoveTests
     {
-        // 與 Assets/Configs/ActorConfigs/ActorConfig.asset 一致:
-        // 該 asset 未序列化 MoveSpeed,執行期使用 script 預設 1.0
+        // 僅供逾時計算的保守速度下限:實際速度由 WalkAction 烘焙的 root motion 決定(≈1.7 m/s)
         const float MoveSpeed = 1.0f;
 
         StandaloneSceneLoader _Scenes;
@@ -110,7 +109,7 @@ namespace PinionCore.Project2.Tests
 
             yield return moving;
             TestWait.AssertDone(moving, "ghost 應收到移動中的 MoveInfo");
-            Assert.AreEqual(MoveSpeed, moving.Result.Speed, 0.01f, "MoveInfo.Speed 應為 ActorConfig.MoveSpeed");
+            Assert.Greater(moving.Result.Speed, 0f, "移動中的 MoveInfo 速度應大於 0(走路段速度由 root motion 烘焙決定)");
 
             // 等殼走出約 1.5 單位
             var moved = TestWait.Until(
@@ -152,19 +151,13 @@ namespace PinionCore.Project2.Tests
             yield return moving;
             TestWait.AssertDone(moving, "ghost 應收到移動中的 MoveInfo");
 
-            // 可能仍有較新的 MoveInfo 在途(重試重送),等事件靜默 0.5 秒取最後一筆作為預測依據;
-            // 新訂閱的 replay(當下最新狀態)會進窗並成為最後一筆,語意正確
-            var settled = TestWait.Quiet(
-                TestWait.MoveEvents(_ActorGhost).Where(i => i.Speed > 0f),
-                seed: moving.Result,
-                quiet: System.TimeSpan.FromSeconds(0.5),
-                timeout: System.TimeSpan.FromSeconds(15));
-            yield return settled;
-            TestWait.AssertDone(settled, "移動中的 MoveInfo 應在靜默窗內穩定");
-            var moveInfo = settled.Result;
-            Assert.AreEqual(MoveSpeed, moveInfo.Speed, 0.01f, "MoveInfo.Speed 應為 ActorConfig.MoveSpeed");
-            Assert.Greater(Vector2.Dot(moveInfo.Facing.normalized, new Vector2(halfSqrt2, halfSqrt2)), 0.999f,
-                "朝向應瞬轉為指令的世界方向");
+            // 走路是分段 root motion,段邊界/循環 wrap 會持續發 MoveInfo(不會靜默);
+            // 持久訂閱追最新一筆作為預測依據(比照 PlayerInputMoveTests 模式)
+            Assert.Greater(moving.Result.Speed, 0f, "移動中的 MoveInfo 速度應大於 0(走路段速度由 root motion 烘焙決定)");
+            Assert.Greater(Vector2.Dot(moving.Result.Facing.normalized, new Vector2(halfSqrt2, halfSqrt2)), 0.95f,
+                "朝向應約為指令的世界方向(走路段的速度方向可能帶少量側向分量)");
+            var lastMove = moving.Result;
+            var moveSub = TestWait.MoveEvents(_ActorGhost).Subscribe(info => lastMove = info);
 
             // 殼訂閱的是 IActor ghost、測試訂閱的是 IPlayer ghost,MoveEvent 抵達幀序不同;
             // 等殼實際起步(已套用移動中的 MoveInfo)再開始量測,避免量到殼還停在出生點的空窗
@@ -183,22 +176,24 @@ namespace PinionCore.Project2.Tests
             yield return null;
             var held = TestWait.HoldFrames(() =>
             {
+                var info = lastMove;
                 var nowTicks = _Shell.WorldTime.CurrentTime.Ticks;
-                var elapsed = (nowTicks - moveInfo.StartTicks) / (double)System.TimeSpan.TicksPerSecond;
+                var elapsed = (nowTicks - info.StartTicks) / (double)System.TimeSpan.TicksPerSecond;
                 if (elapsed < 0)
                     elapsed = 0;
-                MoveSampler.Sample(moveInfo, elapsed, out var predicted, out _);
+                MoveSampler.Sample(info, elapsed, out var predicted, out _);
 
                 var actual = new Vector2(_Shell.Target.position.x, _Shell.Target.position.z);
-                var slack = moveInfo.Speed * (float)((nowTicks - prevTicks) / (double)System.TimeSpan.TicksPerSecond);
+                var slack = info.Speed * (float)((nowTicks - prevTicks) / (double)System.TimeSpan.TicksPerSecond);
                 var deviation = Vector2.Distance(predicted, actual) - slack;
                 prevTicks = nowTicks;
                 return deviation < 0.25f;
             }, System.TimeSpan.FromSeconds(2));
             yield return held;
-            Assert.IsFalse(held.Result, "殼位置應與 MoveInfo 取樣預測一致(已扣除兩次量測間時鐘前進量的時序落差)");
+            Assert.IsFalse(held.Result, "殼位置應與最新 MoveInfo 取樣預測一致(已扣除兩次量測間時鐘前進量的時序落差)");
+            moveSub.Dispose();
 
-            // 位移方向 ≈ 指令的世界方向
+            // 位移方向 ≈ 指令的世界方向(走路每循環淨位移沿指令方向,部分循環的側向殘差很小)
             var displacement = _Shell.Target.position - startPos;
             var directionXZ = new Vector2(displacement.x, displacement.z).normalized;
             Assert.Greater(Vector2.Dot(directionXZ, new Vector2(halfSqrt2, halfSqrt2)), 0.99f, "位移方向應沿指令的世界方向");
@@ -219,6 +214,11 @@ namespace PinionCore.Project2.Tests
             var startPos = _Shell.Target.position;
             var halfSqrt2 = Mathf.Sqrt(2f) / 2f;
 
+            // 走路是分段 root motion,改向前可能已有段邊界/wrap 事件;
+            // 持久收集全部 MoveInfo,改向事件的「前一筆」才是位置連續性的取樣基準
+            var received = new System.Collections.Generic.List<MoveInfo>();
+            var collectSub = TestWait.MoveEvents(_ActorGhost).Subscribe(received.Add);
+
             // 先建等待再送指令;訂閱當下的 replay 是駐留態,被 predicate 濾掉
             var firstMove = TestWait.First(
                 TestWait.MoveEvents(_ActorGhost),
@@ -228,7 +228,6 @@ namespace PinionCore.Project2.Tests
 
             yield return firstMove;
             TestWait.AssertDone(firstMove, "第一段應朝世界右前方直走");
-            var firstInfo = firstMove.Result;
 
             // 等殼實際走出 0.5 單位(≈ 0.5 秒,遠超過 MoveAcceptInterval,第二發不會被節流)
             var traveled = TestWait.Until(
@@ -247,13 +246,17 @@ namespace PinionCore.Project2.Tests
             yield return secondMove;
             TestWait.AssertDone(secondMove, "改向後 ghost 應收到朝向翻轉的 MoveInfo");
             var secondInfo = secondMove.Result;
-            Assert.Greater(Vector2.Dot(secondInfo.Facing.normalized, new Vector2(-halfSqrt2, halfSqrt2)), 0.999f,
-                "朝向應瞬轉為新的世界方向");
+            Assert.Greater(Vector2.Dot(secondInfo.Facing.normalized, new Vector2(-halfSqrt2, halfSqrt2)), 0.95f,
+                "朝向應約為新的世界方向(走路段的速度方向可能帶少量側向分量)");
 
-            // 位置連續:新起點 = 舊軌跡取樣至新 StartTicks(伺服器端純數學,容差取小)
-            var handover = (secondInfo.StartTicks - firstInfo.StartTicks) / (double)System.TimeSpan.TicksPerSecond;
-            MoveSampler.Sample(firstInfo, handover, out var predicted, out _);
+            // 位置連續:改向事件的新起點 = 前一筆 MoveInfo 取樣至新 StartTicks(伺服器端純數學,容差取小)
+            var idx = received.FindIndex(i => i.StartTicks == secondInfo.StartTicks && i.Facing.x < -0.5f);
+            Assert.Greater(idx, 0, "收集器應包含改向事件與其前一筆");
+            var prevInfo = received[idx - 1];
+            var handover = (secondInfo.StartTicks - prevInfo.StartTicks) / (double)System.TimeSpan.TicksPerSecond;
+            MoveSampler.Sample(prevInfo, handover, out var predicted, out _);
             Assert.Less(Vector2.Distance(predicted, secondInfo.Position), 0.01f, "改向瞬間位置應連續,不得跳點");
+            collectSub.Dispose();
 
             _ClientPlayer.Stop();
         }
@@ -366,24 +369,35 @@ namespace PinionCore.Project2.Tests
             yield return fence;
             TestWait.AssertDone(fence, "被接受指令的 MoveEvent 應在靜默窗內全部抵達");
 
+            // 走路是分段 root motion:段邊界/循環 wrap 也會發 Speed>0 的 MoveInfo,
+            // 但只有「被接受的 Move」會把朝向切到新的指令方向(六發相距 60°);
+            // 以朝向相對前一組首筆變化 >30° 分組,各組首筆即被接受指令的生效事件
+            var acceptedInfos = new System.Collections.Generic.List<MoveInfo>();
+            foreach (var info in movingInfos)
+            {
+                if (acceptedInfos.Count == 0 ||
+                    Vector2.Angle(acceptedInfos[acceptedInfos.Count - 1].Facing, info.Facing) > 30f)
+                    acceptedInfos.Add(info);
+            }
+
             // 節流不變量:任兩筆被接受的 Move 的伺服器時間差 ≥ 間隔(容忍 1ms 取樣誤差)
-            for (var i = 1; i < movingInfos.Count; i++)
+            for (var i = 1; i < acceptedInfos.Count; i++)
             {
                 Assert.GreaterOrEqual(
-                    movingInfos[i].StartTicks - movingInfos[i - 1].StartTicks,
+                    acceptedInfos[i].StartTicks - acceptedInfos[i - 1].StartTicks,
                     intervalTicks - System.TimeSpan.TicksPerMillisecond,
                     "被接受的相鄰 Move 時間差不得小於 MoveAcceptInterval");
             }
 
-            // 被拒的指令不生效:回傳 true 的數量 == ghost 收到的移動 MoveInfo 數
+            // 被拒的指令不生效:回傳 true 的數量 == 朝向切換的組數
             var acceptedCount = 0;
             foreach (var r in results)
             {
                 if (!r.HasError && r.Result)
                     acceptedCount++;
             }
-            Assert.AreEqual(acceptedCount, movingInfos.Count,
-                "被接受的 Move 數應等於 ghost 收到的移動 MoveInfo 數(被拒不產生事件)");
+            Assert.AreEqual(acceptedCount, acceptedInfos.Count,
+                "被接受的 Move 數應等於朝向切換的組數(被拒不產生朝向切換)");
 
             // Stop 已生效:收到駐留 MoveInfo(晚訂閱安全:若已駐留,replay 即滿足條件)
             var stand = TestWait.First(

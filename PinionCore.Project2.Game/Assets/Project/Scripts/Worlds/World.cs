@@ -222,7 +222,7 @@ namespace PinionCore.Project2.Worlds
             var entity = em.CreateEntity();
             em.AddComponentData(entity, LocalTransform.FromPosition(_info.Entrance));
 
-            var player = new Player(actorId, actor, entity, em, config.MoveSpeed, config.MoveAcceptInterval, config.Radius, config.SightRadius, config.Actions, _info.Entrance, this);
+            var player = new Player(actorId, actor, entity, em, config.MoveAcceptInterval, config.Radius, config.SightRadius, config.Actions, _info.Entrance, this);
             var controller = new PlayerController(player);
 
             // 自己永遠可見;其餘互見交給 Sight 依「距離 + 遮蔽」判定。

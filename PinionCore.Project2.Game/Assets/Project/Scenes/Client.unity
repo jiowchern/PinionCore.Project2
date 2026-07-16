@@ -518,6 +518,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 823e270d024300242bb64d672a623140, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Standalone.Connector
+  Lag: 0
 --- !u!114 &497929656
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -682,7 +683,7 @@ MonoBehaviour:
   CameraTransform: {fileID: 1829177393}
   MoveAction: {fileID: -1680190386980627800, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   RedirectAngleThreshold: 10
-  MinSendInterval: 0.05
+  MinSendInterval: 0.2
   RecheckInterval: 1
   DeadZone: 0.2
 --- !u!114 &800024553
@@ -736,6 +737,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 823e270d024300242bb64d672a623140, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Standalone.Connector
+  Lag: 0
 --- !u!114 &914587123
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -17,7 +17,9 @@ namespace PinionCore.Project2.Tests
     public class ActionMotionTests
     {
         const float Radius = 0.3f;
+        // 走位用的走路段速度;單段長時直走,測試觀察窗內不會 wrap
         const float MoveSpeed = 2f;
+        const float WalkSegmentDuration = 10f;
         const float ContactZ = -2.2f;
         const float PenetrationLimitZ = ContactZ - 0.01f;
 
@@ -47,12 +49,21 @@ namespace PinionCore.Project2.Tests
                 new ActionConfig.MotionSegment { LocalOffset = Vector2.zero, Duration = RecoverDuration },
             };
 
+            // 走位移動走 Locomotion(Cast 出招可直接打斷走路)
+            var walk = ScriptableObject.CreateInstance<ActionConfig>();
+            walk.Action = ActionType.Walk;
+            walk.Category = ActionCategory.Locomotion;
+            walk.Duration = WalkSegmentDuration;
+            walk.Segments = new[]
+            {
+                new ActionConfig.MotionSegment { LocalOffset = new Vector2(0f, MoveSpeed * WalkSegmentDuration), Duration = WalkSegmentDuration },
+            };
+
             var actorConfig = ScriptableObject.CreateInstance<ActorConfig>();
             actorConfig.Name = "TestActor";
-            actorConfig.MoveSpeed = MoveSpeed;
             actorConfig.MoveAcceptInterval = 0.1f;
             actorConfig.Radius = Radius;
-            actorConfig.Actions = new[] { attack };
+            actorConfig.Actions = new[] { attack, walk };
 
             _world = new PinionCore.Project2.Worlds.World(System.Guid.NewGuid(), _worldInfo, new[] { actorConfig });
         }

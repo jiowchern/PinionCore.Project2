@@ -115,7 +115,7 @@ namespace PinionCore.Project2.Worlds
         /// <summary>進入無意識(僵直/死亡等,未來由戰鬥管線觸發):收回全部能力供應。</summary>
         internal void ToUnconscious()
         {
-            _StatusMachine.Push(new Statuses.UnconsciousStatus());
+            _StatusMachine.Push(new Statuses.UnconsciousStatus(Player));
         }
 
         /// <summary>由 World.Update 每幀驅動:先推進狀態機(能力供應開關),再讓 Player 投影權威狀態。</summary>

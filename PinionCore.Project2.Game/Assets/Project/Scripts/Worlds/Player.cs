@@ -18,7 +18,6 @@ namespace PinionCore.Project2.Worlds
         public readonly Unity.Entities.Entity Entity;
 
         readonly Unity.Entities.EntityManager _EntityManager;
-        readonly float _MoveSpeed;
         readonly long _MoveAcceptIntervalTicks;
         readonly float _Radius;
         readonly float _SightRadius;
@@ -59,6 +58,9 @@ namespace PinionCore.Project2.Worlds
         // _BoundaryTicks[i] = 第 i 段的結束時刻,StartAction 時一次算定;撞牆不平移排程,
         // 下一段從邊界時刻取樣到的實際位置重新起步(正面撞牆的突進停牆邊,後續段照常)。
         readonly ActionConfig[] _Actions;
+        // 走路(Locomotion)動作:Move 啟動、循環播放直到 Stop / 被 Cast 打斷;
+        // null = 此角色無走路動作,Move 一律拒收。
+        readonly ActionConfig _LocomotionConfig;
         ActionConfig _CurrentAction;     // null = 無動作進行中
         long[] _BoundaryTicks;
         int _NextBoundary;
@@ -66,7 +68,7 @@ namespace PinionCore.Project2.Worlds
         // 也是動作結束時恢復的視覺朝向(client 在動作期間凍結旋轉)
         Vector2 _ActionForward;
         Vector2 _ActionRight;
-        // 目前直線段的名目速度:撞牆滑行的速度縮放基準(一般移動 = _MoveSpeed,動作段 = 段速度)
+        // 目前直線段的名目速度:撞牆滑行的速度縮放基準(= 現行動作段的段速度)
         float _BaseSpeed;
 
         // 供 editor 除錯繪製(WorldDebugDrawer)讀取當前 MoveInfo / 半徑 / 預計撞點
@@ -104,17 +106,29 @@ namespace PinionCore.Project2.Worlds
             }
         }
 
-        public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveSpeed, float moveAcceptInterval, float radius, float sightRadius, ActionConfig[] actions, Vector3 spawnPosition, World world)
+        public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveAcceptInterval, float radius, float sightRadius, ActionConfig[] actions, Vector3 spawnPosition, World world)
         {
             _World = world;
             Entity = entity;
             _EntityManager = entityManager;
-            _MoveSpeed = moveSpeed;
             _MoveAcceptIntervalTicks = (long)(moveAcceptInterval * TimeSpan.TicksPerSecond);
             _Radius = radius;
             _SightRadius = sightRadius;
             _Actions = actions ?? Array.Empty<ActionConfig>();
-            _BaseSpeed = moveSpeed;
+            // 快取走路動作:需有段資料且總循環時長 > 0(零時長循環會無限 wrap)
+            foreach (var c in _Actions)
+            {
+                if (c == null || c.Category != ActionCategory.Locomotion ||
+                    c.Segments == null || c.Segments.Length == 0)
+                    continue;
+                var total = 0.0;
+                foreach (var segment in c.Segments)
+                    total += Math.Max(0.0, segment.Duration);
+                if (total * TimeSpan.TicksPerSecond < 1)
+                    continue;
+                _LocomotionConfig = c;
+                break;
+            }
             _LastMoveAcceptedTicks = long.MinValue / 4;
             _LastRedirectTicks = long.MinValue / 4;
             ActorId = new Property<Guid>(actorId);
@@ -211,18 +225,32 @@ namespace PinionCore.Project2.Worlds
 
             // 先結清到期事件:可能包含「動作剛好已結束」,避免誤判進行中
             _ProcessDueRedirects(_World.ElapsedTicks);
-            if (_CurrentAction != null && !force)
+            // 走路(Locomotion)可被 Cast 打斷:發新 ActionInfo 直接取代,不發中間 None;
+            // Cast 進行中且非 force 仍不可重入
+            if (_CurrentAction != null && !force &&
+                !(_CurrentAction.Category == ActionCategory.Locomotion && config.Category == ActionCategory.Cast))
                 return false;
 
             _SampleNow(out var position, out var facing, out var now);
 
-            // 覆蓋進行中的動作時,基底沿用原動作的視覺朝向(當前段的速度方向可能是側移/滑行方向)
+            // 覆蓋進行中的動作時,基底沿用原動作的視覺朝向(當前段的速度方向可能是側移/滑行方向);
+            // 走路的 _ActionForward 即移動指令方向,被攻擊打斷時攻擊自然朝走路方向
             var forward = _CurrentAction != null ? _ActionForward : facing;
             _CurrentAction = config;
             _ActionForward = forward;
             _ActionRight = new Vector2(forward.y, -forward.x);
+            _ScheduleBoundaries(config, now);
 
-            _BoundaryTicks = new long[config.Segments.Length];
+            _SetActionInfo(new ActionInfo { Action = action, StartTicks = now });
+            _StartSegment(0, position, now);
+            return true;
+        }
+
+        /// <summary>一次算定所有段邊界的絕對 tick(now + 累計段時長),並重置段游標。</summary>
+        void _ScheduleBoundaries(ActionConfig config, long now)
+        {
+            if (_BoundaryTicks == null || _BoundaryTicks.Length != config.Segments.Length)
+                _BoundaryTicks = new long[config.Segments.Length];
             var boundary = now;
             for (var i = 0; i < config.Segments.Length; i++)
             {
@@ -231,14 +259,14 @@ namespace PinionCore.Project2.Worlds
                 _BoundaryTicks[i] = boundary;
             }
             _NextBoundary = 0;
-
-            _SetActionInfo(new ActionInfo { Action = action, StartTicks = now });
-            _StartSegment(0, position, now);
-            return true;
         }
 
-        /// <summary>以段的局部位移(動作起始朝向基底)組出等速直線 MoveInfo 並提交;零位移段 = 原地駐留。</summary>
-        void _StartSegment(int index, Vector2 position, long startTicks)
+        /// <summary>
+        /// 以段的局部位移(動作起始朝向基底)組出等速直線 MoveInfo 並提交;零位移段 = 原地駐留。
+        /// suppressRedundant:新段與現行 MoveInfo 的外推同向同速且位置吻合時不 emit
+        /// (走路循環 wrap 用,直線走路每循環網路成本趨近 0;訂閱 replay 送內部狀態,語意等價)。
+        /// </summary>
+        void _StartSegment(int index, Vector2 position, long startTicks, bool suppressRedundant = false)
         {
             var segment = _CurrentAction.Segments[index];
             var offset = _ActionRight * segment.LocalOffset.x + _ActionForward * segment.LocalOffset.y;
@@ -268,7 +296,21 @@ namespace PinionCore.Project2.Worlds
                     StartTicks = startTicks
                 };
             }
-            _SetMoveInfo(candidate, emit: true);
+            _SetMoveInfo(candidate, emit: !suppressRedundant || !_MatchesExtrapolation(candidate));
+        }
+
+        /// <summary>candidate 是否與現行 MoveInfo 的外推等價(同向同速、位置吻合,容差 1e-4 公尺)。</summary>
+        bool _MatchesExtrapolation(in MoveInfo candidate)
+        {
+            if (Mathf.Abs(candidate.Speed - _MoveInfo.Speed) > 1e-5f)
+                return false;
+            if ((candidate.Facing - _MoveInfo.Facing).sqrMagnitude > 1e-8f)
+                return false;
+            var elapsed = (candidate.StartTicks - _MoveInfo.StartTicks) / (double)TimeSpan.TicksPerSecond;
+            if (elapsed < 0)
+                return false;
+            MoveSampler.Sample(_MoveInfo, elapsed, out var extrapolated, out _);
+            return (candidate.Position - extrapolated).sqrMagnitude <= 1e-8f;
         }
 
         /// <summary>動作結束:發終停 MoveInfo(恢復視覺朝向)與 ActionInfo.None,解除移動鎖定。</summary>
@@ -276,7 +318,6 @@ namespace PinionCore.Project2.Worlds
         {
             _CurrentAction = null;
             _BoundaryTicks = null;
-            _BaseSpeed = _MoveSpeed;
             _SetMoveInfo(new MoveInfo
             {
                 Position = position,
@@ -297,7 +338,7 @@ namespace PinionCore.Project2.Worlds
 
         public Value<bool> Move(Vector2 direction)
         {
-            if (_MoveSpeed <= 0f || direction.sqrMagnitude <= 1e-6f)
+            if (direction.sqrMagnitude <= 1e-6f)
                 return false;
 
             // Move 節流:距上次被接受的 Move 未滿間隔即拒收;Stop 不受此限
@@ -307,22 +348,37 @@ namespace PinionCore.Project2.Worlds
             // 取樣前先結清已到期的撞牆 redirect,避免以穿牆的外推位置當新起點
             _ProcessDueRedirects(_World.ElapsedTicks);
 
-            // 動作進行中位移權威屬於動作排程,玩家移動輸入一律拒收(結清後動作可能剛好結束)
-            if (_CurrentAction != null)
+            // Cast 動作進行中位移權威屬於動作排程,玩家移動輸入一律拒收(結清後動作可能剛好結束)
+            if (_CurrentAction != null && _CurrentAction.Category != ActionCategory.Locomotion)
                 return false;
 
-            _SampleNow(out var position, out _, out var now);
-
-            // 瞬轉直走:朝向即刻設為指令方向(世界座標),直線前進直到下一個 Move/Stop;
-            // 轉向表現由前端補間。貼牆朝牆走時 _SetMoveInfo 會先投影成滑行再發出。
-            _LastMoveAcceptedTicks = now;
-            _SetMoveInfo(new MoveInfo
+            if (_CurrentAction != null)
             {
-                Position = position,
-                Facing = direction.normalized,
-                Speed = _MoveSpeed,
-                StartTicks = now
-            }, emit: true);
+                // 走路中重定向:換朝向基底、以當下取樣位置重發現行段。
+                // 段內等速 → 邊界 tick 不動,剩餘距離 = 名目速度 × 剩餘時間自動成立;
+                // 不發 ActionInfo,client 動畫連續不重播。
+                _SampleNow(out var current, out _, out var tick);
+                _ActionForward = direction.normalized;
+                _ActionRight = new Vector2(_ActionForward.y, -_ActionForward.x);
+                _LastMoveAcceptedTicks = tick;
+                _StartSegment(_NextBoundary, current, tick);
+                return true;
+            }
+
+            // 無走路動作的角色不能移動:位移權威一律來自烘焙的 root motion 排程
+            if (_LocomotionConfig == null)
+                return false;
+
+            // 啟動走路:同 StartAction 排程,但朝向基底 = 指令方向(非取樣朝向);
+            // 循環直到 Stop / 被 Cast 打斷,速度由烘焙的 root motion 決定。
+            _SampleNow(out var start, out _, out var startTick);
+            _CurrentAction = _LocomotionConfig;
+            _ActionForward = direction.normalized;
+            _ActionRight = new Vector2(_ActionForward.y, -_ActionForward.x);
+            _ScheduleBoundaries(_LocomotionConfig, startTick);
+            _LastMoveAcceptedTicks = startTick;
+            _SetActionInfo(new ActionInfo { Action = _LocomotionConfig.Action, StartTicks = startTick });
+            _StartSegment(0, start, startTick);
             return true;
         }
 
@@ -330,7 +386,15 @@ namespace PinionCore.Project2.Worlds
         {
             _ProcessDueRedirects(_World.ElapsedTicks);
             if (_CurrentAction != null)
-                return false;
+            {
+                // Cast 不能被玩家停止;走路 = 結束循環(發 None + Speed=0,
+                // 終停朝向 = _ActionForward = 移動指令方向,語意剛好)
+                if (_CurrentAction.Category != ActionCategory.Locomotion)
+                    return false;
+                _SampleNow(out var current, out _, out var tick);
+                _EndAction(current, tick);
+                return true;
+            }
             if (_MoveInfo.Speed == 0f)
                 return false;
 
@@ -343,6 +407,19 @@ namespace PinionCore.Project2.Worlds
                 StartTicks = now
             }, emit: true);
             return true;
+        }
+
+        /// <summary>
+        /// 結束進行中的走路動作(Cast 不受影響):供狀態機在收回移動能力(無意識等)時呼叫,
+        /// 避免能力已收回但角色繼續循環走路。
+        /// </summary>
+        internal void StopLocomotion()
+        {
+            _ProcessDueRedirects(_World.ElapsedTicks);
+            if (_CurrentAction == null || _CurrentAction.Category != ActionCategory.Locomotion)
+                return;
+            _SampleNow(out var position, out _, out var now);
+            _EndAction(position, now);
         }
 
         /// <summary>
@@ -436,7 +513,21 @@ namespace PinionCore.Project2.Worlds
                     MoveSampler.Sample(_MoveInfo, elapsed, out var position, out _);
                     if (_NextBoundary == _CurrentAction.Segments.Length - 1)
                     {
-                        _EndAction(position, nextBoundary);
+                        if (_CurrentAction.Category == ActionCategory.Locomotion)
+                        {
+                            // 循環 wrap:以本輪最後邊界時刻(非 now)為下一輪基準,零漂移;
+                            // 朝向基底不變、不重發 ActionInfo(client 的 loop 動畫自己循環)。
+                            // 重排後若時間軸無前進(零時長循環)則結束,防無限 wrap。
+                            _ScheduleBoundaries(_CurrentAction, nextBoundary);
+                            if (_BoundaryTicks[_BoundaryTicks.Length - 1] > nextBoundary)
+                                _StartSegment(0, position, nextBoundary, suppressRedundant: true);
+                            else
+                                _EndAction(position, nextBoundary);
+                        }
+                        else
+                        {
+                            _EndAction(position, nextBoundary);
+                        }
                     }
                     else
                     {

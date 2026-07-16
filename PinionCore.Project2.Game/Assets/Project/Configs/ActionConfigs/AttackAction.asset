@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: AttackAction
   m_EditorClassIdentifier: 
   Action: 1
+  Category: 0
   Duration: 1.0833334
   Segments:
   - LocalOffset: {x: 0.052260377, y: 0.12813495}

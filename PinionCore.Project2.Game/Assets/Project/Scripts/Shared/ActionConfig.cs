@@ -17,6 +17,8 @@ namespace PinionCore.Project2.Shared
 
         public ActionType Action = ActionType.Attack;
 
+        public ActionCategory Category = ActionCategory.Cast;
+
         // 動作總時長(秒)= 烘焙來源 clip 的長度;段總時長由烘焙器補零位移尾段對齊此值
         public float Duration;
 

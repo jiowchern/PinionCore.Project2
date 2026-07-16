@@ -8,8 +8,18 @@ namespace PinionCore.Project2.Worlds.Statuses
     /// </summary>
     internal class UnconsciousStatus : IStatus
     {
+        readonly Player _Player;
+
+        public UnconsciousStatus(Player player)
+        {
+            _Player = player;
+        }
+
         void IStatus.Enter()
         {
+            // 能力收回的同時結束進行中的走路循環,避免無意識後角色繼續走;
+            // Cast(僵直/死亡動作)不受影響,由動作排程自然播完
+            _Player.StopLocomotion();
         }
 
         void IStatus.Leave()

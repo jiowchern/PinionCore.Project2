@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95baacef3b7e1fe4da53c68b82764757, type: 3}
+  m_Name: WalkAction
+  m_EditorClassIdentifier: 
+  Action: 2
+  Category: 1
+  Duration: 0.8000001
+  Segments:
+  - LocalOffset: {x: 0, y: 1.3706892}
+    Duration: 0.8000001
+  Clip: {fileID: 3094330708855449807, guid: 836229ad8a6407d49a58a3b3fab59d53, type: 3}
+  BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
+  SimplifyTolerance: 0.05
+  MaxSegments: 8

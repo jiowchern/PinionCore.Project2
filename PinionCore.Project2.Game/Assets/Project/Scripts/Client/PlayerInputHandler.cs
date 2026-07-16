@@ -34,8 +34,8 @@ namespace PinionCore.Project2.Client
         [SerializeField] float RedirectAngleThreshold = 10f;
 
         // 指令之間的最小間隔:相機連續轉動時封頂指令頻率;
-        // 應不小於伺服器 ActorConfig.MoveAcceptInterval,避免指令被節流拒收
-        [SerializeField] float MinSendInterval = 0.15f;
+        // 應不小於伺服器 ActorConfig.MoveAcceptInterval(0.2),避免指令被節流拒收
+        [SerializeField] float MinSendInterval = 0.2f;
 
         // 低頻重檢:指令被伺服器節流拒收或掉失時,以殼朝向(=伺服器已接受的方向)比對修復
         [SerializeField] float RecheckInterval = 1f;

@@ -18,7 +18,10 @@ namespace PinionCore.Project2.Tests
     public class WorldCollisionTests
     {
         const float Radius = 0.3f;
+        // 走路段的名目速度(= 段位移 / 段時長):撞牆滑行縮放以此為基準
         const float MoveSpeed = 2f;
+        // 單段長時直走:段時長遠大於測試觀察窗,觀察期間不會有 wrap 再發 MoveInfo
+        const float WalkSegmentDuration = 10f;
         // 牆面接觸平面:z = -2.5 + Radius;斷言用的不可穿越界線再留一點浮點餘裕
         const float ContactZ = -2.2f;
         const float PenetrationLimitZ = ContactZ - 0.01f;
@@ -33,11 +36,21 @@ namespace PinionCore.Project2.Tests
             _worldInfo.Name = "CollisionTestWorld";
             _worldInfo.TerrainPrefab = new UnityEngine.AddressableAssets.AssetReferenceGameObject("84e3641b69ee6b2419379df04933bb0d");
 
+            // 移動一律走 Locomotion(root motion 排程):單段直線走路提供等速直線移動
+            var walk = ScriptableObject.CreateInstance<ActionConfig>();
+            walk.Action = ActionType.Walk;
+            walk.Category = ActionCategory.Locomotion;
+            walk.Duration = WalkSegmentDuration;
+            walk.Segments = new[]
+            {
+                new ActionConfig.MotionSegment { LocalOffset = new Vector2(0f, MoveSpeed * WalkSegmentDuration), Duration = WalkSegmentDuration },
+            };
+
             var actorConfig = ScriptableObject.CreateInstance<ActorConfig>();
             actorConfig.Name = "TestActor";
-            actorConfig.MoveSpeed = MoveSpeed;
             actorConfig.MoveAcceptInterval = 0.1f;
             actorConfig.Radius = Radius;
+            actorConfig.Actions = new[] { walk };
 
             _world = new PinionCore.Project2.Worlds.World(System.Guid.NewGuid(), _worldInfo, new[] { actorConfig });
         }
@@ -117,7 +130,7 @@ namespace PinionCore.Project2.Tests
         {
             var player = _Enter(out var events);
 
-            // 45 度斜向入射:撞牆後應沿 +X 滑行,速度縮為 MoveSpeed/√2
+            // 45 度斜向入射:撞牆後應沿 +X 滑行,速度縮為段速度/√2
             player.Move(new Vector2(1f, -1f).normalized);
 
             yield return _PumpUntil(

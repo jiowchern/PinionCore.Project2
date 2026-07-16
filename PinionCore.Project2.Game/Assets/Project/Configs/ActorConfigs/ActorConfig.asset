@@ -19,9 +19,9 @@ MonoBehaviour:
     m_SubObjectType: 
     m_SubObjectGUID: 
     m_EditorAssetChanged: 0
-  MoveSpeed: 1
   MoveAcceptInterval: 0.2
   Actions:
   - {fileID: 11400000, guid: 3f8a2c47b1d94e08a6c5d21e97f4ab30, type: 2}
+  - {fileID: 11400000, guid: b4e7f0c2a9d14c58b6a3e8d5f1720c94, type: 2}
   _Radius: 0.3
   _SightRadius: 5

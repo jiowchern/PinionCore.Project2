@@ -91,6 +91,9 @@ namespace PinionCore.Project2.Shared.Editor
                         $"[ActionMotionBaker] {action.name}: clip '{action.Clip.name}' 幾乎沒有 root 位移" +
                         "(in-place clip 或匯入設定勾了 Bake Into Pose XZ),烘出原地動作");
 
+                if (action.Category == ActionCategory.Locomotion)
+                    AlignNetDisplacementForward(action, points);
+
                 var tolerance = Mathf.Max(0.001f, action.SimplifyTolerance);
                 var maxSegments = Mathf.Max(1, action.MaxSegments);
                 var cuts = Simplify(points, tolerance);
@@ -117,14 +120,28 @@ namespace PinionCore.Project2.Shared.Editor
                     });
                 }
 
-                // 段總時長對齊 clip 長度:位移取樣終點可能略短於 clip(取樣步長殘差),補零位移尾段
+                // 段總時長對齊 clip 長度:位移取樣終點可能略短於 clip(取樣步長殘差)。
+                // Cast 補零位移尾段;Locomotion 殘差併入最後一段 —— 循環動作不得有零速尾段,
+                // 否則 client 的 speed 參數每循環歸零一次,walk 動畫閃 idle
                 var covered = points[cuts[cuts.Count - 1]].t;
-                if (action.Clip.length - covered > 1e-4f)
-                    segments.Add(new ActionConfig.MotionSegment
+                var residual = action.Clip.length - covered;
+                if (residual > 1e-4f)
+                {
+                    if (action.Category == ActionCategory.Locomotion && segments.Count > 0)
                     {
-                        LocalOffset = Vector2.zero,
-                        Duration = action.Clip.length - covered,
-                    });
+                        var last = segments[segments.Count - 1];
+                        last.Duration += residual;
+                        segments[segments.Count - 1] = last;
+                    }
+                    else
+                    {
+                        segments.Add(new ActionConfig.MotionSegment
+                        {
+                            LocalOffset = Vector2.zero,
+                            Duration = residual,
+                        });
+                    }
+                }
 
                 action.Duration = action.Clip.length;
                 action.Segments = segments.ToArray();
@@ -136,6 +153,31 @@ namespace PinionCore.Project2.Shared.Editor
             finally
             {
                 Object.DestroyImmediate(instance);
+            }
+        }
+
+        /// <summary>
+        /// 旋轉整條取樣路徑,使每循環淨位移對齊 +y(局部前方)。
+        /// 循環動作的側向淨分量會每循環累積成緩慢偏航(Kevin 走路 clip 確有側向分量),必須在烘焙時消除;
+        /// 淨位移過小的 clip 無法循環推進,直接報錯提醒檢查匯入設定。
+        /// </summary>
+        static void AlignNetDisplacementForward(ActionConfig action, List<(float t, Vector2 xz)> points)
+        {
+            var net = points[points.Count - 1].xz - points[0].xz;
+            if (net.magnitude < 0.01f)
+            {
+                Debug.LogError(
+                    $"[ActionMotionBaker] {action.name}: Locomotion clip '{action.Clip.name}' 每循環淨位移過小" +
+                    $"({net.magnitude:F4}m)—— 循環動作需要淨位移(檢查匯入設定 Bake Into Pose XZ)");
+                return;
+            }
+
+            var dir = net.normalized;
+            // R 把 dir 轉到 (0,1):cosθ = dir.y, sinθ = dir.x → v' = (v.x·dir.y - v.y·dir.x, v.x·dir.x + v.y·dir.y)
+            for (var i = 0; i < points.Count; i++)
+            {
+                var p = points[i].xz;
+                points[i] = (points[i].t, new Vector2(p.x * dir.y - p.y * dir.x, p.x * dir.x + p.y * dir.y));
             }
         }
 

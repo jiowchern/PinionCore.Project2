@@ -635,7 +635,7 @@ MonoBehaviour:
   CameraTransform: {fileID: 1829177393}
   MoveAction: {fileID: -1680190386980627800, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   RedirectAngleThreshold: 10
-  MinSendInterval: 0.05
+  MinSendInterval: 0.2
   RecheckInterval: 1
   DeadZone: 0.2
 --- !u!114 &800024553

@@ -29,12 +29,22 @@ namespace PinionCore.Project2.Tests
             _worldInfo.TerrainPrefab = new UnityEngine.AddressableAssets.AssetReferenceGameObject("84e3641b69ee6b2419379df04933bb0d");
             _worldInfo.Entrance = entrance;
 
+            // 移動走 Locomotion:單段直線走路,段速度 = moveSpeed(位置取樣仍是等速直線外推)
+            var walk = ScriptableObject.CreateInstance<ActionConfig>();
+            walk.Action = ActionType.Walk;
+            walk.Category = ActionCategory.Locomotion;
+            walk.Duration = 1f;
+            walk.Segments = new[]
+            {
+                new ActionConfig.MotionSegment { LocalOffset = new Vector2(0f, moveSpeed), Duration = 1f },
+            };
+
             var actorConfig = ScriptableObject.CreateInstance<ActorConfig>();
             actorConfig.Name = "TestActor";
-            actorConfig.MoveSpeed = moveSpeed;
             actorConfig.MoveAcceptInterval = 0.05f;
             actorConfig.Radius = Radius;
             actorConfig.SightRadius = sightRadius;
+            actorConfig.Actions = new[] { walk };
 
             _world = new PinionCore.Project2.Worlds.World(System.Guid.NewGuid(), _worldInfo, new[] { actorConfig });
         }

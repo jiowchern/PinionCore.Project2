@@ -45,11 +45,21 @@ namespace PinionCore.Project2.Client
         ActionType _appliedAction = ActionType.None;
         long _appliedActionTicks = long.MinValue;
 
-        // ActionType → Animator state 名稱(動作 state 只靠 code CrossFade 進入,不掛參數轉換)
-        static readonly System.Collections.Generic.Dictionary<ActionType, string> _ActionStates =
-            new System.Collections.Generic.Dictionary<ActionType, string>
+        // ActionType → 表現規則:Animator state 名稱(依冒險/戰鬥選)與是否凍結旋轉。
+        // Cast(攻擊)凍結旋轉:段 Facing 是速度方向(側移/滑行)不是視覺朝向;
+        // Locomotion(走路)不凍結:Facing 即移動方向,角色照常面向前進方向。
+        // 動作 state 只靠 code CrossFade 進入(以 world time 差當起播偏移),不掛參數轉換。
+        struct ActionPresentation
+        {
+            public string AdventureState;
+            public string BattleState;
+            public bool HoldRotation;
+        }
+        static readonly System.Collections.Generic.Dictionary<ActionType, ActionPresentation> _ActionStates =
+            new System.Collections.Generic.Dictionary<ActionType, ActionPresentation>
             {
-                { ActionType.Attack, "Battle Attack" },
+                { ActionType.Attack, new ActionPresentation { AdventureState = "Battle Attack", BattleState = "Battle Attack", HoldRotation = true } },
+                { ActionType.Walk, new ActionPresentation { AdventureState = "Adventure Walk", BattleState = "Battle Walk", HoldRotation = false } },
             };
 
         // 供輸入層(PlayerAttackHandler)觀察動作進行狀態;None = 結束(解鎖補送 Move 的訊號)
@@ -154,9 +164,12 @@ namespace PinionCore.Project2.Client
             Target.position = new Vector3(position.x, Target.position.y, position.y);
 
             var actionActive = _actionInfo.Action != ActionType.None;
-            if (actionActive)
+            ActionPresentation presentation = default;
+            var hasPresentation = actionActive && _ActionStates.TryGetValue(_actionInfo.Action, out presentation);
+
+            // 凍結旋轉只對 Cast 類動作(未知動作保守沿用凍結);走路照常面向移動方向
+            if (actionActive && (!hasPresentation || presentation.HoldRotation))
             {
-                // 凍結旋轉:動作段的 Facing 是速度方向(側移/撞牆滑行),不是視覺朝向;
                 // 首次進入動作時捕捉當下旋轉(動作開始前最後一次套用的朝向)並保持到 None
                 if (!_rotationHeld)
                 {
@@ -167,22 +180,28 @@ namespace PinionCore.Project2.Client
             }
             else
             {
+                _rotationHeld = false;
                 Target.rotation = Quaternion.LookRotation(new Vector3(facing.x, 0f, facing.y), Vector3.up);
             }
 
-            // 動作驅動:speed 直接用伺服器線速度(>0 走路、0 駐留),status 切換冒險/戰鬥動作組
+            // 動作驅動:speed 直接用伺服器線速度(fallback 角色與 walk↔idle 過渡仍靠它),
+            // status 切換冒險/戰鬥動作組
             if (_animator != null)
             {
                 _animator.SetFloat(_AnimSpeed, info.Speed);
                 _animator.SetInteger(_AnimStatus, (int)Status);
 
                 // 動作動畫:每顆 ActionInfo 只 CrossFade 一次,以 world time 差當起播偏移
-                //(晚加入者/模型晚載入都在此收斂到正確的動畫時間點)
+                //(晚加入者/模型晚載入都在此收斂到正確的動畫時間點)。
+                // 走路是 loop state:fixedTime 偏移超過 clip 長度由 Animator 自行取模
+                //(normalizedTime 含圈數、視覺取小數),晚加入者也收斂;float 精度在
+                // 小時級連續走路後誤差約毫秒級,可接受(每次重新起走 StartTicks 都會刷新)
                 if (actionActive &&
                     (_appliedAction != _actionInfo.Action || _appliedActionTicks != _actionInfo.StartTicks))
                 {
-                    if (_ActionStates.TryGetValue(_actionInfo.Action, out var stateName))
+                    if (hasPresentation)
                     {
+                        var stateName = Status == StatusType.Battle ? presentation.BattleState : presentation.AdventureState;
                         var offset = (float)((WorldTime.CurrentTime.Ticks - _actionInfo.StartTicks) / (double)TimeSpan.TicksPerSecond);
                         if (offset < 0f)
                             offset = 0f;
