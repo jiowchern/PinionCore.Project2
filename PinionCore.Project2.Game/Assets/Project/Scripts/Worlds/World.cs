@@ -78,12 +78,16 @@ namespace PinionCore.Project2.Worlds
         readonly Sight _Sight;
         readonly System.Diagnostics.Stopwatch _SightWatch;
 
+        // 控制轉移表:不可變資料,全部 PlayerController 共用單一實例
+        readonly Statuses.StandardTransitionProvider _TransitionProvider;
+
         public World(Guid id,WorldConfig worldInfo, ActorConfig[] actorConfigs)
         {
             _elapsedWatch = Stopwatch.StartNew();
             _UpdateWatch = Stopwatch.StartNew();
             _Sight = new Sight();
             _SightWatch = Stopwatch.StartNew();
+            _TransitionProvider = new Statuses.StandardTransitionProvider();
             _Controllers = new Depot<PlayerController>();
             _PlayersNotifier = _Controllers.ToNotifier<ICharacter>();
 
@@ -223,7 +227,7 @@ namespace PinionCore.Project2.Worlds
             em.AddComponentData(entity, LocalTransform.FromPosition(_info.Entrance));
 
             var player = new Player(actorId, actor, entity, em, config.MoveAcceptInterval, config.Radius, config.SightRadius, config.Actions, _info.Entrance, this);
-            var controller = new PlayerController(player);
+            var controller = new PlayerController(player, _TransitionProvider);
 
             // 自己永遠可見;其餘互見交給 Sight 依「距離 + 遮蔽」判定。
             // 先投影全體 transform(ctor 去穿透可能把出生點推離 Entrance)再評估;

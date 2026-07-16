@@ -25,8 +25,8 @@ namespace PinionCore.Project2.Users
         readonly Remote.Notifier<IPlayer> _PlayersNotifier;
         Remote.Notifier<IPlayer> IGame.Player => _PlayersNotifier;
 
-        // IMoveable/IAdventure/IBattle 供應已下沉 world:由 IPlayer 的對應 Notifier 承載,
-        // world 端角色狀態機(PlayerController)控制開關,user 零經手
+        // 控制能力(IControllable)供應已下沉 world:由 IPlayer.Controllable 承載,
+        // world 端控制狀態機(PlayerController)控制開關,user 零經手
 
         readonly Depot<IView> _Views;
         readonly Remote.Notifier<IView> _ViewsNotifier;

@@ -3,13 +3,13 @@
 ## 命名規則(2026-07 整頓定案,新程式碼必須遵守)
 
 ### Status vs Stance
-- `Status` 保留給**狀態機**:`PinionCore.Utility.IStatus`/`StatusMachine` 與 world 端的 `-Status` 狀態類(`ConsciousStatus`、`CastStatus`…)。
-- 對外廣播的**表現狀態**一律 `Stance`:`StanceType`、`IActor.StanceEvent`、`Player.SetStance`、client 殼 `ActorShell.Stance`。
+- `Status` 保留給**狀態機**:`PinionCore.Utility.IStatus`/`StatusMachine` 與 world 端的 `-Status` 狀態類(`ControllerStatus`、`UnconsciousStatus`…)。
+- **表現狀態**一律 `Stance`:`StanceType` 與 client 殼 `ActorShell.Stance`。Stance 不再獨立過線(`IActor.StanceEvent`/`Player.SetStance` 已拆除),一律由 `ActionType` 推導(`ActionTypeExtensions.StanceOf`)——ActionType 自帶 stance 語意(BattleX/AdventureX)。
 - Animator 參數名仍是字串 `"status"`(asset 側,勿在 C# 端混用)。
 
 ### Notifier / Depot 屬性單複數 = 供應數量
 `Notifier<T>` 型別本身看不出會供應一個還是多個實例,以屬性名單複數標示:
-- **單數 = 至多供應一個**:`IPlayer.Moveable/Adventure/Battle`、`IGame.Player/View`。
+- **單數 = 至多供應一個**:`IPlayer.Controllable`、`IGame.Player/View`。
 - **複數 = 會供應多個**:`IPlayer.Actors`、`IUniverse.Worlds`、`IUserEntry.Verifiers/Games`、`IWorld.Players`。
 - 內部 Depot 走訪屬性用 `-Items` 後綴:`ControllerItems`、`PlayerItems`、`WorldItems`。
 - 「XxxNotifier」屬性後綴風格已淘汰,不要新增。

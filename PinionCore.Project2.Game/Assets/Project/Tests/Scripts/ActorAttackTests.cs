@@ -11,9 +11,10 @@ namespace PinionCore.Project2.Tests
 {
     /// <summary>
     /// 自帶位移攻擊動作端到端測試(比照 ActorStanceTests 的四場景 Standalone 流程):
-    /// 進戰鬥 → IBattle.Attack → IActor.ActionEvent 廣播 Attack → 殼跟著分段 MoveInfo 位移
-    /// → ActionEvent None(結束)→ 殼停在位移後位置、Move 恢復可用。
-    /// 攻擊位移來自 Configs/ActionConfigs/AttackAction.asset(烘焙自 AttackDash clip),
+    /// Play(BattleIdle) 進戰鬥 → Play(BattleAttack) → IActor.ActionEvent 廣播 BattleAttack
+    /// → 攻擊中 Transition.Playables 為空(無法移動)→ 殼跟著分段 MoveInfo 位移
+    /// → ActionEvent None(結束)→ 自動回 BattleIdle → 殼停在位移後位置、Play(BattleWalk) 恢復可用。
+    /// 攻擊位移來自 Configs/ActionConfigs/BattleAttackAction.asset(烘焙自 AttackDash clip),
     /// 期望值由資產推導,烘焙改寫段資料不需改測試。
     /// </summary>
     public class ActorAttackTests
@@ -23,22 +24,22 @@ namespace PinionCore.Project2.Tests
         PinionCore.NetSync.QueryerHost _Client;
         bool _PreviousRunInBackground;
 
-        // 攻擊總位移從 AttackAction.asset 推導(烘焙會改寫段資料,測試不寫死數值);
+        // 攻擊總位移從 BattleAttackAction.asset 推導(烘焙會改寫段資料,測試不寫死數值);
         // 基底旋轉不改長度,總位移 = Σ LocalOffset 的模長
         static float _DashDistance()
         {
 #if UNITY_EDITOR
             var config = UnityEditor.AssetDatabase.LoadAssetAtPath<ActionConfig>(
-                "Assets/Project/Configs/ActionConfigs/AttackAction.asset");
-            Assert.NotNull(config, "應存在 AttackAction.asset");
-            Assert.Greater(config.Segments.Length, 0, "AttackAction 應有分段資料(先跑 PinionCore/Bake Action Motions)");
+                "Assets/Project/Configs/ActionConfigs/BattleAttackAction.asset");
+            Assert.NotNull(config, "應存在 BattleAttackAction.asset");
+            Assert.Greater(config.Segments.Length, 0, "BattleAttackAction 應有分段資料(先跑 PinionCore/Bake Action Motions)");
             var sum = Vector2.zero;
             foreach (var segment in config.Segments)
                 sum += segment.LocalOffset;
-            Assert.Greater(sum.magnitude, 0.1f, "AttackAction 總位移過小,位移斷言無意義");
+            Assert.Greater(sum.magnitude, 0.1f, "BattleAttackAction 總位移過小,位移斷言無意義");
             return sum.magnitude;
 #else
-            Assert.Fail("此測試僅支援編輯器(需讀取 AttackAction.asset)");
+            Assert.Fail("此測試僅支援編輯器(需讀取 BattleAttackAction.asset)");
             return 0f;
 #endif
         }
@@ -98,48 +99,65 @@ namespace PinionCore.Project2.Tests
             Application.runInBackground = _PreviousRunInBackground;
         }
 
+        // 等待帶指定 Current 動作的控制 soul 供應(狀態轉移 = 新 soul,SupplyEvent 有 replay 晚訂閱安全);
+        // onAttempt 重送打在已收回的 soul 上會被靜默丟棄,無害
+        ObservableYieldInstruction<IControllable> _PlayAndWait(IControllable sender, ActionType play, ActionType expectedCurrent)
+        {
+            return TestWait.FirstWithRetry(
+                () => _PlayerGhost.Controllable.SupplyEvent()
+                    .Where(c => c.Transition.Value.Current.Action == expectedCurrent),
+                onAttempt: () => sender.Play(play, Vector2.zero).RemoteValue().Subscribe(),
+                perAttempt: System.TimeSpan.FromSeconds(3),
+                attempts: 5);
+        }
+
         [UnityTest]
         [Timeout(120000)]
         public IEnumerator AttackDisplacementTest()
         {
             yield return _EnterWorld("AttackTester");
 
-            // 初始動作狀態:訂閱即 replay None
-            var actionReplay = TestWait.First(TestWait.ActionEvents(_ActorGhost), System.TimeSpan.FromSeconds(10));
+            // 初始動作狀態:idle 已升格為顯式動作,進場後廣播 AdventureIdle(訂閱 replay 即可取得)
+            var actionReplay = TestWait.First(
+                TestWait.ActionEvents(_ActorGhost), a => a.Action == ActionType.AdventureIdle,
+                System.TimeSpan.FromSeconds(10));
             yield return actionReplay;
-            TestWait.AssertDone(actionReplay, "ActionEvent 訂閱後應 replay 當前狀態");
-            Assert.AreEqual(ActionType.None, actionReplay.Result.Action, "進場初始應無動作進行中");
+            TestWait.AssertDone(actionReplay, "進場後 ActionEvent 應廣播 AdventureIdle(idle 即動作)");
 
-            // 進戰鬥(冒險態沒有 IBattle,攻擊無從觸發);IAdventure/IBattle 由 IPlayer 供應(world 端子狀態互斥開關)
-            var adventureSupply = TestWait.First(
-                _PlayerGhost.Adventure.SupplyEvent(),
-                System.TimeSpan.FromSeconds(15));
-            yield return adventureSupply;
-            TestWait.AssertDone(adventureSupply, "進場後應供應 IAdventure");
-
-            var battleSupply = TestWait.FirstWithRetry(
-                () => _PlayerGhost.Battle.SupplyEvent(),
-                onAttempt: () => adventureSupply.Result.ToBattle().RemoteValue().Subscribe(),
-                perAttempt: System.TimeSpan.FromSeconds(3),
-                attempts: 5);
-            yield return battleSupply;
-            TestWait.AssertDone(battleSupply, "ToBattle 後應供應 IBattle");
+            // 進戰鬥(冒險系狀態白名單沒有 BattleAttack,攻擊無從觸發)
+            var battleIdle = _PlayAndWait(_ControllableGhost, ActionType.BattleIdle, ActionType.BattleIdle);
+            yield return battleIdle;
+            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後應供應 Current==BattleIdle 的新 soul");
 
             // 出招前記下殼的位置(攻擊位移的比較基準)
             var startPosition = _Shell.Target.position;
             var dashDistance = _DashDistance();
 
-            // 攻擊:RPC 可能與 soul 綁定競態掉失,逾時重訂閱+重送;
-            // 重送打在進行中的動作上只會回 false,無害。等 ActionEvent 廣播 Attack = 伺服器已受理
-            var battle = battleSupply.Result;
+            // 攻擊:等 ActionEvent 廣播 BattleAttack = 伺服器已受理
             var attackEvent = TestWait.FirstWithRetry(
-                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.Attack),
-                onAttempt: () => battle.Attack(ActionType.Attack).RemoteValue().Subscribe(),
+                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleAttack),
+                onAttempt: () => battleIdle.Result.Play(ActionType.BattleAttack, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return attackEvent;
-            TestWait.AssertDone(attackEvent, "Attack 後 ActionEvent 應廣播 Attack");
+            TestWait.AssertDone(attackEvent, "Play(BattleAttack) 後 ActionEvent 應廣播 BattleAttack");
             var attackStartTicks = attackEvent.Result.StartTicks;
+
+            // 攻擊中無法移動(核心不變量):攻擊狀態 soul 的白名單為空、自然結束去向為 BattleIdle
+            var attackSoul = TestWait.First(
+                _PlayerGhost.Controllable.SupplyEvent()
+                    .Where(c => c.Transition.Value.Current.Action == ActionType.BattleAttack),
+                System.TimeSpan.FromSeconds(10));
+            yield return attackSoul;
+            TestWait.AssertDone(attackSoul, "攻擊中應供應 Current==BattleAttack 的控制 soul");
+            Assert.AreEqual(0, attackSoul.Result.Transition.Value.Playables.Length, "攻擊中 Playables 應為空(無法移動/再出招)");
+            Assert.AreEqual(ActionType.BattleIdle, attackSoul.Result.Transition.Value.Next.Action, "攻擊自然結束應回 BattleIdle");
+
+            // 行為驗證:攻擊 soul 上的 Play(BattleWalk) 若有回應必為 false
+            //(soul 已收回時 RPC 被靜默丟棄無回應,不能等待回應,改事後斷言)
+            bool? walkDuringAttack = null;
+            attackSoul.Result.Play(ActionType.BattleWalk, new Vector2(1f, 0f)).RemoteValue()
+                .Subscribe(result => walkDuringAttack = result);
 
             // 殼跟著分段 MoveInfo 位移:超過半個前衝距離即算開始位移
             var displaced = TestWait.Until(
@@ -148,13 +166,15 @@ namespace PinionCore.Project2.Tests
             yield return displaced;
             TestWait.AssertDone(displaced, "攻擊期間殼應跟著伺服器分段 MoveInfo 位移");
 
-            // 動作結束:None 且 StartTicks 晚於攻擊開始(不是訂閱 replay 撿到的舊 None)
+            // 動作結束:None 且 StartTicks 晚於攻擊開始(不是訂閱 replay 撿到的舊事件)
             var noneEvent = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost),
                 a => a.Action == ActionType.None && a.StartTicks > attackStartTicks,
                 System.TimeSpan.FromSeconds(10));
             yield return noneEvent;
             TestWait.AssertDone(noneEvent, "動作應以 ActionEvent None 結束");
+
+            Assert.AreNotEqual(true, walkDuringAttack, "攻擊中 Play(BattleWalk) 不得被接受");
 
             // 終點:殼收斂到「起點 + 總位移」附近(等殼把終停 MoveInfo 取樣完);
             // 位移折線的向量和模長 ≤ 直線距離和,容差抓總位移的 15% 起跳
@@ -165,21 +185,22 @@ namespace PinionCore.Project2.Tests
             yield return settled;
             TestWait.AssertDone(settled, "動作結束後殼應停在前衝距離附近");
 
-            // 動作結束後移動恢復可用:Move 被接受會廣播 Speed > 0 的 MoveEvent
-            //(IMoveable 由 IPlayer.Moveable 供應,world 端狀態機控制開關)
-            var moveableSupply = TestWait.First(
-                _PlayerGhost.Moveable.SupplyEvent(),
+            // 攻擊播完自動回 BattleIdle:新 soul 供應後移動恢復可用,
+            // Play(BattleWalk) 被接受會廣播 Speed > 0 的 MoveEvent
+            var idleResupply = TestWait.First(
+                _PlayerGhost.Controllable.SupplyEvent()
+                    .Where(c => c.Transition.Value.Current.Action == ActionType.BattleIdle),
                 System.TimeSpan.FromSeconds(10));
-            yield return moveableSupply;
-            TestWait.AssertDone(moveableSupply, "應供應 IMoveable");
+            yield return idleResupply;
+            TestWait.AssertDone(idleResupply, "攻擊結束後應自動供應 Current==BattleIdle 的新 soul");
 
             var moveResumed = TestWait.FirstWithRetry(
                 () => TestWait.MoveEvents(_ActorGhost).Where(m => m.Speed > 0f && m.StartTicks > attackStartTicks),
-                onAttempt: () => moveableSupply.Result.Move(new Vector2(1f, 0f)).RemoteValue().Subscribe(),
+                onAttempt: () => idleResupply.Result.Play(ActionType.BattleWalk, new Vector2(1f, 0f)).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return moveResumed;
-            TestWait.AssertDone(moveResumed, "動作結束後 Move 應恢復可用並廣播移動");
+            TestWait.AssertDone(moveResumed, "動作結束後 Play(BattleWalk) 應恢復可用並廣播移動");
         }
 
         /// <summary>
@@ -202,29 +223,18 @@ namespace PinionCore.Project2.Tests
             var animator = _Shell.Target.GetComponentInChildren<Animator>();
             Assert.IsFalse(animator.applyRootMotion, "client 模型不得啟用 root motion(位置權威在伺服器)");
 
-            // 進戰鬥 → 出招 → 等動作結束(IAdventure/IBattle 由 IPlayer 供應)
-            var adventureSupply = TestWait.First(
-                _PlayerGhost.Adventure.SupplyEvent(),
-                System.TimeSpan.FromSeconds(15));
-            yield return adventureSupply;
-            TestWait.AssertDone(adventureSupply, "進場後應供應 IAdventure");
+            // 進戰鬥 → 出招 → 等動作結束
+            var battleIdle = _PlayAndWait(_ControllableGhost, ActionType.BattleIdle, ActionType.BattleIdle);
+            yield return battleIdle;
+            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後應供應 Current==BattleIdle 的新 soul");
 
-            var battleSupply = TestWait.FirstWithRetry(
-                () => _PlayerGhost.Battle.SupplyEvent(),
-                onAttempt: () => adventureSupply.Result.ToBattle().RemoteValue().Subscribe(),
-                perAttempt: System.TimeSpan.FromSeconds(3),
-                attempts: 5);
-            yield return battleSupply;
-            TestWait.AssertDone(battleSupply, "ToBattle 後應供應 IBattle");
-
-            var battle = battleSupply.Result;
             var attackEvent = TestWait.FirstWithRetry(
-                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.Attack),
-                onAttempt: () => battle.Attack(ActionType.Attack).RemoteValue().Subscribe(),
+                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleAttack),
+                onAttempt: () => battleIdle.Result.Play(ActionType.BattleAttack, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return attackEvent;
-            TestWait.AssertDone(attackEvent, "unitychan 出招應被受理(ActorConfig2 需掛 AttackAction)");
+            TestWait.AssertDone(attackEvent, "unitychan 出招應被受理(ActorConfig2 需掛 BattleAttackAction)");
 
             var noneEvent = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost),
@@ -240,17 +250,18 @@ namespace PinionCore.Project2.Tests
         }
 
         IPlayer _PlayerGhost;
+        IControllable _ControllableGhost;
         IActor _ActorGhost;
         PinionCore.Project2.Client.ActorShell _Shell;
 
-        // 統一入口:entry.Games 合約鏈(能力介面 IMoveable/IAdventure/IBattle 均由 IPlayer 供應)
+        // 統一入口:entry.Games 合約鏈(控制能力 IControllable 由 IPlayer.Controllable 供應)
         System.IObservable<IGame> _Games()
         {
             return _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
                 .SelectMany(entry => entry.Games.SupplyEvent());
         }
 
-        // 共用進場流程:Verify → 取得 IPlayer / IActor ghost → 等 ActorProvider 建出對應殼
+        // 共用進場流程:Verify → 取得 IPlayer / IControllable / IActor ghost → 等 ActorProvider 建出對應殼
         IEnumerator _EnterWorld(string playerName, ModelType modelType = ModelType.Cube)
         {
             var verifiableSupply = TestWait.First(
@@ -274,6 +285,14 @@ namespace PinionCore.Project2.Tests
             TestWait.AssertDone(playerSupply, "Verify 通過後 client 應收到 IPlayer");
             _PlayerGhost = playerSupply.Result;
             System.Guid actorId = _PlayerGhost.ActorId;
+
+            // 控制能力只供應給擁有者(進場即 AdventureIdle 狀態)
+            var controllableSupply = TestWait.First(
+                _PlayerGhost.Controllable.SupplyEvent(),
+                System.TimeSpan.FromSeconds(15));
+            yield return controllableSupply;
+            TestWait.AssertDone(controllableSupply, "client 應收到自身的 IControllable ghost");
+            _ControllableGhost = controllableSupply.Result;
 
             var actorSupply = TestWait.First(
                 _PlayerGhost.Actors.SupplyEvent(), a => a.ActorId == actorId,

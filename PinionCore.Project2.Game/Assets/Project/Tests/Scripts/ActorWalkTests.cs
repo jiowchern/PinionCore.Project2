@@ -12,9 +12,10 @@ namespace PinionCore.Project2.Tests
     /// <summary>
     /// 走路(Locomotion)動作端到端測試:
     /// 比照 ActorMoveTests 的四場景 Standalone 流程,
-    /// Move → IActor.ActionEvent 廣播 Walk(循環動作,不發 None)→ 殼跟分段 MoveInfo 位移
-    /// 且旋轉不凍結(面向移動方向)→ Stop → ActionEvent None + 駐留;
-    /// 走路中攻擊直接取代(Walk→Attack)、攻擊結束後 Move 恢復重新起走。
+    /// Play(AdventureWalk) → IActor.ActionEvent 廣播 AdventureWalk(循環動作,不發 None)
+    /// → 殼跟分段 MoveInfo 位移且旋轉不凍結(面向移動方向)
+    /// → Play(AdventureIdle) 停走 → ActionEvent 廣播 AdventureIdle + 駐留(取代制,無中間 None);
+    /// 走路中攻擊直接取代(BattleWalk→BattleAttack)、攻擊完自動回 BattleIdle 後可重新起走。
     /// </summary>
     public class ActorWalkTests
     {
@@ -78,9 +79,21 @@ namespace PinionCore.Project2.Tests
             Application.runInBackground = _PreviousRunInBackground;
         }
 
+        // 等待帶指定 Current 動作的控制 soul 供應:狀態轉移 = 新 soul 供應,
+        // SupplyEvent 有 replay,已轉移完成的晚訂閱也安全
+        ObservableYieldInstruction<IControllable> _WaitControllable(ActionType current, IControllable sender, ActionType play, Vector2 direction)
+        {
+            return TestWait.FirstWithRetry(
+                () => _PlayerGhost.Controllable.SupplyEvent()
+                    .Where(c => c.Transition.Value.Current.Action == current),
+                onAttempt: () => sender.Play(play, direction).RemoteValue().Subscribe(),
+                perAttempt: System.TimeSpan.FromSeconds(3),
+                attempts: 5);
+        }
+
         /// <summary>
-        /// 走路生命週期:Move → ActionEvent 廣播 Walk、殼跟分段 MoveInfo 位移、
-        /// 旋轉不凍結(面向移動方向);Stop → None + 駐留 MoveInfo,殼停住。
+        /// 走路生命週期:Play(AdventureWalk) → ActionEvent 廣播 AdventureWalk、殼跟分段 MoveInfo 位移、
+        /// 旋轉不凍結(面向移動方向);Play(AdventureIdle) → ActionEvent 廣播 AdventureIdle + 駐留,殼停住。
         /// </summary>
         [UnityTest]
         [Timeout(120000)]
@@ -90,15 +103,15 @@ namespace PinionCore.Project2.Tests
 
             var startPos = _Shell.Target.position;
 
-            // Move → 等 ActionEvent 廣播 Walk(訂閱 replay 是 None,被 predicate 濾掉);
-            // RPC 可能與 soul 綁定競態掉失,逾時重訂閱+重送(重送在走路中 = 重定向,無害)
+            // 起走 → 等 ActionEvent 廣播 AdventureWalk(訂閱 replay 是 AdventureIdle,被 predicate 濾掉);
+            // RPC 可能與 soul 轉移競態掉失,逾時重訂閱+重送(重送打在舊 soul 上被靜默丟棄,無害)
             var walkEvent = TestWait.FirstWithRetry(
-                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.Walk),
-                onAttempt: () => _MoveableGhost.Move(new Vector2(1f, 0f)).RemoteValue().Subscribe(),
+                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.AdventureWalk),
+                onAttempt: () => _ControllableGhost.Play(ActionType.AdventureWalk, new Vector2(1f, 0f)).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return walkEvent;
-            TestWait.AssertDone(walkEvent, "Move 後 ActionEvent 應廣播 Walk");
+            TestWait.AssertDone(walkEvent, "Play(AdventureWalk) 後 ActionEvent 應廣播 AdventureWalk");
             var walkStartTicks = walkEvent.Result.StartTicks;
 
             // 殼跟著分段 MoveInfo 位移
@@ -114,19 +127,27 @@ namespace PinionCore.Project2.Tests
             var directionXZ = new Vector2(displacement.x, displacement.z).normalized;
             Assert.Greater(Vector2.Dot(directionXZ, new Vector2(1f, 0f)), 0.98f, "位移方向應沿指令方向");
 
-            // Stop → None(StartTicks 晚於走路開始)+ 駐留 MoveInfo
+            // 停走:取得走路狀態的新 soul,Play(AdventureIdle) 轉移回 idle
+            //(取代制:直接廣播 AdventureIdle,無中間 None)+ 駐留 MoveInfo
+            var walkSoul = TestWait.First(
+                _PlayerGhost.Controllable.SupplyEvent()
+                    .Where(c => c.Transition.Value.Current.Action == ActionType.AdventureWalk),
+                System.TimeSpan.FromSeconds(10));
+            yield return walkSoul;
+            TestWait.AssertDone(walkSoul, "走路中應供應 Current==AdventureWalk 的控制 soul");
+
             var stand = TestWait.First(
                 TestWait.MoveEvents(_ActorGhost), i => i.Speed == 0f, System.TimeSpan.FromSeconds(10));
-            var noneEvent = TestWait.First(
-                TestWait.ActionEvents(_ActorGhost),
-                a => a.Action == ActionType.None && a.StartTicks > walkStartTicks,
-                System.TimeSpan.FromSeconds(10));
-            _MoveableGhost.Stop();
-
-            yield return noneEvent;
-            TestWait.AssertDone(noneEvent, "Stop 後 ActionEvent 應廣播 None");
+            var idleEvent = TestWait.FirstWithRetry(
+                () => TestWait.ActionEvents(_ActorGhost)
+                    .Where(a => a.Action == ActionType.AdventureIdle && a.StartTicks > walkStartTicks),
+                onAttempt: () => walkSoul.Result.Play(ActionType.AdventureIdle, Vector2.zero).RemoteValue().Subscribe(),
+                perAttempt: System.TimeSpan.FromSeconds(3),
+                attempts: 5);
+            yield return idleEvent;
+            TestWait.AssertDone(idleEvent, "Play(AdventureIdle) 後 ActionEvent 應廣播 AdventureIdle");
             yield return stand;
-            TestWait.AssertDone(stand, "Stop 後應收到駐留 MoveInfo(Speed==0)");
+            TestWait.AssertDone(stand, "停走後應收到駐留 MoveInfo(Speed==0)");
 
             // 殼吸附到駐留點後不再移動
             var standInfo = stand.Result;
@@ -143,12 +164,12 @@ namespace PinionCore.Project2.Tests
                 () => (_Shell.Target.position - stopPos).magnitude < 0.02f,
                 System.TimeSpan.FromSeconds(1));
             yield return held;
-            Assert.IsFalse(held.Result, "Stop 後殼不應再移動");
+            Assert.IsFalse(held.Result, "停走後殼不應再移動");
         }
 
         /// <summary>
-        /// 走路中攻擊:Attack 直接取代 Walk(無中間 None),
-        /// 攻擊結束(None)後 Move 恢復可用並重新廣播 Walk。
+        /// 走路中攻擊:Play(BattleAttack) 直接取代 BattleWalk(無中間 None),
+        /// 攻擊結束(None)後自動回 BattleIdle,重新 Play(BattleWalk) 可再起走。
         /// </summary>
         [UnityTest]
         [Timeout(120000)]
@@ -156,44 +177,40 @@ namespace PinionCore.Project2.Tests
         {
             yield return _EnterWorld("WalkAttackTester");
 
-            // 收集 ActionEvent 序列(replay None 也會進來,驗證時以 ticks 篩選)
+            // 收集 ActionEvent 序列(replay AdventureIdle 也會進來,驗證時以 ticks 篩選)
             var actionLog = new System.Collections.Generic.List<ActionInfo>();
             var actionSub = TestWait.ActionEvents(_ActorGhost).Subscribe(actionLog.Add);
 
-            // 進戰鬥(走路不佔用 IBattle;先切戰鬥態再起走)
-            var adventureSupply = TestWait.First(
-                _PlayerGhost.Adventure.SupplyEvent(),
-                System.TimeSpan.FromSeconds(15));
-            yield return adventureSupply;
-            TestWait.AssertDone(adventureSupply, "進場後應供應 IAdventure");
+            // 進戰鬥(攻擊只在戰鬥系狀態的白名單內;先切戰鬥態再起走)
+            var battleIdle = _WaitControllable(ActionType.BattleIdle, _ControllableGhost, ActionType.BattleIdle, Vector2.zero);
+            yield return battleIdle;
+            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後應供應 Current==BattleIdle 的新 soul");
 
-            var battleSupply = TestWait.FirstWithRetry(
-                () => _PlayerGhost.Battle.SupplyEvent(),
-                onAttempt: () => adventureSupply.Result.ToBattle().RemoteValue().Subscribe(),
-                perAttempt: System.TimeSpan.FromSeconds(3),
-                attempts: 5);
-            yield return battleSupply;
-            TestWait.AssertDone(battleSupply, "ToBattle 後應供應 IBattle");
-
-            // 起走
+            // 起走(戰鬥走路)
             var walkEvent = TestWait.FirstWithRetry(
-                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.Walk),
-                onAttempt: () => _MoveableGhost.Move(new Vector2(1f, 0f)).RemoteValue().Subscribe(),
+                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleWalk),
+                onAttempt: () => battleIdle.Result.Play(ActionType.BattleWalk, new Vector2(1f, 0f)).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return walkEvent;
-            TestWait.AssertDone(walkEvent, "Move 後 ActionEvent 應廣播 Walk");
+            TestWait.AssertDone(walkEvent, "Play(BattleWalk) 後 ActionEvent 應廣播 BattleWalk");
             var walkStartTicks = walkEvent.Result.StartTicks;
 
-            // 走路中攻擊:Attack 直接取代 Walk
-            var battle = battleSupply.Result;
+            // 走路中攻擊:取得走路 soul,Play(BattleAttack) 直接取代走路
+            var walkSoul = TestWait.First(
+                _PlayerGhost.Controllable.SupplyEvent()
+                    .Where(c => c.Transition.Value.Current.Action == ActionType.BattleWalk),
+                System.TimeSpan.FromSeconds(10));
+            yield return walkSoul;
+            TestWait.AssertDone(walkSoul, "走路中應供應 Current==BattleWalk 的控制 soul");
+
             var attackEvent = TestWait.FirstWithRetry(
-                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.Attack),
-                onAttempt: () => battle.Attack(ActionType.Attack).RemoteValue().Subscribe(),
+                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleAttack),
+                onAttempt: () => walkSoul.Result.Play(ActionType.BattleAttack, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return attackEvent;
-            TestWait.AssertDone(attackEvent, "走路中 Attack 應被受理並廣播");
+            TestWait.AssertDone(attackEvent, "走路中 Play(BattleAttack) 應被受理並廣播");
             var attackStartTicks = attackEvent.Result.StartTicks;
 
             // 取代不發中間 None:走路開始與攻擊開始之間不得有 None 事件
@@ -204,7 +221,7 @@ namespace PinionCore.Project2.Tests
                         "攻擊取代走路不得發中間 None");
             }
 
-            // 攻擊結束 → None
+            // 攻擊結束 → None(Cast 播完到下一狀態 Enter 之間的短暫訊號)
             var noneEvent = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost),
                 a => a.Action == ActionType.None && a.StartTicks > attackStartTicks,
@@ -212,34 +229,33 @@ namespace PinionCore.Project2.Tests
             yield return noneEvent;
             TestWait.AssertDone(noneEvent, "攻擊應以 ActionEvent None 結束");
 
-            // CastStatus 期間 IMoveable 被收回、結束後重新供應:取新 ghost 再送 Move
-            //(SupplyEvent 有 replay,晚訂閱安全)
-            var moveableResupply = TestWait.First(
-                _PlayerGhost.Moveable.SupplyEvent(),
+            // 攻擊播完自動轉移回 BattleIdle:新 soul 供應(SupplyEvent 有 replay,晚訂閱安全)
+            var idleResupply = TestWait.First(
+                _PlayerGhost.Controllable.SupplyEvent()
+                    .Where(c => c.Transition.Value.Current.Action == ActionType.BattleIdle),
                 System.TimeSpan.FromSeconds(10));
-            yield return moveableResupply;
-            TestWait.AssertDone(moveableResupply, "攻擊結束後應重新供應 IMoveable");
+            yield return idleResupply;
+            TestWait.AssertDone(idleResupply, "攻擊結束後應自動供應 Current==BattleIdle 的新 soul");
 
-            // 攻擊結束後 Move 恢復:重新廣播 Walk(新 StartTicks)
+            // 攻擊結束後可重新起走:重新廣播 BattleWalk(新 StartTicks)
             var resumeWalk = TestWait.FirstWithRetry(
                 () => TestWait.ActionEvents(_ActorGhost)
-                    .Where(a => a.Action == ActionType.Walk && a.StartTicks > attackStartTicks),
-                onAttempt: () => moveableResupply.Result.Move(new Vector2(0f, 1f)).RemoteValue().Subscribe(),
+                    .Where(a => a.Action == ActionType.BattleWalk && a.StartTicks > attackStartTicks),
+                onAttempt: () => idleResupply.Result.Play(ActionType.BattleWalk, new Vector2(0f, 1f)).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return resumeWalk;
-            TestWait.AssertDone(resumeWalk, "攻擊結束後 Move 應恢復並重新廣播 Walk");
+            TestWait.AssertDone(resumeWalk, "攻擊結束後 Play(BattleWalk) 應恢復並重新廣播");
 
-            moveableResupply.Result.Stop();
             actionSub.Dispose();
         }
 
         IPlayer _PlayerGhost;
-        IMoveable _MoveableGhost;
+        IControllable _ControllableGhost;
         IActor _ActorGhost;
         PinionCore.Project2.Client.ActorShell _Shell;
 
-        // 共用進場流程:Verify → 取得 IPlayer / IMoveable / IActor → 等 ActorProvider 建出對應殼
+        // 共用進場流程:Verify → 取得 IPlayer / IControllable / IActor → 等 ActorProvider 建出對應殼
         IEnumerator _EnterWorld(string playerName)
         {
             var verifiableSupply = TestWait.First(
@@ -266,12 +282,13 @@ namespace PinionCore.Project2.Tests
             _PlayerGhost = playerSupply.Result;
             System.Guid actorId = _PlayerGhost.ActorId;
 
-            var moveableSupply = TestWait.First(
-                _PlayerGhost.Moveable.SupplyEvent(), m => m.ActorId == actorId,
+            // 控制能力只供應給擁有者(進場即 AdventureIdle 狀態)
+            var controllableSupply = TestWait.First(
+                _PlayerGhost.Controllable.SupplyEvent(),
                 System.TimeSpan.FromSeconds(15));
-            yield return moveableSupply;
-            TestWait.AssertDone(moveableSupply, "client 應收到自身的 IMoveable ghost");
-            _MoveableGhost = moveableSupply.Result;
+            yield return controllableSupply;
+            TestWait.AssertDone(controllableSupply, "client 應收到自身的 IControllable ghost");
+            _ControllableGhost = controllableSupply.Result;
 
             var actorSupply = TestWait.First(
                 _PlayerGhost.Actors.SupplyEvent(), a => a.ActorId == actorId,

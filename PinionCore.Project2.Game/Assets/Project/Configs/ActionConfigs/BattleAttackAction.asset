@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 95baacef3b7e1fe4da53c68b82764757, type: 3}
-  m_Name: AttackAction
+  m_Name: BattleAttackAction
   m_EditorClassIdentifier: 
   Action: 1
   Category: 0

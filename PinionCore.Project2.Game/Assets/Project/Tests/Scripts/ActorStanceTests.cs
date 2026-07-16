@@ -10,11 +10,12 @@ using PinionCore.Project2.Shared.Users;
 namespace PinionCore.Project2.Tests
 {
     /// <summary>
-    /// 冒險/戰鬥狀態切換端到端測試:
-    /// 比照 ActorMoveTests 的四場景 Standalone 流程,進場後驗證
-    /// IActor.StanceEvent 訂閱即 replay 初始冒險狀態;
-    /// 經 IAdventure.ToBattle / IBattle.ToAdventure 切換伺服器狀態機時,
-    /// 狀態由 world 端 Adventure/Battle 子狀態切換時廣播到 IActor ghost,殼(Client.ActorShell.Status)跟著切換。
+    /// 冒險/戰鬥表現狀態切換端到端測試:
+    /// 比照 ActorMoveTests 的四場景 Standalone 流程。StanceEvent 已拆除,
+    /// 表現狀態由 IActor.ActionEvent 廣播的 ActionType 推導(StanceOf):
+    /// 經 IControllable.Play(BattleIdle / AdventureIdle) 驅動 world 端控制狀態機轉移時,
+    /// 新狀態 soul 重新供應(Transition.Current 隨之切換),
+    /// ActionEvent 廣播戰鬥/冒險系動作,殼(Client.ActorShell.Stance)推導跟著切換。
     /// </summary>
     public class ActorStanceTests
     {
@@ -82,76 +83,85 @@ namespace PinionCore.Project2.Tests
         }
 
         /// <summary>
-        /// 初始 replay 冒險 → ToBattle 廣播戰鬥 → ToAdventure 廣播回冒險,
-        /// 每段都驗證 IActor ghost 的 StanceEvent 與殼的 Status。
+        /// 初始 replay 冒險系 → Play(BattleIdle) 廣播戰鬥系動作 → Play(AdventureIdle) 廣播回冒險系,
+        /// 每段都驗證新供應 soul 的 Transition.Current、ActionEvent 的 ActionType 推導與殼的 Stance。
         /// </summary>
         [UnityTest]
         [Timeout(120000)]
-        public IEnumerator StatusSwitchTest()
+        public IEnumerator StanceSwitchTest()
         {
             yield return _EnterWorld("StatusTester");
 
-            // 訂閱即 replay:新訂閱應收到當前狀態(晚一個網路往返)
-            var replay = TestWait.First(TestWait.StanceEvents(_ActorGhost), System.TimeSpan.FromSeconds(10));
+            // 訂閱即 replay:新訂閱應收到當前動作(晚一個網路往返),stance 由 ActionType 推導
+            var replay = TestWait.First(
+                TestWait.ActionEvents(_ActorGhost), a => a.Action != ActionType.None,
+                System.TimeSpan.FromSeconds(10));
             yield return replay;
-            TestWait.AssertDone(replay, "StanceEvent 訂閱後應 replay 當前狀態");
-            Assert.AreEqual(StanceType.Adventure, replay.Result, "進場初始狀態應為冒險");
+            TestWait.AssertDone(replay, "ActionEvent 訂閱後應 replay 當前動作");
+            Assert.AreEqual(StanceType.Adventure, replay.Result.Action.StanceOf(), "進場初始動作應屬冒險系");
             Assert.AreEqual(StanceType.Adventure, _Shell.Stance, "殼的初始狀態應為冒險");
 
-            // IAdventure 只供應給本地玩家(IPlayer.Adventure,world 端子狀態開關);
-            // 進場即冒險狀態,replay 保證晚訂閱可取得
-            var adventureSupply = TestWait.First(
-                _PlayerGhost.Adventure.SupplyEvent(),
+            // IControllable 只供應給本地玩家(IPlayer.Controllable,world 端控制狀態機開關);
+            // 進場即冒險 idle 狀態,supply replay 保證晚訂閱可取得
+            var idleSupply = TestWait.First(
+                _PlayerGhost.Controllable.SupplyEvent(),
                 System.TimeSpan.FromSeconds(15));
-            yield return adventureSupply;
-            TestWait.AssertDone(adventureSupply, "進場後應供應 IAdventure");
+            yield return idleSupply;
+            TestWait.AssertDone(idleSupply, "進場後應供應 IControllable");
+            Assert.AreEqual(ActionType.AdventureIdle, idleSupply.Result.Transition.Value.Current.Action,
+                "進場初始控制狀態應為 AdventureIdle");
 
-            // 切戰鬥:RPC 可能與 soul 綁定競態掉失,單次逾時重訂閱(replay)+重送;
-            // IBattle 供應抵達 = 伺服器狀態機已切換
-            var adventure = adventureSupply.Result;
+            // 切戰鬥:RPC 可能與 soul 轉移競態掉失,單次逾時重訂閱(replay)+重送;
+            // 帶 Current==BattleIdle 的新 soul 供應抵達 = 伺服器狀態機已切換
+            var adventureIdle = idleSupply.Result;
             var battleSupply = TestWait.FirstWithRetry(
-                () => _PlayerGhost.Battle.SupplyEvent(),
-                onAttempt: () => adventure.ToBattle().RemoteValue().Subscribe(),
+                () => _PlayerGhost.Controllable.SupplyEvent()
+                    .Where(c => c.Transition.Value.Current.Action == ActionType.BattleIdle),
+                onAttempt: () => adventureIdle.Play(ActionType.BattleIdle, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return battleSupply;
-            TestWait.AssertDone(battleSupply, "ToBattle 後應供應 IBattle");
+            TestWait.AssertDone(battleSupply, "Play(BattleIdle) 後應供應 Current==BattleIdle 的新 soul");
 
-            // 狀態廣播抵達 IActor ghost(晚訂閱安全:已切換則 replay 即滿足)與殼
-            var battleStatus = TestWait.First(
-                TestWait.StanceEvents(_ActorGhost), s => s == StanceType.Battle, System.TimeSpan.FromSeconds(10));
-            yield return battleStatus;
-            TestWait.AssertDone(battleStatus, "ToBattle 後 StanceEvent 應廣播戰鬥狀態");
+            // 戰鬥系動作廣播抵達 IActor ghost(晚訂閱安全:已切換則 replay 即滿足)與殼推導
+            var battleAction = TestWait.First(
+                TestWait.ActionEvents(_ActorGhost),
+                a => a.Action.StanceOf() == StanceType.Battle, System.TimeSpan.FromSeconds(10));
+            yield return battleAction;
+            TestWait.AssertDone(battleAction, "Play(BattleIdle) 後 ActionEvent 應廣播戰鬥系動作");
 
             var shellBattle = TestWait.Until(() => _Shell.Stance == StanceType.Battle, System.TimeSpan.FromSeconds(10));
             yield return shellBattle;
-            TestWait.AssertDone(shellBattle, "殼應切到戰鬥狀態");
+            TestWait.AssertDone(shellBattle, "殼應推導切到戰鬥狀態");
 
-            // 切回冒險(同樣的重送保護;ToAdventure 重送若打在已解除的 soul 上會被靜默丟棄,無害)
-            var battle = battleSupply.Result;
+            // 切回冒險(同樣的重送保護;重送若打在已收回的 soul 上會被靜默丟棄,無害)
+            var battleIdle = battleSupply.Result;
             var adventureBack = TestWait.FirstWithRetry(
-                () => _PlayerGhost.Adventure.SupplyEvent(),
-                onAttempt: () => battle.ToAdventure().RemoteValue().Subscribe(),
+                () => _PlayerGhost.Controllable.SupplyEvent()
+                    .Where(c => c.Transition.Value.Current.Action == ActionType.AdventureIdle),
+                onAttempt: () => battleIdle.Play(ActionType.AdventureIdle, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return adventureBack;
-            TestWait.AssertDone(adventureBack, "ToAdventure 後應重新供應 IAdventure");
+            TestWait.AssertDone(adventureBack, "Play(AdventureIdle) 後應供應 Current==AdventureIdle 的新 soul");
 
-            var adventureStatus = TestWait.First(
-                TestWait.StanceEvents(_ActorGhost), s => s == StanceType.Adventure, System.TimeSpan.FromSeconds(10));
-            yield return adventureStatus;
-            TestWait.AssertDone(adventureStatus, "ToAdventure 後 StanceEvent 應廣播冒險狀態");
+            var adventureAction = TestWait.First(
+                TestWait.ActionEvents(_ActorGhost),
+                a => a.Action != ActionType.None && a.Action.StanceOf() == StanceType.Adventure,
+                System.TimeSpan.FromSeconds(10));
+            yield return adventureAction;
+            TestWait.AssertDone(adventureAction, "Play(AdventureIdle) 後 ActionEvent 應廣播冒險系動作");
 
             var shellAdventure = TestWait.Until(() => _Shell.Stance == StanceType.Adventure, System.TimeSpan.FromSeconds(10));
             yield return shellAdventure;
-            TestWait.AssertDone(shellAdventure, "殼應切回冒險狀態");
+            TestWait.AssertDone(shellAdventure, "殼應推導切回冒險狀態");
         }
 
         IPlayer _PlayerGhost;
         IActor _ActorGhost;
         PinionCore.Project2.Client.ActorShell _Shell;
 
-        // 統一入口:entry.Games 合約鏈(能力介面 IAdventure/IBattle 由 IPlayer 供應)
+        // 統一入口:entry.Games 合約鏈(控制能力 IControllable 由 IPlayer.Controllable 供應)
         System.IObservable<IGame> _Games()
         {
             return _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
@@ -183,7 +193,7 @@ namespace PinionCore.Project2.Tests
             _PlayerGhost = playerSupply.Result;
             System.Guid actorId = _PlayerGhost.ActorId;
 
-            // 自身的 IActor ghost(經 IPlayer.Actors 供應):StanceEvent 的權威狀態來源
+            // 自身的 IActor ghost(經 IPlayer.Actors 供應):ActionEvent 的權威狀態來源
             var actorSupply = TestWait.First(
                 _PlayerGhost.Actors.SupplyEvent(), a => a.ActorId == actorId,
                 System.TimeSpan.FromSeconds(15));

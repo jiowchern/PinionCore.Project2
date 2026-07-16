@@ -8,12 +8,12 @@ using UnityEngine.InputSystem;
 namespace PinionCore.Project2.Client
 {
     /// <summary>
-    /// 攻擊輸入:戰鬥狀態下按鍵觸發 IBattle.Attack RPC。
+    /// 攻擊輸入:戰鬥狀態下按鍵觸發 IControllable.Play(BattleAttack) RPC。
     /// 動作的表現(動畫/凍結旋轉)與位移全由 ActorShell 殼跟著伺服器事件走,本層只負責觸發;
     /// 收到殼的 ActionEvent None(動作結束)時通知 PlayerInputHandler 補送按住中的移動。
     ///
-    /// 在途鎖與逾時:冒險狀態下 IBattle 不被供應,Attack 的訂閱不會發射(回呼不來),
-    /// 故逾時自動解鎖;戰鬥狀態下回應必達,逾時只是保險。
+    /// 在途鎖與逾時:冒險系狀態的 Playables 不含 BattleAttack,伺服器直接回 false;
+    /// 狀態轉移瞬間發往舊 soul 的 Play 會被靜默丟棄(回呼不來),由逾時自動解鎖。
     /// </summary>
     public class PlayerAttackHandler : MonoBehaviour
     {

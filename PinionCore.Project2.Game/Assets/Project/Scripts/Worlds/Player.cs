@@ -115,16 +115,23 @@ namespace PinionCore.Project2.Worlds
             _Radius = radius;
             _SightRadius = sightRadius;
             _Actions = actions ?? Array.Empty<ActionConfig>();
-            // 快取走路動作:需有段資料且總循環時長 > 0(零時長循環會無限 wrap)
+            // 快取走路動作:需有段資料、總循環時長 > 0(零時長循環會無限 wrap)、
+            // 且總位移 > 0(零位移的 locomotion 是 idle,Move 起走不該選中它);
+            // 此路徑僅供 Move 直接起走(測試/舊路徑),production 由 ControllerStatus
+            // 以 StartAction 指名走路型別進場。
             foreach (var c in _Actions)
             {
                 if (c == null || c.Category != ActionCategory.Locomotion ||
                     c.Segments == null || c.Segments.Length == 0)
                     continue;
                 var total = 0.0;
+                var displacement = 0f;
                 foreach (var segment in c.Segments)
+                {
                     total += Math.Max(0.0, segment.Duration);
-                if (total * TimeSpan.TicksPerSecond < 1)
+                    displacement += segment.LocalOffset.magnitude;
+                }
+                if (total * TimeSpan.TicksPerSecond < 1 || displacement <= 1e-6f)
                     continue;
                 _LocomotionConfig = c;
                 break;
@@ -162,23 +169,7 @@ namespace PinionCore.Project2.Worlds
 
         }
 
-        // 冒險/戰鬥狀態:與 MoveEvent 同樣「訂閱即 replay」,晚訂閱的殼立即取得當前狀態
-        StanceType _Stance;
-        event Action<StanceType> _StanceEvent;
-        public event Action<StanceType> StanceEvent
-        {
-            add
-            {
-                _StanceEvent += value;
-                value(_Stance);
-            }
-            remove
-            {
-                _StanceEvent -= value;
-            }
-        }
-
-        // 動作播放狀態:與 Move/StanceEvent 同款「訂閱即 replay」;Action == None 表示無動作,
+        // 動作播放狀態:與 MoveEvent 同款「訂閱即 replay」;Action == None 表示無動作,
         // 結束時也以 None 發出 —— 這是 client 解除旋轉凍結的唯一權威訊號。
         ActionInfo _ActionInfo;
         event Action<ActionInfo> _ActionEvent;
@@ -203,10 +194,11 @@ namespace PinionCore.Project2.Worlds
 
         /// <summary>
         /// 開始播放自帶位移動作。force = false 為玩家觸發路徑(進行中不可重入);
-        /// force = true 供伺服器主動覆蓋(僵直/死亡等,未來傷害管線使用):
+        /// force = true 供狀態機轉移與伺服器主動覆蓋(僵直/死亡等):
         /// 直接作廢舊排程,發新 ActionInfo 即同時取代 replay 值,client 收到即換動畫。
+        /// forward 有值時以其為動作朝向基底(走路轉移的進場方向),null 沿用既有規則。
         /// </summary>
-        internal bool StartAction(ActionType action, bool force)
+        internal bool StartAction(ActionType action, bool force, Vector2? forward = null)
         {
             if (action == ActionType.None)
                 return false;
@@ -233,12 +225,18 @@ namespace PinionCore.Project2.Worlds
 
             _SampleNow(out var position, out var facing, out var now);
 
-            // 覆蓋進行中的動作時,基底沿用原動作的視覺朝向(當前段的速度方向可能是側移/滑行方向);
-            // 走路的 _ActionForward 即移動指令方向,被攻擊打斷時攻擊自然朝走路方向
-            var forward = _CurrentAction != null ? _ActionForward : facing;
+            // 朝向基底優先序:指名方向(走路轉移)> 進行中動作的視覺朝向(當前段的速度方向
+            // 可能是側移/滑行方向,被攻擊打斷時攻擊自然朝走路方向)> 當下取樣朝向
+            var baseForward = forward.HasValue && forward.Value.sqrMagnitude > 1e-6f
+                ? forward.Value.normalized
+                : (_CurrentAction != null ? _ActionForward : facing);
             _CurrentAction = config;
-            _ActionForward = forward;
-            _ActionRight = new Vector2(forward.y, -forward.x);
+            _ActionForward = baseForward;
+            _ActionRight = new Vector2(baseForward.y, -baseForward.x);
+            // 起走也計入 Move 節流基準(與 Move 直接起走一致):
+            // 進走路狀態後的首次重定向同樣受 MoveAcceptInterval 約束
+            if (config.Category == ActionCategory.Locomotion)
+                _LastMoveAcceptedTicks = now;
             _ScheduleBoundaries(config, now);
 
             _SetActionInfo(new ActionInfo { Action = action, StartTicks = now });
@@ -596,11 +594,5 @@ namespace PinionCore.Project2.Worlds
             };
         }
 
-        // 由 Adventure/Battle 狀態的 Enter 呼叫,經 IActor.StanceEvent 廣播給所有看得到的 client
-        internal void SetStance(StanceType stance)
-        {
-            _Stance = stance;
-            _StanceEvent?.Invoke(stance);
-        }
     }
 }

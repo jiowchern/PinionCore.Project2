@@ -9,13 +9,13 @@ namespace PinionCore.Project2.Shared
     public class ActionConfig : ScriptableObject
     {
         [System.Serializable]
-        public struct MotionSegment
+        public struct MotionSegment 
         {
             public Vector2 LocalOffset;  // 動作起始朝向的局部空間位移(x=右, y=前);零向量 = 原地
             public float Duration;       // 秒;段速度 = LocalOffset.magnitude / Duration
         }
 
-        public ActionType Action = ActionType.Attack;
+        public ActionType Action = ActionType.BattleAttack;
 
         public ActionCategory Category = ActionCategory.Cast;
 

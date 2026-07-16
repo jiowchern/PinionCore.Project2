@@ -126,12 +126,6 @@ namespace PinionCore.Project2.Tests
             return Observable.FromEvent<MoveInfo>(h => ghost.MoveEvent += h, h => ghost.MoveEvent -= h);
         }
 
-        // ghost StanceEvent 的標準 stream(與 MoveEvent 同為訂閱即 replay)
-        public static IObservable<StanceType> StanceEvents(IActor ghost)
-        {
-            return Observable.FromEvent<StanceType>(h => ghost.StanceEvent += h, h => ghost.StanceEvent -= h);
-        }
-
         // ghost ActionEvent 的標準 stream(與 MoveEvent 同為訂閱即 replay;None = 無動作/已結束)
         public static IObservable<ActionInfo> ActionEvents(IActor ghost)
         {

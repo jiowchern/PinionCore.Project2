@@ -313,9 +313,10 @@ namespace PinionCore.Project2.Tests
         }
 
         /// <summary>
-        /// Move 節流:同幀連發多個 Move,驗證節流的不變量 —
-        /// 任兩筆「被接受的 Move」的 StartTicks 差 ≥ MoveAcceptInterval、
-        /// 被拒的指令不產生 MoveEvent;Stop 不受間隔限制隨時接受;之後的 Move 恢復接受。
+        /// 重定向節流:走路中同幀連發多個 Play(AdventureWalk, 新方向)(= 重定向),
+        /// 驗證節流的不變量 — 任兩筆「被接受的方向變更」(含起走)的 StartTicks 差 ≥ MoveAcceptInterval、
+        /// 被拒的指令不產生朝向切換;Play(AdventureIdle)(= 停止)為狀態轉移不受間隔限制;
+        /// 停止後重新起走恢復接受。
         /// (不斷言「第二發必被拒」:兩發指令在 server 端的處理時點受編輯器幀時序影響,
         /// 可能被拉開超過間隔,屆時接受是合法行為)
         /// </summary>
@@ -323,8 +324,8 @@ namespace PinionCore.Project2.Tests
         [Timeout(120000)]
         public IEnumerator MoveAcceptIntervalTest()
         {
-            // 與 ActorConfig.asset 一致:該 asset 未序列化 MoveAcceptInterval,執行期使用 script 預設 0.1
-            const float MoveAcceptInterval = 0.1f;
+            // 與 ActorConfig.asset 一致:asset 序列化 MoveAcceptInterval = 0.2
+            const float MoveAcceptInterval = 0.2f;
             var intervalTicks = (long)(MoveAcceptInterval * System.TimeSpan.TicksPerSecond);
 
             yield return _EnterWorld("IntervalTester");
@@ -338,26 +339,36 @@ namespace PinionCore.Project2.Tests
                         movingInfos.Add(info);
                 });
 
-            // 同一幀連發 6 個相異方向,再緊接一發 Stop(有序管道保證 server 依序處理)
-            var degrees = new[] { 0f, 60f, 120f, 180f, 240f, 300f };
+            // 先起走(朝向 0°),等走路狀態的新 soul 供應(重定向要打在走路 soul 上)
+            var walkSoul = TestWait.FirstWithRetry(
+                () => _PlayerGhost.Controllable.SupplyEvent()
+                    .Where(c => c.Transition.Value.Current.Action == ActionType.AdventureWalk),
+                onAttempt: () => _ControllableGhost.Play(ActionType.AdventureWalk, new Vector2(0f, 1f)).RemoteValue().Subscribe(),
+                perAttempt: System.TimeSpan.FromSeconds(3),
+                attempts: 5);
+            yield return walkSoul;
+            TestWait.AssertDone(walkSoul, "起走後應供應 Current==AdventureWalk 的控制 soul");
+
+            // 同一幀連發 6 個相異方向的重定向(與起走方向皆相距 ≥60°),
+            // 再緊接一發 Play(AdventureIdle)(有序管道保證 server 依序處理)
+            var walker = walkSoul.Result;
+            var degrees = new[] { 90f, 150f, 210f, 270f, 330f, 30f };
             var results = new System.Collections.Generic.List<UniRx.ObservableYieldInstruction<bool>>();
             foreach (var deg in degrees)
             {
                 var dir = new Vector2(Mathf.Sin(deg * Mathf.Deg2Rad), Mathf.Cos(deg * Mathf.Deg2Rad));
-                results.Add(_MoveableGhost.Move(dir).RemoteValue()
+                results.Add(walker.Play(ActionType.AdventureWalk, dir).RemoteValue()
                     .First().Timeout(System.TimeSpan.FromSeconds(10)).ToYieldInstruction(throwOnError: false));
             }
-            var stopResult = _MoveableGhost.Stop().RemoteValue()
+            var stopResult = walker.Play(ActionType.AdventureIdle, Vector2.zero).RemoteValue()
                 .First().Timeout(System.TimeSpan.FromSeconds(10)).ToYieldInstruction(throwOnError: false);
 
             foreach (var r in results)
                 yield return r;
             yield return stopResult;
 
-            Assert.IsFalse(results[0].HasError, "首發 Move 未收到回傳值");
-            Assert.IsTrue(results[0].Result, "首發 Move 應被接受");
-            Assert.IsFalse(stopResult.HasError, "Stop 未收到回傳值");
-            Assert.IsTrue(stopResult.Result, "Stop 不受間隔限制,緊跟在 Move 後仍應被接受");
+            Assert.IsFalse(stopResult.HasError, "Play(AdventureIdle) 未收到回傳值");
+            Assert.IsTrue(stopResult.Result, "停止是狀態轉移,不受重定向間隔限制,緊跟在重定向後仍應被接受");
 
             // 等事件靜默,確保被接受指令的 MoveEvent 都已抵達
             //(柵欄自己的訂閱會收到一筆 replay,只進柵欄的流,不污染收集器)
@@ -370,7 +381,7 @@ namespace PinionCore.Project2.Tests
             TestWait.AssertDone(fence, "被接受指令的 MoveEvent 應在靜默窗內全部抵達");
 
             // 走路是分段 root motion:段邊界/循環 wrap 也會發 Speed>0 的 MoveInfo,
-            // 但只有「被接受的 Move」會把朝向切到新的指令方向(六發相距 60°);
+            // 但只有起走與「被接受的重定向」會把朝向切到新的指令方向(各方向相距 ≥60°);
             // 以朝向相對前一組首筆變化 >30° 分組,各組首筆即被接受指令的生效事件
             var acceptedInfos = new System.Collections.Generic.List<MoveInfo>();
             foreach (var info in movingInfos)
@@ -380,58 +391,47 @@ namespace PinionCore.Project2.Tests
                     acceptedInfos.Add(info);
             }
 
-            // 節流不變量:任兩筆被接受的 Move 的伺服器時間差 ≥ 間隔(容忍 1ms 取樣誤差)
+            // 節流不變量:起走與任兩筆被接受的方向變更的伺服器時間差 ≥ 間隔(容忍 1ms 取樣誤差)
             for (var i = 1; i < acceptedInfos.Count; i++)
             {
                 Assert.GreaterOrEqual(
                     acceptedInfos[i].StartTicks - acceptedInfos[i - 1].StartTicks,
                     intervalTicks - System.TimeSpan.TicksPerMillisecond,
-                    "被接受的相鄰 Move 時間差不得小於 MoveAcceptInterval");
+                    "被接受的相鄰方向變更時間差不得小於 MoveAcceptInterval");
             }
 
-            // 被拒的指令不生效:回傳 true 的數量 == 朝向切換的組數
+            // 被拒的指令不生效:重定向回傳 true 的數量 == 朝向切換的組數 - 1(第一組是起走)
             var acceptedCount = 0;
             foreach (var r in results)
             {
                 if (!r.HasError && r.Result)
                     acceptedCount++;
             }
-            Assert.AreEqual(acceptedCount, acceptedInfos.Count,
-                "被接受的 Move 數應等於朝向切換的組數(被拒不產生朝向切換)");
+            Assert.AreEqual(acceptedCount, acceptedInfos.Count - 1,
+                "被接受的重定向數應等於朝向切換的組數 - 1(第一組是起走;被拒不產生朝向切換)");
 
-            // Stop 已生效:收到駐留 MoveInfo(晚訂閱安全:若已駐留,replay 即滿足條件)
+            // 停止已生效:收到駐留 MoveInfo(晚訂閱安全:若已駐留,replay 即滿足條件)
             var stand = TestWait.First(
                 TestWait.MoveEvents(_ActorGhost), i => i.Speed == 0f, System.TimeSpan.FromSeconds(10));
             yield return stand;
-            TestWait.AssertDone(stand, "Stop 後應收到駐留 MoveInfo");
+            TestWait.AssertDone(stand, "停止後應收到駐留 MoveInfo");
 
-            // 間隔過後的 Move 恢復接受(用連發未包含的方向 -X 區別)。
-            // 刻意保留實時空等:節流以伺服器 Stopwatch 真實時間計,等真實時間才是正確語意
-            var waitUntil = Time.realtimeSinceStartup + 0.5f;
-            while (Time.realtimeSinceStartup < waitUntil)
-                yield return null;
-
-            // 先建等待再送指令(replay 是駐留態,被 predicate 濾掉)
-            var resumeMove = TestWait.First(
-                TestWait.MoveEvents(_ActorGhost),
-                i => i.Speed > 0f && i.Facing.x < -0.9f,
-                System.TimeSpan.FromSeconds(10));
-            var resumeResult = TestWait.First(
-                _MoveableGhost.Move(new Vector2(-1f, 0f)).RemoteValue(),
-                System.TimeSpan.FromSeconds(10));
-            yield return resumeResult;
-            TestWait.AssertDone(resumeResult, "間隔後的 Move 未收到回傳值");
-            Assert.IsTrue(resumeResult.Result, "間隔過後的 Move 應恢復接受");
-
+            // 停止後重新起走恢復接受(用連發未包含的方向 -X 區別);
+            // 走 PlayerRemote(自動依當前 Transition 選走路型別與停止目標)
+            var resumeMove = TestWait.FirstWithRetry(
+                () => TestWait.MoveEvents(_ActorGhost).Where(i => i.Speed > 0f && i.Facing.x < -0.9f),
+                onAttempt: () => _ClientPlayer.Move(new Vector2(-1f, 0f)),
+                perAttempt: System.TimeSpan.FromSeconds(3),
+                attempts: 5);
             yield return resumeMove;
-            TestWait.AssertDone(resumeMove, "間隔後的 Move 應生效(朝向 -X)");
+            TestWait.AssertDone(resumeMove, "停止後重新起走應生效(朝向 -X)");
 
             _ClientPlayer.Stop();
             moveSub.Dispose();
         }
 
         IPlayer _PlayerGhost;
-        IMoveable _MoveableGhost;
+        IControllable _ControllableGhost;
         IActor _ActorGhost;
         PinionCore.Project2.Client.ActorShell _Shell;
         PinionCore.Project2.Client.PlayerRemote _ClientPlayer;
@@ -463,13 +463,13 @@ namespace PinionCore.Project2.Tests
             _PlayerGhost = playerSupply.Result;
             System.Guid actorId = _PlayerGhost.ActorId;
 
-            // 移動控制介面由 IPlayer.Moveable 供應(world 端角色狀態機控制開關)
-            var moveableSupply = TestWait.First(
-                _PlayerGhost.Moveable.SupplyEvent(), m => m.ActorId == actorId,
+            // 控制介面由 IPlayer.Controllable 供應(world 端控制狀態機開關;只供應給擁有者)
+            var controllableSupply = TestWait.First(
+                _PlayerGhost.Controllable.SupplyEvent(),
                 System.TimeSpan.FromSeconds(15));
-            yield return moveableSupply;
-            TestWait.AssertDone(moveableSupply, "client 應收到自身的 IMoveable ghost");
-            _MoveableGhost = moveableSupply.Result;
+            yield return controllableSupply;
+            TestWait.AssertDone(controllableSupply, "client 應收到自身的 IControllable ghost");
+            _ControllableGhost = controllableSupply.Result;
 
             // 自身的 IActor ghost(經 IPlayer.Actors 供應):MoveEvent 的權威狀態來源
             var actorSupply = TestWait.First(

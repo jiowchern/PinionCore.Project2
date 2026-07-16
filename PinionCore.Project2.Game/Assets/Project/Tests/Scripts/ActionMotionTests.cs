@@ -41,7 +41,7 @@ namespace PinionCore.Project2.Tests
             _worldInfo.TerrainPrefab = new UnityEngine.AddressableAssets.AssetReferenceGameObject("84e3641b69ee6b2419379df04933bb0d");
 
             var attack = ScriptableObject.CreateInstance<ActionConfig>();
-            attack.Action = ActionType.Attack;
+            attack.Action = ActionType.BattleAttack;
             attack.Duration = DashDuration + RecoverDuration;
             attack.Segments = new[]
             {
@@ -51,7 +51,7 @@ namespace PinionCore.Project2.Tests
 
             // 走位移動走 Locomotion(Cast 出招可直接打斷走路)
             var walk = ScriptableObject.CreateInstance<ActionConfig>();
-            walk.Action = ActionType.Walk;
+            walk.Action = ActionType.AdventureWalk;
             walk.Category = ActionCategory.Locomotion;
             walk.Duration = WalkSegmentDuration;
             walk.Segments = new[]
@@ -125,11 +125,11 @@ namespace PinionCore.Project2.Tests
 
             var start = player.CurrentMoveInfo.Position;
 
-            // 玩家觸發路徑 = StartAction(force: false);RPC 端到端由 ActorAttackTests 的 IBattle.Attack 覆蓋
-            var accepted = player.StartAction(ActionType.Attack, force: false);
+            // 玩家觸發路徑 = StartAction(force: false);RPC 端到端由 ActorAttackTests 的 IControllable.Play 覆蓋
+            var accepted = player.StartAction(ActionType.BattleAttack, force: false);
             Assert.IsTrue(accepted, "無動作進行中的出招應被接受");
             Assert.AreEqual(1, actionEvents.Count, "接受後應立即發出 ActionInfo");
-            Assert.AreEqual(ActionType.Attack, actionEvents[0].Action);
+            Assert.AreEqual(ActionType.BattleAttack, actionEvents[0].Action);
 
             yield return _PumpUntil(
                 () => actionEvents.Any(a => a.Action == ActionType.None),
@@ -165,7 +165,7 @@ namespace PinionCore.Project2.Tests
         {
             var player = _Enter(out _, out var actionEvents);
 
-            player.StartAction(ActionType.Attack, force: false);
+            player.StartAction(ActionType.BattleAttack, force: false);
             Assert.AreEqual(1, actionEvents.Count, "前置條件:動作已開始");
 
             // 動作進行中:Move / Stop / 重入出招一律拒收
@@ -177,7 +177,7 @@ namespace PinionCore.Project2.Tests
             player.Stop().OnValue += (r, error) => stopAccepted = r;
             Assert.IsFalse(stopAccepted, "動作進行中 Stop 應被拒收");
 
-            var replayAccepted = player.StartAction(ActionType.Attack, force: false);
+            var replayAccepted = player.StartAction(ActionType.BattleAttack, force: false);
             Assert.IsFalse(replayAccepted, "動作進行中不可重入");
 
             yield return _PumpUntil(
@@ -206,7 +206,7 @@ namespace PinionCore.Project2.Tests
             moveEvents.Clear();
             actionEvents.Clear();
 
-            var accepted = player.StartAction(ActionType.Attack, force: false);
+            var accepted = player.StartAction(ActionType.BattleAttack, force: false);
             Assert.IsTrue(accepted, "面牆出招應被接受(撞牆是伺服器的事,不是拒收)");
             var attackStart = actionEvents[0].StartTicks;
 
@@ -236,7 +236,7 @@ namespace PinionCore.Project2.Tests
         {
             var player = _Enter(out _, out var actionEvents);
 
-            player.StartAction(ActionType.Attack, force: false);
+            player.StartAction(ActionType.BattleAttack, force: false);
             var attackStart = actionEvents[0].StartTicks;
 
             // 動作進行中新訂閱:replay 應為 Attack + 原 StartTicks(晚加入者以此算動畫偏移)
@@ -244,7 +244,7 @@ namespace PinionCore.Project2.Tests
             System.Action<ActionInfo> midHandler = info => midReplay.Add(info);
             player.ActionEvent += midHandler;
             Assert.AreEqual(1, midReplay.Count, "訂閱應立即 replay");
-            Assert.AreEqual(ActionType.Attack, midReplay[0].Action, "動作進行中 replay 應為 Attack");
+            Assert.AreEqual(ActionType.BattleAttack, midReplay[0].Action, "動作進行中 replay 應為 Attack");
             Assert.AreEqual(attackStart, midReplay[0].StartTicks, "replay 應帶原始 StartTicks");
             player.ActionEvent -= midHandler;
 
@@ -266,7 +266,7 @@ namespace PinionCore.Project2.Tests
         {
             var player = _Enter(out var moveEvents, out var actionEvents);
 
-            player.StartAction(ActionType.Attack, force: false);
+            player.StartAction(ActionType.BattleAttack, force: false);
             var firstStart = actionEvents[0].StartTicks;
 
             // 泵到第一段中途(尚未結束)
@@ -277,11 +277,11 @@ namespace PinionCore.Project2.Tests
 
             // 伺服器主動覆蓋(未來僵直/死亡路徑):作廢舊排程、發新 ActionInfo 取代 replay 值
             moveEvents.Clear();
-            var overridden = player.StartAction(ActionType.Attack, force: true);
+            var overridden = player.StartAction(ActionType.BattleAttack, force: true);
             Assert.IsTrue(overridden, "force 覆蓋應被接受");
             Assert.AreEqual(2, actionEvents.Count, "覆蓋應發出新的 ActionInfo");
             var secondStart = actionEvents[1].StartTicks;
-            Assert.AreEqual(ActionType.Attack, actionEvents[1].Action);
+            Assert.AreEqual(ActionType.BattleAttack, actionEvents[1].Action);
             Assert.Greater(secondStart, firstStart, "覆蓋的 StartTicks 應晚於原動作");
 
             // 覆蓋當下重新起段:新段起點位置 = 覆蓋時刻的取樣位置

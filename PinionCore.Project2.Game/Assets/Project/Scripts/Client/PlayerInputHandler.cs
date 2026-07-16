@@ -11,10 +11,11 @@ namespace PinionCore.Project2.Client
     /// WASD 攝影機相對移動:輸入向量以相機 yaw 轉成世界 XZ 方向,直接送 Move(世界方向)。
     /// 伺服器瞬轉直走,指令純由本地輸入(相機+按鍵)決定、不回讀角色狀態,
     /// 沒有回饋迴路,延遲下天然穩定;方向改變才送,伺服器另有 MoveAcceptInterval 節流。
-    /// 放開按鍵送一次 Stop(Stop 不受節流限制)。
+    /// 放開按鍵送一次 Stop(= 轉移回 idle,不受節流限制)。
     ///
-    /// 在途指令鎖:送出 Move/Stop 後,收到伺服器回傳值才接受下一個指令
-    ///(單一在途指令,期望值:回應必達;若卡住只記警告不自行解鎖,讓底層問題浮現)。
+    /// 在途指令鎖與逾時:送出 Move/Stop 後,收到伺服器回傳值才接受下一個指令(單一在途指令)。
+    /// 每狀態一顆 soul 的架構下,狀態轉移窗口打在舊 soul 的指令會被靜默丟棄(回應不來),
+    /// 屬預期事件:逾時記 log 後解鎖,下一幀以最新輸入重送(latest-wins),不讓輸入卡死。
     /// </summary>
     public class PlayerInputHandler : MonoBehaviour
     {
@@ -40,6 +41,9 @@ namespace PinionCore.Project2.Client
         // 低頻重檢:指令被伺服器節流拒收或掉失時,以殼朝向(=伺服器已接受的方向)比對修復
         [SerializeField] float RecheckInterval = 1f;
 
+        // 回應逾時(秒):超過即記 log 並解鎖(掉包不中斷遊戲,伺服器端另有 Soul not found 診斷 log)
+        [SerializeField] float ResponseTimeout = 2f;
+
         [SerializeField] float DeadZone = 0.2f;
 
         // 測試接縫:非 null 時取代 InputAction 讀值,測試不需 InputTestFixture
@@ -52,7 +56,6 @@ namespace PinionCore.Project2.Client
 
         // 在途指令鎖:true = 已送出 Move/Stop、尚未收到回傳值
         bool _awaitingResponse;
-        bool _stallWarned; // 等回應過久的警告只記一次,避免洗版
 
         void OnEnable()
         {
@@ -109,13 +112,18 @@ namespace PinionCore.Project2.Client
                       : Vector2.zero;
 
             // 在途指令鎖:回應抵達前不送下一個指令;desired 狀態每幀從輸入重算,
-            // 解鎖後自然以最新狀態補送(latest-wins),不需排隊
+            // 解鎖後自然以最新狀態補送(latest-wins),不需排隊。
+            // 逾時 = 指令掉失(狀態轉移窗口打在舊 soul,被伺服器靜默丟棄的預期事件,
+            // 或 gateway 回應遺失):記 log 後解鎖重送,不讓輸入卡死
             if (_awaitingResponse)
             {
-                if (!_stallWarned && Time.unscaledTime - _lastSendTime > 2f)
+                if (Time.unscaledTime - _lastSendTime > ResponseTimeout)
                 {
-                    _stallWarned = true;
-                    Debug.LogWarning("[PlayerInputHandler] Move/Stop 送出超過 2 秒未收到回應,輸入已卡住 — 疑似 gateway 回應遺失");
+                    Debug.Log($"[PlayerInputHandler] Move/Stop 送出超過 {ResponseTimeout} 秒未收到回應(soul 轉移窗口掉包或回應遺失),解鎖重送");
+                    _awaitingResponse = false;
+                    // 邊緣觸發狀態一併重置:下一幀依當下輸入重新起步/停止
+                    _moving = false;
+                    _lastSendTime = float.MinValue;
                 }
                 return;
             }
@@ -159,7 +167,6 @@ namespace PinionCore.Project2.Client
         void _Send(Action dispatch)
         {
             _awaitingResponse = true;
-            _stallWarned = false;
             _lastSendTime = Time.unscaledTime;
             dispatch();
         }
@@ -173,11 +180,13 @@ namespace PinionCore.Project2.Client
         /// 強制下一幀重評估輸入:動作(攻擊等)結束時由 PlayerAttackHandler 呼叫。
         /// 動作期間伺服器拒收 Move,而本層是邊緣觸發 —— 按住方向鍵出招,結束後
         /// _moving 仍為 true 且方向未變,永遠不會補送;重置後按住的鍵自然重新起步。
+        /// 動作結束也是權威訊號:攻擊期間打在舊 soul 的在途指令不會再有回應,一併解鎖。
         /// </summary>
         public void ForceResend()
         {
             _moving = false;
             _lastSendTime = float.MinValue;
+            _awaitingResponse = false;
         }
 
         Vector2 _ShellFacing()

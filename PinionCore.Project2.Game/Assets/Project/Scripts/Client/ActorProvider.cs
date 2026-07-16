@@ -93,9 +93,11 @@ namespace PinionCore.Project2.Client
 
             var shell = Instantiate(ShellPrefab, ActorRoot.transform);
             _actors.Add(actorId, shell);
-            shell.Setup(actor, WorldTime);
 
+            // 先查 config 再 Setup:殼需要動作 config 表(ActionType → 表現規則,與伺服器同一份資產)
             var config = ActorConfigs.Find(actor.ModelName);
+            shell.Setup(actor, WorldTime, config != null ? config.Actions : null);
+
             if (config == null)
             {
                 Debug.LogError($"找不到對應的 ActorConfig, ModelName={actor.ModelName}");

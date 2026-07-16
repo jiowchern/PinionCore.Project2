@@ -38,14 +38,14 @@ namespace PinionCore.Project2.Tests
 
             // 移動一律走 Locomotion(root motion 排程):單段直線走路提供等速直線移動
             var walk = ScriptableObject.CreateInstance<ActionConfig>();
-            walk.Action = ActionType.Walk;
+            walk.Action = ActionType.AdventureWalk;
             walk.Category = ActionCategory.Locomotion;
             walk.Duration = WalkSegmentDuration;
             walk.Segments = new[]
             {
                 new ActionConfig.MotionSegment { LocalOffset = new Vector2(0f, MoveSpeed * WalkSegmentDuration), Duration = WalkSegmentDuration },
             };
-
+             
             var actorConfig = ScriptableObject.CreateInstance<ActorConfig>();
             actorConfig.Name = "TestActor";
             actorConfig.MoveAcceptInterval = 0.1f;

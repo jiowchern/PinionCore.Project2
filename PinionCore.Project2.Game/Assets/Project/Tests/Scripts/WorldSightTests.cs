@@ -31,7 +31,7 @@ namespace PinionCore.Project2.Tests
 
             // 移動走 Locomotion:單段直線走路,段速度 = moveSpeed(位置取樣仍是等速直線外推)
             var walk = ScriptableObject.CreateInstance<ActionConfig>();
-            walk.Action = ActionType.Walk;
+            walk.Action = ActionType.AdventureWalk;
             walk.Category = ActionCategory.Locomotion;
             walk.Duration = 1f;
             walk.Segments = new[]
@@ -88,15 +88,15 @@ namespace PinionCore.Project2.Tests
         // 朝 direction 走到 arrived 成立即 Stop;過程零視野 tick(視野變化全由測試顯式驅動)
         IEnumerator _WalkUntil(PinionCore.Project2.Worlds.PlayerController mover, Vector2 direction, System.Func<bool> arrived, float timeoutSeconds)
         {
-            ICharacter remote = mover;
+            // 走位直接呼叫伺服器端 Player 純模擬核心(ICharacter 已不含移動介面)
             var accepted = false;
-            remote.Move(direction.normalized).OnValue += (r, error) => accepted = r;
+            mover.Player.Move(direction.normalized).OnValue += (r, error) => accepted = r;
             Assert.IsTrue(accepted, "Move 應被接受");
             var deadline = Time.realtimeSinceStartup + timeoutSeconds;
             while (!arrived() && Time.realtimeSinceStartup < deadline)
                 yield return null;
             Assert.IsTrue(arrived(), "移動未在時限內到達目標");
-            remote.Stop();
+            mover.Player.Stop();
         }
 
         [UnityTest]

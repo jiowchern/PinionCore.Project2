@@ -31,7 +31,8 @@ namespace PinionCore.Project2.Client
         // 收到第一個 MoveEvent(訂閱時必有 replay)前殼保持隱藏。
         MoveInfo? _MoveInfo;
 
-        // 冒險/戰鬥狀態:來自 IActor.StanceEvent(訂閱時必有 replay),驅動 Animator 的 status 參數
+        // 冒險/戰鬥表現狀態:由最新非 None 的 ActionType 推導(StanceOf,StanceEvent 已拆除),
+        // 驅動 Animator 的 status 參數;None(Cast 播完到下一狀態之間)沿用上一個值不閃切
         public StanceType Stance { get; private set; }
 
         // 自帶位移動作:來自 IActor.ActionEvent(訂閱時必有 replay)。位移仍由 MoveEvent 驅動
@@ -45,22 +46,24 @@ namespace PinionCore.Project2.Client
         ActionType _appliedAction = ActionType.None;
         long _appliedActionTicks = long.MinValue;
 
-        // ActionType → 表現規則:Animator state 名稱(依冒險/戰鬥選)與是否凍結旋轉。
-        // Cast(攻擊)凍結旋轉:段 Facing 是速度方向(側移/滑行)不是視覺朝向;
-        // Locomotion(走路)不凍結:Facing 即移動方向,角色照常面向前進方向。
+        // ActionType → Animator state 名稱:動作型別已含冒險/戰鬥語意,一對一映射;
         // 動作 state 只靠 code CrossFade 進入(以 world time 差當起播偏移),不掛參數轉換。
-        struct ActionPresentation
-        {
-            public string AdventureState;
-            public string BattleState;
-            public bool HoldRotation;
-        }
-        static readonly System.Collections.Generic.Dictionary<ActionType, ActionPresentation> _ActionStates =
-            new System.Collections.Generic.Dictionary<ActionType, ActionPresentation>
+        // 是否凍結旋轉改由 ActionConfig.Category 決定(_HoldRotation):
+        // Cast(攻擊)凍結:段 Facing 是速度方向(側移/滑行)不是視覺朝向;
+        // Locomotion(走路/idle)不凍結:Facing 即移動方向,角色照常面向前進方向。
+        static readonly System.Collections.Generic.Dictionary<ActionType, string> _ActionStates =
+            new System.Collections.Generic.Dictionary<ActionType, string>
             {
-                { ActionType.Attack, new ActionPresentation { AdventureState = "Battle Attack", BattleState = "Battle Attack", HoldRotation = true } },
-                { ActionType.Walk, new ActionPresentation { AdventureState = "Adventure Walk", BattleState = "Battle Walk", HoldRotation = false } },
+                { ActionType.BattleAttack, "Battle Attack" },
+                { ActionType.AdventureWalk, "Adventure Walk" },
+                { ActionType.BattleWalk, "Battle Walk" },
+                { ActionType.AdventureIdle, "Adventure Idle" },
+                { ActionType.BattleIdle, "Battle Idle" },
             };
+
+        // 此角色可播放的動作 config(與伺服器同一份資產,由 ActorProvider 於 Setup 傳入);
+        // client 據此以 ActionType 查表取得表現資訊(Category 等),不過線
+        ActionConfig[] _actionConfigs;
 
         // 供輸入層(PlayerAttackHandler)觀察動作進行狀態;None = 結束(解鎖補送 Move 的訊號)
         public event Action<ActionInfo> ActionEvent;
@@ -79,9 +82,11 @@ namespace PinionCore.Project2.Client
             Observable.EveryUpdate().Subscribe(_ => _Step()).AddTo(this);
         }
 
-        // 快照 ghost 資料;Unsupply 後 ghost 失效,之後不再讀取
-        public void Setup(IActor actor, WorldTimeHandler worldTime)
+        // 快照 ghost 資料;Unsupply 後 ghost 失效,之後不再讀取。
+        // actions 可為 null(找不到 ActorConfig 的降級路徑):表現規則走保守 fallback
+        public void Setup(IActor actor, WorldTimeHandler worldTime, ActionConfig[] actions)
         {
+            _actionConfigs = actions;
             _Actor = actor;
             ActorId = actor.ActorId;
             DisplayName.text = actor.DisplayName;
@@ -90,9 +95,6 @@ namespace PinionCore.Project2.Client
             // 事件 replay 需一個網路往返才到,期間沒有位置資訊,先隱藏避免閃現在原點
             gameObject.SetActive(false);
             _MoveFirst(actor);
-
-            var stanceObs = UniRx.Observable.FromEvent<StanceType>(h => actor.StanceEvent += h, h => actor.StanceEvent -= h);
-            stanceObs.Subscribe(s => Stance = s).AddTo(this);
 
             var actionObs = UniRx.Observable.FromEvent<ActionInfo>(h => actor.ActionEvent += h, h => actor.ActionEvent -= h);
             actionObs.Subscribe(_OnActionEvent).AddTo(this);
@@ -106,10 +108,15 @@ namespace PinionCore.Project2.Client
             if (info.Action == ActionType.None)
             {
                 // None 是解除旋轉凍結的唯一權威訊號(不靠本地計時);
-                // 下一幀 _Step 會以終停 MoveInfo 的 Facing(伺服器恢復的視覺朝向)重新定向
+                // 下一幀 _Step 會以終停 MoveInfo 的 Facing(伺服器恢復的視覺朝向)重新定向。
+                // Stance 沿用上一個值:None 是 Cast 播完到下一狀態之間的短暫訊號,不代表換 stance
                 _rotationHeld = false;
                 _appliedAction = ActionType.None;
                 _appliedActionTicks = long.MinValue;
+            }
+            else
+            {
+                Stance = info.Action.StanceOf();
             }
             ActionEvent?.Invoke(info);
         }
@@ -164,11 +171,10 @@ namespace PinionCore.Project2.Client
             Target.position = new Vector3(position.x, Target.position.y, position.y);
 
             var actionActive = _actionInfo.Action != ActionType.None;
-            ActionPresentation presentation = default;
-            var hasPresentation = actionActive && _ActionStates.TryGetValue(_actionInfo.Action, out presentation);
 
-            // 凍結旋轉只對 Cast 類動作(未知動作保守沿用凍結);走路照常面向移動方向
-            if (actionActive && (!hasPresentation || presentation.HoldRotation))
+            // 凍結旋轉只對 Cast 類動作(以 config 查 Category;查無 config 保守處理);
+            // 走路/idle 照常面向移動方向
+            if (actionActive && _HoldRotation(_actionInfo.Action))
             {
                 // 首次進入動作時捕捉當下旋轉(動作開始前最後一次套用的朝向)並保持到 None
                 if (!_rotationHeld)
@@ -199,9 +205,8 @@ namespace PinionCore.Project2.Client
                 if (actionActive &&
                     (_appliedAction != _actionInfo.Action || _appliedActionTicks != _actionInfo.StartTicks))
                 {
-                    if (hasPresentation)
+                    if (_ActionStates.TryGetValue(_actionInfo.Action, out var stateName))
                     {
-                        var stateName = Stance == StanceType.Battle ? presentation.BattleState : presentation.AdventureState;
                         var offset = (float)((WorldTime.CurrentTime.Ticks - _actionInfo.StartTicks) / (double)TimeSpan.TicksPerSecond);
                         if (offset < 0f)
                             offset = 0f;
@@ -211,6 +216,21 @@ namespace PinionCore.Project2.Client
                     _appliedActionTicks = _actionInfo.StartTicks;
                 }
             }
+        }
+
+        // 動作是否凍結旋轉:以 ActionType 查 ActionConfig(與伺服器同一份資產)取 Category,
+        // Cast 凍結、Locomotion 不凍;查無 config(降級/未知動作)時非走路類保守凍結
+        bool _HoldRotation(ActionType action)
+        {
+            if (_actionConfigs != null)
+            {
+                foreach (var config in _actionConfigs)
+                {
+                    if (config != null && config.Action == action)
+                        return config.Category == ActionCategory.Cast;
+                }
+            }
+            return !action.IsLocomotion();
         }
 
         public void LoadModel(AssetReferenceGameObject modelPrefab)

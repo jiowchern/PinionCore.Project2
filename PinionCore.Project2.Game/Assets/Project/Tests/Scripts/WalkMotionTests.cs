@@ -47,7 +47,7 @@ namespace PinionCore.Project2.Tests
             _worldInfo.TerrainPrefab = new UnityEngine.AddressableAssets.AssetReferenceGameObject("84e3641b69ee6b2419379df04933bb0d");
 
             var walk = ScriptableObject.CreateInstance<ActionConfig>();
-            walk.Action = ActionType.Walk;
+            walk.Action = ActionType.AdventureWalk;
             walk.Category = ActionCategory.Locomotion;
             walk.Duration = SegmentDuration * 2f;
             walk.Segments = new[]
@@ -57,7 +57,7 @@ namespace PinionCore.Project2.Tests
             };
 
             var attack = ScriptableObject.CreateInstance<ActionConfig>();
-            attack.Action = ActionType.Attack;
+            attack.Action = ActionType.BattleAttack;
             attack.Category = ActionCategory.Cast;
             attack.Duration = DashDuration + RecoverDuration;
             attack.Segments = new[]
@@ -74,7 +74,7 @@ namespace PinionCore.Project2.Tests
 
             // 單段直線走路:wrap 的新段與外推等價 → 不 emit(冗餘抑制)
             var straightWalk = ScriptableObject.CreateInstance<ActionConfig>();
-            straightWalk.Action = ActionType.Walk;
+            straightWalk.Action = ActionType.AdventureWalk;
             straightWalk.Category = ActionCategory.Locomotion;
             straightWalk.Duration = SegmentDuration;
             straightWalk.Segments = new[]
@@ -162,7 +162,7 @@ namespace PinionCore.Project2.Tests
 
             Assert.IsTrue(_Accepted(player.Move(new Vector2(0f, 1f))), "啟動走路應被接受");
             Assert.AreEqual(1, actionEvents.Count, "啟動走路應恰發一次 ActionInfo");
-            Assert.AreEqual(ActionType.Walk, actionEvents[0].Action);
+            Assert.AreEqual(ActionType.AdventureWalk, actionEvents[0].Action);
             var walkStart = actionEvents[0].StartTicks;
 
             // 泵超過兩個循環:不得出現 None、不得重發 ActionInfo
@@ -281,7 +281,7 @@ namespace PinionCore.Project2.Tests
                 timeoutSeconds: 5f);
             Assert.IsTrue(_Accepted(player.Move(new Vector2(0f, 1f))), "停止後 Move 應恢復可用");
             Assert.AreEqual(3, actionEvents.Count, "重新啟動走路應發新 ActionInfo");
-            Assert.AreEqual(ActionType.Walk, actionEvents[2].Action);
+            Assert.AreEqual(ActionType.AdventureWalk, actionEvents[2].Action);
         }
 
         [UnityTest]
@@ -298,9 +298,9 @@ namespace PinionCore.Project2.Tests
 
             // Cast 直接取代走路:無中間 None
             var interruptPos = _SamplePosition(player.CurrentMoveInfo, _world.ElapsedTicks);
-            Assert.IsTrue(player.StartAction(ActionType.Attack, force: false), "走路中出招應被接受");
+            Assert.IsTrue(player.StartAction(ActionType.BattleAttack, force: false), "走路中出招應被接受");
             Assert.AreEqual(2, actionEvents.Count, "取代不得發中間 None");
-            Assert.AreEqual(ActionType.Attack, actionEvents[1].Action);
+            Assert.AreEqual(ActionType.BattleAttack, actionEvents[1].Action);
             var attackStart = actionEvents[1].StartTicks;
 
             // 攻擊進行中:Move / Stop 拒收(Cast 閘)
@@ -368,7 +368,7 @@ namespace PinionCore.Project2.Tests
             System.Action<ActionInfo> handler = info => lateReplay.Add(info);
             player.ActionEvent += handler;
             Assert.AreEqual(1, lateReplay.Count, "訂閱應立即 replay");
-            Assert.AreEqual(ActionType.Walk, lateReplay[0].Action, "走路循環中 replay 應為 Walk");
+            Assert.AreEqual(ActionType.AdventureWalk, lateReplay[0].Action, "走路循環中 replay 應為 Walk");
             Assert.AreEqual(walkStart, lateReplay[0].StartTicks, "wrap 不得改 replay 的原始 StartTicks");
             player.ActionEvent -= handler;
 
