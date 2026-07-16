@@ -9,7 +9,7 @@ namespace PinionCore.Project2.Worlds
 {
     /// <summary>
     /// 封裝一顆 DOTS entity 的玩家純模擬核心:MoveInfo 權威狀態、碰撞、動作排程與 transform 投影。
-    /// 協議曝光面(ICharactor)由 PlayerController 承載並委派到此處的公開成員;
+    /// 協議曝光面(ICharacter)由 PlayerController 承載並委派到此處的公開成員;
     /// entity 的建立與銷毀由 World 負責,Player 只持有參考。
     /// </summary>
     public class Player
@@ -163,22 +163,22 @@ namespace PinionCore.Project2.Worlds
         }
 
         // 冒險/戰鬥狀態:與 MoveEvent 同樣「訂閱即 replay」,晚訂閱的殼立即取得當前狀態
-        StatusType _Status;
-        event Action<StatusType> _StatusEvent;
-        public event Action<StatusType> StatusEvent
+        StanceType _Stance;
+        event Action<StanceType> _StanceEvent;
+        public event Action<StanceType> StanceEvent
         {
             add
             {
-                _StatusEvent += value;
-                value(_Status);
+                _StanceEvent += value;
+                value(_Stance);
             }
             remove
             {
-                _StatusEvent -= value;
+                _StanceEvent -= value;
             }
         }
 
-        // 動作播放狀態:與 Move/StatusEvent 同款「訂閱即 replay」;Action == None 表示無動作,
+        // 動作播放狀態:與 Move/StanceEvent 同款「訂閱即 replay」;Action == None 表示無動作,
         // 結束時也以 None 發出 —— 這是 client 解除旋轉凍結的唯一權威訊號。
         ActionInfo _ActionInfo;
         event Action<ActionInfo> _ActionEvent;
@@ -596,11 +596,11 @@ namespace PinionCore.Project2.Worlds
             };
         }
 
-        // 由 Adventure/Battle 狀態的 Enter 呼叫,經 IActor.StatusEvent 廣播給所有看得到的 client
-        internal void SetStatus(StatusType status)
+        // 由 Adventure/Battle 狀態的 Enter 呼叫,經 IActor.StanceEvent 廣播給所有看得到的 client
+        internal void SetStance(StanceType stance)
         {
-            _Status = status;
-            _StatusEvent?.Invoke(status);
+            _Stance = stance;
+            _StanceEvent?.Invoke(stance);
         }
     }
 }

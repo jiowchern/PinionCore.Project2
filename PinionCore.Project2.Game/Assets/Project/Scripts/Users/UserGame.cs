@@ -21,7 +21,7 @@ namespace PinionCore.Project2.Users
         readonly Property<string> _WorldName;
         Property<string> IGame.WorldName => _WorldName;
 
-        readonly PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor> _Charactors;
+        readonly PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharacter> _Characters;
         readonly Remote.Notifier<IPlayer> _PlayersNotifier;
         Remote.Notifier<IPlayer> IGame.Player => _PlayersNotifier;
 
@@ -38,8 +38,8 @@ namespace PinionCore.Project2.Users
         public UserGame(ICollection<IGame> games, INotifierQueryable worldNotifier, ActorInfo actor)
         {
             _Games = games;            
-            _Charactors = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor>();
-            _PlayersNotifier = _Charactors.ToNotifier<IPlayer>();
+            _Characters = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharacter>();
+            _PlayersNotifier = _Characters.ToNotifier<IPlayer>();
 
             _WorldName = new Property<string>(string.Empty);
             _DisposeHandlers = new System.Collections.Generic.List<System.Action>();
@@ -56,7 +56,7 @@ namespace PinionCore.Project2.Users
             var actorId = Guid.NewGuid();
             var obs = from uni in _WorldNotifier.QueryNotifier<IUniverse>().SupplyEvent()
                       from worldId in uni.QueryWorld("Test1").RemoteValue()
-                      from world in uni.WorldNotifier.SupplyEvent().Where(w => w.Id == worldId).Take(1)
+                      from world in uni.Worlds.SupplyEvent().Where(w => w.Id == worldId).Take(1)
                       select world;
 
             IDisposable disposable = obs.Subscribe(world => _EnterWorld(world, actorId));
@@ -115,9 +115,9 @@ namespace PinionCore.Project2.Users
             // world.Leave 的補償退場已在 _EnterWorld 註冊,這裡不再重複。
         }
 
-        private void _End(ICharactor charactor)
+        private void _End(ICharacter charactor)
         {
-            _Charactors.Items.Remove(charactor);
+            _Characters.Items.Remove(charactor);
             // 玩家被 world 移除(Unsupply)→ 通知 User 回到 verify + Roster.Unregister。
             // 斷線收尾不會走到這:dispose 時 UnsupplyEvent 訂閱已先解除。
             DoneEvent?.Invoke();
@@ -125,11 +125,11 @@ namespace PinionCore.Project2.Users
 
 
 
-        private void _Start(ICharactor charactor)
+        private void _Start(ICharacter charactor)
         {
             // 角色流程(意識/冒險/戰鬥)已全數下沉 world 端狀態機;
-            // user 只負責把 ICharactor ghost 供應給 client(IPlayer)
-            _Charactors.Items.Add(charactor);
+            // user 只負責把 ICharacter ghost 供應給 client(IPlayer)
+            _Characters.Items.Add(charactor);
         }
 
         void IStatus.Leave()

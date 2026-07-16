@@ -22,7 +22,7 @@ namespace PinionCore.Project2.Worlds
             if (!isActiveAndEnabled || Universe == null || !Application.isPlaying)
                 return;
 
-            foreach (var world in Universe.Worlds)
+            foreach (var world in Universe.WorldItems)
             {
                 if (DrawActors)
                     _DrawActors(world, DrawSightRadius);

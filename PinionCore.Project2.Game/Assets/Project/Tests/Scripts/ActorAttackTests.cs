@@ -10,7 +10,7 @@ using PinionCore.Project2.Shared.Users;
 namespace PinionCore.Project2.Tests
 {
     /// <summary>
-    /// 自帶位移攻擊動作端到端測試(比照 ActorStatusTests 的四場景 Standalone 流程):
+    /// 自帶位移攻擊動作端到端測試(比照 ActorStanceTests 的四場景 Standalone 流程):
     /// 進戰鬥 → IBattle.Attack → IActor.ActionEvent 廣播 Attack → 殼跟著分段 MoveInfo 位移
     /// → ActionEvent None(結束)→ 殼停在位移後位置、Move 恢復可用。
     /// 攻擊位移來自 Configs/ActionConfigs/AttackAction.asset(烘焙自 AttackDash clip),
@@ -191,7 +191,7 @@ namespace PinionCore.Project2.Tests
         [Timeout(120000)]
         public IEnumerator AttackModelStaysOnShellTest()
         {
-            yield return _EnterWorld("AttackTesterChan", CharactorType.Unitychan);
+            yield return _EnterWorld("AttackTesterChan", ModelType.Unitychan);
 
             // 等模型(Addressables)載入完成:Animator 掛上即可斷言 root motion 已被關閉
             var modelLoaded = TestWait.Until(
@@ -251,17 +251,17 @@ namespace PinionCore.Project2.Tests
         }
 
         // 共用進場流程:Verify → 取得 IPlayer / IActor ghost → 等 ActorProvider 建出對應殼
-        IEnumerator _EnterWorld(string playerName, CharactorType charactorType = CharactorType.Cube)
+        IEnumerator _EnterWorld(string playerName, ModelType modelType = ModelType.Cube)
         {
             var verifiableSupply = TestWait.First(
                 _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
-                    .SelectMany(entry => entry.Verifiables.SupplyEvent()),
+                    .SelectMany(entry => entry.Verifiers.SupplyEvent()),
                 System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
-            TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifiable");
+            TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifier");
 
             var verifyResult = TestWait.First(
-                verifiableSupply.Result.Verify(playerName, charactorType).RemoteValue(),
+                verifiableSupply.Result.Verify(playerName, modelType).RemoteValue(),
                 System.TimeSpan.FromSeconds(10));
             yield return verifyResult;
             TestWait.AssertDone(verifyResult, "Verify 未收到回傳值");

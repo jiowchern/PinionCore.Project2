@@ -6,7 +6,7 @@ namespace PinionCore.Project2.Worlds.Statuses
 {
     /// <summary>
     /// 冒險狀態:狀態類自身即協議實作,Enter 供應 IAdventure 給擁有者 client、
-    /// 廣播 StatusType.Adventure;ToBattle RPC 觸發事件由 ConsciousStatus 切換子狀態。
+    /// 廣播 StanceType.Adventure;ToBattle RPC 觸發事件由 ConsciousStatus 切換子狀態。
     /// </summary>
     internal class AdventureStatus : IStatus, IAdventure
     {
@@ -21,7 +21,7 @@ namespace PinionCore.Project2.Worlds.Statuses
 
         void IStatus.Enter()
         {
-            _Controller.Player.SetStatus(StatusType.Adventure);
+            _Controller.Player.SetStance(StanceType.Adventure);
             _Controller.Adventures.Items.Add(this);
         }
 

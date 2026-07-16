@@ -31,8 +31,8 @@ namespace PinionCore.Project2.Client
         // 收到第一個 MoveEvent(訂閱時必有 replay)前殼保持隱藏。
         MoveInfo? _MoveInfo;
 
-        // 冒險/戰鬥狀態:來自 IActor.StatusEvent(訂閱時必有 replay),驅動 Animator 的 status 參數
-        public StatusType Status { get; private set; }
+        // 冒險/戰鬥狀態:來自 IActor.StanceEvent(訂閱時必有 replay),驅動 Animator 的 status 參數
+        public StanceType Stance { get; private set; }
 
         // 自帶位移動作:來自 IActor.ActionEvent(訂閱時必有 replay)。位移仍由 MoveEvent 驅動
         //(伺服器把動作播成分段 MoveInfo,殼照常取樣就描出 root 路徑);這裡只負責表現:
@@ -91,8 +91,8 @@ namespace PinionCore.Project2.Client
             gameObject.SetActive(false);
             _MoveFirst(actor);
 
-            var statusObs = UniRx.Observable.FromEvent<StatusType>(h => actor.StatusEvent += h, h => actor.StatusEvent -= h);
-            statusObs.Subscribe(s => Status = s).AddTo(this);
+            var stanceObs = UniRx.Observable.FromEvent<StanceType>(h => actor.StanceEvent += h, h => actor.StanceEvent -= h);
+            stanceObs.Subscribe(s => Stance = s).AddTo(this);
 
             var actionObs = UniRx.Observable.FromEvent<ActionInfo>(h => actor.ActionEvent += h, h => actor.ActionEvent -= h);
             actionObs.Subscribe(_OnActionEvent).AddTo(this);
@@ -189,7 +189,7 @@ namespace PinionCore.Project2.Client
             if (_animator != null)
             {
                 _animator.SetFloat(_AnimSpeed, info.Speed);
-                _animator.SetInteger(_AnimStatus, (int)Status);
+                _animator.SetInteger(_AnimStatus, (int)Stance);
 
                 // 動作動畫:每顆 ActionInfo 只 CrossFade 一次,以 world time 差當起播偏移
                 //(晚加入者/模型晚載入都在此收斂到正確的動畫時間點)。
@@ -201,7 +201,7 @@ namespace PinionCore.Project2.Client
                 {
                     if (hasPresentation)
                     {
-                        var stateName = Status == StatusType.Battle ? presentation.BattleState : presentation.AdventureState;
+                        var stateName = Stance == StanceType.Battle ? presentation.BattleState : presentation.AdventureState;
                         var offset = (float)((WorldTime.CurrentTime.Ticks - _actionInfo.StartTicks) / (double)TimeSpan.TicksPerSecond);
                         if (offset < 0f)
                             offset = 0f;

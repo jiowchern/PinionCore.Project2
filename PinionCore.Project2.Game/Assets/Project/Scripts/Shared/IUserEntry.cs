@@ -10,7 +10,7 @@ namespace PinionCore.Project2.Shared
     {
         
         // 驗證
-        PinionCore.Remote.Notifier<ILogin> Verifiables { get; }
+        PinionCore.Remote.Notifier<IVerifier> Verifiers { get; }
 
         // 遊戲
         PinionCore.Remote.Notifier<IGame> Games { get; }

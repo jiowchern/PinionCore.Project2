@@ -7,10 +7,10 @@ namespace PinionCore.Project2.Worlds
 {
     /// <summary>
     /// 單一 Player 的協議曝光面 + 角色狀態機(GameProject1 Play 模式):
-    /// 以 ICharactor(IPlayer/IActor/IMoveable)對外供應,成員全數委派給 Player(純模擬核心);
+    /// 以 ICharacter(IPlayer/IActor/IMoveable)對外供應,成員全數委派給 Player(純模擬核心);
     /// 狀態決定曝光給 client 的能力介面,轉換為 world 內部直接呼叫、不過傳輸協議,於下一次 Update 生效。
     /// </summary>
-    internal class PlayerController : ICharactor
+    internal class PlayerController : ICharacter
     {
         public readonly Player Player;
 
@@ -59,10 +59,10 @@ namespace PinionCore.Project2.Worlds
             remove { Player.MoveEvent -= value; }
         }
 
-        event Action<StatusType> IActor.StatusEvent
+        event Action<StanceType> IActor.StanceEvent
         {
-            add { Player.StatusEvent += value; }
-            remove { Player.StatusEvent -= value; }
+            add { Player.StanceEvent += value; }
+            remove { Player.StanceEvent -= value; }
         }
 
         event Action<ActionInfo> IActor.ActionEvent
@@ -89,11 +89,11 @@ namespace PinionCore.Project2.Worlds
             _BattlesNotifier = _Battles.ToNotifier<IBattle>();
 
             // 進世界即有意識;首次 Update 進入狀態並供應 IMoveable(Notifier 有 replay,晚訂閱安全)
-            ToConscious(StatusType.Adventure);
+            ToConscious(StanceType.Adventure);
         }
 
         /// <summary>回到有意識:恢復供應 IMoveable 與 Adventure/Battle 子狀態(進入即冒險態)。</summary>
-        internal void ToConscious(StatusType state)
+        internal void ToConscious(StanceType state)
         {
             var status = new Statuses.ConsciousStatus(this, state);
             status.CastEvent += _ToCast;
@@ -109,7 +109,7 @@ namespace PinionCore.Project2.Worlds
 
         private void _ToBattle(bool result)
         {
-            ToConscious(StatusType.Battle);
+            ToConscious(StanceType.Battle);
         }
 
         /// <summary>進入無意識(僵直/死亡等,未來由戰鬥管線觸發):收回全部能力供應。</summary>

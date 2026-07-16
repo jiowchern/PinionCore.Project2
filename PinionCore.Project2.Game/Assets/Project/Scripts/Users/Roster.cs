@@ -5,23 +5,23 @@ namespace PinionCore.Project2.Users
     class Roster
     {
         // todo: 臨時配置轉換 未來要抽到外部配置
-        readonly System.Collections.Generic.Dictionary<CharactorType, string> _CharactorTypeToName;
+        readonly System.Collections.Generic.Dictionary<ModelType, string> _ModelTypeToName;
         readonly System.Collections.Generic.Dictionary<string, Shared.ActorInfo> _Actors = new System.Collections.Generic.Dictionary<string, Shared.ActorInfo>();
         public Roster()
         {
-            _CharactorTypeToName = new System.Collections.Generic.Dictionary<CharactorType, string>
+            _ModelTypeToName = new System.Collections.Generic.Dictionary<ModelType, string>
             {
-                { CharactorType.Cube, "Test1" },
-                { CharactorType.Unitychan, "unitychan" }
+                { ModelType.Cube, "Test1" },
+                { ModelType.Unitychan, "unitychan" }
             };
         }
-        internal Shared.ActorInfo? Register(string name, CharactorType type)
+        internal Shared.ActorInfo? Register(string name, ModelType type)
         {
             // 如果存在則返回空
             if (_Actors.ContainsKey(name))
                 return null;
 
-            if (!_CharactorTypeToName.TryGetValue(type, out var modelName))
+            if (!_ModelTypeToName.TryGetValue(type, out var modelName))
                 return null;
             var actor = new Shared.ActorInfo();
             actor.DisplayName = name;

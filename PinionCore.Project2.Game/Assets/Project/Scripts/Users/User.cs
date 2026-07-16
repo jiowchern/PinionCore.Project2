@@ -13,10 +13,10 @@ namespace PinionCore.Project2.Users
 
         readonly PinionCore.Utility.StatusMachine _StatusMachine;
 
-        readonly Depot<ILogin> _Verifiables;
+        readonly Depot<IVerifier> _Verifiers;
 
-        readonly Notifier<ILogin> _VerifiablesNotifier;
-        Notifier<ILogin> IUserEntry.Verifiables => _VerifiablesNotifier;
+        readonly Notifier<IVerifier> _VerifiersNotifier;
+        Notifier<IVerifier> IUserEntry.Verifiers => _VerifiersNotifier;
 
 
         readonly Depot<IGame> _Games;
@@ -32,8 +32,8 @@ namespace PinionCore.Project2.Users
             this._WorldNotifier = worldNotifier;
             this._StatusMachine = new PinionCore.Utility.StatusMachine();
 
-            _Verifiables = new PinionCore.Remote.Depot<ILogin>();
-            _VerifiablesNotifier = new PinionCore.Remote.Notifier<ILogin>(_Verifiables);
+            _Verifiers = new PinionCore.Remote.Depot<IVerifier>();
+            _VerifiersNotifier = new PinionCore.Remote.Notifier<IVerifier>(_Verifiers);
 
             _Games = new PinionCore.Remote.Depot<IGame>();
             _GamesNotifier = new PinionCore.Remote.Notifier<IGame>(_Games);
@@ -49,7 +49,7 @@ namespace PinionCore.Project2.Users
 
         private void _ToVerify()
         {
-            var status = new UserVerifier(_Verifiables, _Roster);
+            var status = new UserVerifier(_Verifiers, _Roster);
             status.OnVerified += (actor) =>
             {
                 _ToGame(actor);

@@ -156,18 +156,18 @@ namespace PinionCore.Project2.Tests
                 .SelectMany(player => player.Actors.SupplyEvent());
         }
 
-        // 單一 client 的登入流程:等 IVerifiable → Verify 通過
+        // 單一 client 的登入流程:等 IVerifier → Verify 通過
         IEnumerator _Verify(PinionCore.Remote.INotifierQueryable queryer, string playerName)
         {
             var verifiableSupply = TestWait.First(
                 queryer.QueryNotifier<IUserEntry>().SupplyEvent()
-                    .SelectMany(entry => entry.Verifiables.SupplyEvent()),
+                    .SelectMany(entry => entry.Verifiers.SupplyEvent()),
                 System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
-            TestWait.AssertDone(verifiableSupply, $"{playerName}:連線後 client 應從 User 服務收到 IVerifiable");
+            TestWait.AssertDone(verifiableSupply, $"{playerName}:連線後 client 應從 User 服務收到 IVerifier");
 
             var verifyResult = TestWait.First(
-                verifiableSupply.Result.Verify(playerName, CharactorType.Cube).RemoteValue(),
+                verifiableSupply.Result.Verify(playerName, ModelType.Cube).RemoteValue(),
                 System.TimeSpan.FromSeconds(10));
             yield return verifyResult;
             TestWait.AssertDone(verifyResult, $"{playerName}:Verify 未收到回傳值");

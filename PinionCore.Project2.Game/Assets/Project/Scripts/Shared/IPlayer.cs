@@ -17,7 +17,7 @@ namespace PinionCore.Project2.Shared
         Notifier<IMoveable> Moveable { get; }
 
         // 冒險/戰鬥能力:由 world 端 Conscious 內的子狀態互斥供應(狀態類自身即協議實作),
-        // 供應哪個 = 角色當下處於哪個狀態;表現廣播仍走 IActor.StatusEvent。
+        // 供應哪個 = 角色當下處於哪個狀態;表現廣播仍走 IActor.StanceEvent。
         Notifier<IAdventure> Adventure { get; }
 
         Notifier<IBattle> Battle { get; }

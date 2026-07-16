@@ -94,18 +94,18 @@ namespace PinionCore.Project2.Tests
             const string PlayerName = "ActorTester";
 
             // 1. 連上 Gateway 後,Router 把 session 路由到 User 服務,
-            //    沿統一入口取得 IVerifiable(IUserEntry.Verifiables)
+            //    沿統一入口取得 IVerifier(IUserEntry.Verifiers)
             var verifiableSupply = TestWait.First(
                 _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
-                    .SelectMany(entry => entry.Verifiables.SupplyEvent()),
+                    .SelectMany(entry => entry.Verifiers.SupplyEvent()),
                 System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
-            TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifiable");
+            TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifier");
             var verifiable = verifiableSupply.Result;
 
             // 2. Verify 通過
             var verifyResult = TestWait.First(
-                verifiable.Verify(PlayerName, CharactorType.Cube).RemoteValue(),
+                verifiable.Verify(PlayerName, ModelType.Cube).RemoteValue(),
                 System.TimeSpan.FromSeconds(10));
             yield return verifyResult;
             TestWait.AssertDone(verifyResult, "Verify 未收到回傳值");

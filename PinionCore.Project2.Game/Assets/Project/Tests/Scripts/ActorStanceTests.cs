@@ -12,11 +12,11 @@ namespace PinionCore.Project2.Tests
     /// <summary>
     /// 冒險/戰鬥狀態切換端到端測試:
     /// 比照 ActorMoveTests 的四場景 Standalone 流程,進場後驗證
-    /// IActor.StatusEvent 訂閱即 replay 初始冒險狀態;
+    /// IActor.StanceEvent 訂閱即 replay 初始冒險狀態;
     /// 經 IAdventure.ToBattle / IBattle.ToAdventure 切換伺服器狀態機時,
     /// 狀態由 world 端 Adventure/Battle 子狀態切換時廣播到 IActor ghost,殼(Client.Actor.Status)跟著切換。
     /// </summary>
-    public class ActorStatusTests
+    public class ActorStanceTests
     {
         StandaloneSceneLoader _Scenes;
         PinionCore.NetSync.Standalone.Connector _Connector;
@@ -83,7 +83,7 @@ namespace PinionCore.Project2.Tests
 
         /// <summary>
         /// 初始 replay 冒險 → ToBattle 廣播戰鬥 → ToAdventure 廣播回冒險,
-        /// 每段都驗證 IActor ghost 的 StatusEvent 與殼的 Status。
+        /// 每段都驗證 IActor ghost 的 StanceEvent 與殼的 Status。
         /// </summary>
         [UnityTest]
         [Timeout(120000)]
@@ -92,11 +92,11 @@ namespace PinionCore.Project2.Tests
             yield return _EnterWorld("StatusTester");
 
             // 訂閱即 replay:新訂閱應收到當前狀態(晚一個網路往返)
-            var replay = TestWait.First(TestWait.StatusEvents(_ActorGhost), System.TimeSpan.FromSeconds(10));
+            var replay = TestWait.First(TestWait.StanceEvents(_ActorGhost), System.TimeSpan.FromSeconds(10));
             yield return replay;
-            TestWait.AssertDone(replay, "StatusEvent 訂閱後應 replay 當前狀態");
-            Assert.AreEqual(StatusType.Adventure, replay.Result, "進場初始狀態應為冒險");
-            Assert.AreEqual(StatusType.Adventure, _Shell.Status, "殼的初始狀態應為冒險");
+            TestWait.AssertDone(replay, "StanceEvent 訂閱後應 replay 當前狀態");
+            Assert.AreEqual(StanceType.Adventure, replay.Result, "進場初始狀態應為冒險");
+            Assert.AreEqual(StanceType.Adventure, _Shell.Stance, "殼的初始狀態應為冒險");
 
             // IAdventure 只供應給本地玩家(IPlayer.Adventure,world 端子狀態開關);
             // 進場即冒險狀態,replay 保證晚訂閱可取得
@@ -119,11 +119,11 @@ namespace PinionCore.Project2.Tests
 
             // 狀態廣播抵達 IActor ghost(晚訂閱安全:已切換則 replay 即滿足)與殼
             var battleStatus = TestWait.First(
-                TestWait.StatusEvents(_ActorGhost), s => s == StatusType.Battle, System.TimeSpan.FromSeconds(10));
+                TestWait.StanceEvents(_ActorGhost), s => s == StanceType.Battle, System.TimeSpan.FromSeconds(10));
             yield return battleStatus;
-            TestWait.AssertDone(battleStatus, "ToBattle 後 StatusEvent 應廣播戰鬥狀態");
+            TestWait.AssertDone(battleStatus, "ToBattle 後 StanceEvent 應廣播戰鬥狀態");
 
-            var shellBattle = TestWait.Until(() => _Shell.Status == StatusType.Battle, System.TimeSpan.FromSeconds(10));
+            var shellBattle = TestWait.Until(() => _Shell.Stance == StanceType.Battle, System.TimeSpan.FromSeconds(10));
             yield return shellBattle;
             TestWait.AssertDone(shellBattle, "殼應切到戰鬥狀態");
 
@@ -138,11 +138,11 @@ namespace PinionCore.Project2.Tests
             TestWait.AssertDone(adventureBack, "ToAdventure 後應重新供應 IAdventure");
 
             var adventureStatus = TestWait.First(
-                TestWait.StatusEvents(_ActorGhost), s => s == StatusType.Adventure, System.TimeSpan.FromSeconds(10));
+                TestWait.StanceEvents(_ActorGhost), s => s == StanceType.Adventure, System.TimeSpan.FromSeconds(10));
             yield return adventureStatus;
-            TestWait.AssertDone(adventureStatus, "ToAdventure 後 StatusEvent 應廣播冒險狀態");
+            TestWait.AssertDone(adventureStatus, "ToAdventure 後 StanceEvent 應廣播冒險狀態");
 
-            var shellAdventure = TestWait.Until(() => _Shell.Status == StatusType.Adventure, System.TimeSpan.FromSeconds(10));
+            var shellAdventure = TestWait.Until(() => _Shell.Stance == StanceType.Adventure, System.TimeSpan.FromSeconds(10));
             yield return shellAdventure;
             TestWait.AssertDone(shellAdventure, "殼應切回冒險狀態");
         }
@@ -163,13 +163,13 @@ namespace PinionCore.Project2.Tests
         {
             var verifiableSupply = TestWait.First(
                 _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
-                    .SelectMany(entry => entry.Verifiables.SupplyEvent()),
+                    .SelectMany(entry => entry.Verifiers.SupplyEvent()),
                 System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
-            TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifiable");
+            TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifier");
 
             var verifyResult = TestWait.First(
-                verifiableSupply.Result.Verify(playerName, CharactorType.Cube).RemoteValue(),
+                verifiableSupply.Result.Verify(playerName, ModelType.Cube).RemoteValue(),
                 System.TimeSpan.FromSeconds(10));
             yield return verifyResult;
             TestWait.AssertDone(verifyResult, "Verify 未收到回傳值");
@@ -183,7 +183,7 @@ namespace PinionCore.Project2.Tests
             _PlayerGhost = playerSupply.Result;
             System.Guid actorId = _PlayerGhost.ActorId;
 
-            // 自身的 IActor ghost(經 IPlayer.Actors 供應):StatusEvent 的權威狀態來源
+            // 自身的 IActor ghost(經 IPlayer.Actors 供應):StanceEvent 的權威狀態來源
             var actorSupply = TestWait.First(
                 _PlayerGhost.Actors.SupplyEvent(), a => a.ActorId == actorId,
                 System.TimeSpan.FromSeconds(15));

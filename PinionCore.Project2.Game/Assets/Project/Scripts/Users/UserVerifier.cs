@@ -4,31 +4,31 @@ using PinionCore.Utility;
 using System;
 namespace PinionCore.Project2.Users
 {
-    class UserVerifier : PinionCore.Utility.IStatus , PinionCore.Project2.Shared.Users.ILogin
+    class UserVerifier : PinionCore.Utility.IStatus , PinionCore.Project2.Shared.Users.IVerifier
     {
         
 
-        private readonly System.Collections.Generic.ICollection<ILogin> _Verifiables;
+        private readonly System.Collections.Generic.ICollection<IVerifier> _Verifiers;
         
         private readonly Roster _Roster;
 
         public event Action<Shared.ActorInfo> OnVerified;
 
-        public UserVerifier(System.Collections.Generic.ICollection<ILogin> verifiables, Roster roster)
+        public UserVerifier(System.Collections.Generic.ICollection<IVerifier> verifiers, Roster roster)
         {
             
-            _Verifiables = verifiables;
+            _Verifiers = verifiers;
             _Roster = roster;
         }
 
         void IStatus.Enter()
         {
-            _Verifiables.Add(this);
+            _Verifiers.Add(this);
         }
 
         void IStatus.Leave()
         {
-            _Verifiables.Remove(this);           
+            _Verifiers.Remove(this);           
         }
 
         void IStatus.Update()
@@ -36,7 +36,7 @@ namespace PinionCore.Project2.Users
             
         }
 
-        PinionCore.Remote.Value<bool> ILogin.Verify(string name, CharactorType type)
+        PinionCore.Remote.Value<bool> IVerifier.Verify(string name, ModelType type)
         {
             var actor = _Roster.Register(name,type);
             if (actor == null)

@@ -6,7 +6,7 @@ namespace PinionCore.Project2.Worlds.Statuses
 {
     /// <summary>
     /// 戰鬥狀態:狀態類自身即協議實作,Enter 供應 IBattle 給擁有者 client、
-    /// 廣播 StatusType.Battle;Attack 直呼 Player.StartAction(零轉發跳數),
+    /// 廣播 StanceType.Battle;Attack 直呼 Player.StartAction(零轉發跳數),
     /// ToAdventure RPC 觸發事件由 ConsciousStatus 切換子狀態。
     /// </summary>
     internal class BattleStatus : IStatus, IBattle
@@ -23,7 +23,7 @@ namespace PinionCore.Project2.Worlds.Statuses
 
         void IStatus.Enter()
         {
-            _Controller.Player.SetStatus(StatusType.Battle);
+            _Controller.Player.SetStance(StanceType.Battle);
             _Controller.Battles.Items.Add(this);
         }
 

@@ -104,7 +104,7 @@ namespace PinionCore.Project2.Tests
 
             // UserGame 走 QueryWorld → Enter 的非同步鏈進入世界;逐幀輪詢權威玩家數
             var entered = TestWait.Until(
-                () => universe.Worlds.SelectMany(w => w.PlayerItems).Count() == 1,
+                () => universe.WorldItems.SelectMany(w => w.PlayerItems).Count() == 1,
                 System.TimeSpan.FromSeconds(15));
             yield return entered;
             TestWait.AssertDone(entered, "Verify 通過後伺服器世界應有一位玩家");
@@ -113,7 +113,7 @@ namespace PinionCore.Project2.Tests
             _Connector.Disconnect();
 
             var left = TestWait.Until(
-                () => universe.Worlds.SelectMany(w => w.PlayerItems).Count() == 0,
+                () => universe.WorldItems.SelectMany(w => w.PlayerItems).Count() == 0,
                 System.TimeSpan.FromSeconds(15));
             yield return left;
             TestWait.AssertDone(left, "斷線後伺服器世界的玩家應被移除(world.Leave 未被呼叫?)");
@@ -144,30 +144,30 @@ namespace PinionCore.Project2.Tests
             // client 收到 IActor = _Join 已跑完(IGame/IView 已綁定、world.Leave handler 已註冊)
             yield return actorSupply;
             TestWait.AssertDone(actorSupply, "Verify 通過後 client 應收到 IActor");
-            Assert.AreEqual(1, universe.Worlds.SelectMany(w => w.PlayerItems).Count(),
+            Assert.AreEqual(1, universe.WorldItems.SelectMany(w => w.PlayerItems).Count(),
                 "client 收到 IActor 時伺服器世界應有一位玩家");
 
             _Connector.Disconnect();
 
             var left = TestWait.Until(
-                () => universe.Worlds.SelectMany(w => w.PlayerItems).Count() == 0,
+                () => universe.WorldItems.SelectMany(w => w.PlayerItems).Count() == 0,
                 System.TimeSpan.FromSeconds(15));
             yield return left;
             TestWait.AssertDone(left, "斷線後伺服器世界的玩家應被移除(world.Leave 未被呼叫?)");
         }
 
-        // 單一 client 的登入流程:等 IVerifiable → Verify 通過
+        // 單一 client 的登入流程:等 IVerifier → Verify 通過
         IEnumerator _VerifyAs(string playerName)
         {
             var verifiableSupply = TestWait.First(
                 _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
-                    .SelectMany(entry => entry.Verifiables.SupplyEvent()),
+                    .SelectMany(entry => entry.Verifiers.SupplyEvent()),
                 System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
-            TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifiable");
+            TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifier");
 
             var verifyResult = TestWait.First(
-                verifiableSupply.Result.Verify(playerName, CharactorType.Cube).RemoteValue(),
+                verifiableSupply.Result.Verify(playerName, ModelType.Cube).RemoteValue(),
                 System.TimeSpan.FromSeconds(10));
             yield return verifyResult;
             TestWait.AssertDone(verifyResult, "Verify 未收到回傳值");

@@ -4,7 +4,7 @@
     {        
         PinionCore.Remote.Value<System.Guid> QueryWorld(string name);
 
-        PinionCore.Remote.Notifier<IWorld> WorldNotifier { get; }
+        PinionCore.Remote.Notifier<IWorld> Worlds { get; }
 
         PinionCore.Remote.Value<bool> DestroyWorld(System.Guid worldId);
     }

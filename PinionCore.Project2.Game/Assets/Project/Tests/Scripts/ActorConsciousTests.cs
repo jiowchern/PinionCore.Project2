@@ -96,7 +96,7 @@ namespace PinionCore.Project2.Tests
             PinionCore.Project2.Worlds.PlayerController serverController = null;
             var foundController = TestWait.Until(() =>
             {
-                serverController = universe.Worlds.SelectMany(w => w.ControllerItems).FirstOrDefault();
+                serverController = universe.WorldItems.SelectMany(w => w.ControllerItems).FirstOrDefault();
                 return serverController != null;
             }, System.TimeSpan.FromSeconds(15));
             yield return foundController;
@@ -112,7 +112,7 @@ namespace PinionCore.Project2.Tests
             // 恢復意識:重新供應。訂閱當下 depot 為空,replay 不發射,只會等到轉換後的新 supply
             var resupply = TestWait.First(
                 _PlayerGhost.Moveable.SupplyEvent(), System.TimeSpan.FromSeconds(15));
-            serverController.ToConscious(PinionCore.Project2.Shared.StatusType.Adventure);
+            serverController.ToConscious(PinionCore.Project2.Shared.StanceType.Adventure);
             yield return resupply;
             TestWait.AssertDone(resupply, "ToConscious 後 client 應重新收到 IMoveable 的 SupplyEvent");
 
@@ -135,13 +135,13 @@ namespace PinionCore.Project2.Tests
         {
             var verifiableSupply = TestWait.First(
                 _Client.Queryer.QueryNotifier<IUserEntry>().SupplyEvent()
-                    .SelectMany(entry => entry.Verifiables.SupplyEvent()),
+                    .SelectMany(entry => entry.Verifiers.SupplyEvent()),
                 System.TimeSpan.FromSeconds(10));
             yield return verifiableSupply;
-            TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifiable");
+            TestWait.AssertDone(verifiableSupply, "連線後 client 應從 User 服務收到 IVerifier");
 
             var verifyResult = TestWait.First(
-                verifiableSupply.Result.Verify(playerName, CharactorType.Cube).RemoteValue(),
+                verifiableSupply.Result.Verify(playerName, ModelType.Cube).RemoteValue(),
                 System.TimeSpan.FromSeconds(10));
             yield return verifyResult;
             TestWait.AssertDone(verifyResult, "Verify 未收到回傳值");

@@ -16,10 +16,10 @@ namespace PinionCore.Project2.Worlds
         readonly PinionCore.Remote.Depot<World> _WorldsDepot;
         readonly PinionCore.Remote.Notifier<IWorld> _WorldsNotifier;
 
-        PinionCore.Remote.Notifier<IWorld> IUniverse.WorldNotifier => _WorldsNotifier;
+        PinionCore.Remote.Notifier<IWorld> IUniverse.Worlds => _WorldsNotifier;
 
         // 供 editor 除錯繪製(WorldDebugDrawer)走訪現存 world
-        internal System.Collections.Generic.IEnumerable<World> Worlds => _WorldsDepot.ReadOnlyItems;
+        internal System.Collections.Generic.IEnumerable<World> WorldItems => _WorldsDepot.ReadOnlyItems;
 
         public Universe()
         {

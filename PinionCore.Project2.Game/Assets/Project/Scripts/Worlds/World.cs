@@ -52,11 +52,11 @@ namespace PinionCore.Project2.Worlds
         Property<Guid> IWorld.Id => new Property<Guid>(Id);
 
 
-        // 每個 Player 一個 controller:協議曝光面(ICharactor)+ 狀態機編排,與 Player 生命週期同進退;
-        // 以 ICharactor 介面供應給 user 端(IWorld.Players)。
+        // 每個 Player 一個 controller:協議曝光面(ICharacter)+ 狀態機編排,與 Player 生命週期同進退;
+        // 以 ICharacter 介面供應給 user 端(IWorld.Players)。
         readonly Depot<PlayerController> _Controllers;
-        Notifier<ICharactor> _PlayersNotifier;
-        Notifier<ICharactor> IWorld.Players => _PlayersNotifier;
+        Notifier<ICharacter> _PlayersNotifier;
+        Notifier<ICharacter> IWorld.Players => _PlayersNotifier;
 
         // 供 editor 除錯繪製(WorldDebugDrawer)走訪權威玩家狀態
         internal System.Collections.Generic.IEnumerable<Player> PlayerItems => _Controllers.Items.Select(c => c.Player);
@@ -85,7 +85,7 @@ namespace PinionCore.Project2.Worlds
             _Sight = new Sight();
             _SightWatch = Stopwatch.StartNew();
             _Controllers = new Depot<PlayerController>();
-            _PlayersNotifier = _Controllers.ToNotifier<ICharactor>();
+            _PlayersNotifier = _Controllers.ToNotifier<ICharacter>();
 
             Id = id;
             _info = worldInfo;

@@ -126,7 +126,7 @@ namespace PinionCore.Project2.Client
                 return;
 
             // 殼未綁定不送;非戰鬥狀態或動作進行中的按鍵直接忽略(伺服器也會拒收)
-            if (_shell == null || _shell.Status != StatusType.Battle || _actionActive)
+            if (_shell == null || _shell.Stance != StanceType.Battle || _actionActive)
                 return;
 
             _awaitingResponse = true;

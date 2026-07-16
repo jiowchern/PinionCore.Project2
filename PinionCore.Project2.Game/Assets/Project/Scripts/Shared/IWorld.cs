@@ -18,7 +18,7 @@ namespace PinionCore.Project2.Shared
         PinionCore.Remote.Value<bool> Enter(System.Guid actorId, ActorInfo actor);
         PinionCore.Remote.Value<bool> Leave(System.Guid actorId);
 
-        PinionCore.Remote.Notifier<ICharactor> Players { get; }
+        PinionCore.Remote.Notifier<ICharacter> Players { get; }
 
 
     }

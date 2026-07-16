@@ -88,7 +88,7 @@ namespace PinionCore.Project2.Tests
         // 朝 direction 走到 arrived 成立即 Stop;過程零視野 tick(視野變化全由測試顯式驅動)
         IEnumerator _WalkUntil(PinionCore.Project2.Worlds.PlayerController mover, Vector2 direction, System.Func<bool> arrived, float timeoutSeconds)
         {
-            ICharactor remote = mover;
+            ICharacter remote = mover;
             var accepted = false;
             remote.Move(direction.normalized).OnValue += (r, error) => accepted = r;
             Assert.IsTrue(accepted, "Move 應被接受");
