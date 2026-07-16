@@ -13,17 +13,11 @@ namespace PinionCore.Project2.Worlds.Statuses
     {
         readonly PlayerController _Controller;
         readonly StatusMachine _Machine;
-        private readonly State _state;
+        private readonly StatusType _state;
 
         public event Action<ActionType> CastEvent;
 
-        public enum State
-        {
-            Adventure,
-            Battle,
-        }
-
-        public ConsciousStatus(PlayerController controller, State state)
+        public ConsciousStatus(PlayerController controller, StatusType state)
         {
             CastEvent += (type) => { }; // 避免 null reference
             _Controller = controller;
@@ -34,7 +28,7 @@ namespace PinionCore.Project2.Worlds.Statuses
         void IStatus.Enter()
         {
             _Controller.Moveables.Items.Add(_Controller);
-            if (_state == State.Adventure)
+            if (_state == StatusType.Adventure)
             {
                 _ToAdventure();
             }

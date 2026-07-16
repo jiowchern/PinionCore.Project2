@@ -112,7 +112,7 @@ namespace PinionCore.Project2.Tests
             // 恢復意識:重新供應。訂閱當下 depot 為空,replay 不發射,只會等到轉換後的新 supply
             var resupply = TestWait.First(
                 _PlayerGhost.Moveable.SupplyEvent(), System.TimeSpan.FromSeconds(15));
-            serverController.ToConscious(PinionCore.Project2.Worlds.Statuses.ConsciousStatus.State.Adventure);
+            serverController.ToConscious(PinionCore.Project2.Shared.StatusType.Adventure);
             yield return resupply;
             TestWait.AssertDone(resupply, "ToConscious 後 client 應重新收到 IMoveable 的 SupplyEvent");
 

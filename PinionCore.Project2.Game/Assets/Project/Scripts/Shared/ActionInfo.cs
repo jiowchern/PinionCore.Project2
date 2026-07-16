@@ -25,8 +25,8 @@ namespace PinionCore.Project2.Shared
 
     // ActionType → 類別的 client 端對照:ActionConfig(含 Category)不過線,
     // client 只拿得到 ActionInfo,表現規則(旋轉凍結/攻擊鎖)需要據此分流
-    public static class ActionTypes
+    public static class ActionTypeExtensions
     {
-        public static bool IsLocomotion(ActionType type) => type == ActionType.Walk;
+        public static bool IsLocomotion(this ActionType type) => type == ActionType.Walk;
     }
 }

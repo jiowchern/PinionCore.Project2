@@ -13,7 +13,7 @@ namespace PinionCore.Project2.Users
     internal class UserGame : PinionCore.Utility.IStatus ,IGame
     {
         readonly System.Collections.Generic.ICollection<IGame> _Games;
-        private readonly INotifierQueryable _WorldNotifer;
+        private readonly INotifierQueryable _WorldNotifier;
         private readonly ActorInfo _ActorInfo;
 
         readonly System.Collections.Generic.List< System.Action > _DisposeHandlers;
@@ -35,7 +35,7 @@ namespace PinionCore.Project2.Users
         public event System.Action DoneEvent;
 
         
-        public UserGame(ICollection<IGame> games, INotifierQueryable worldNotifer, ActorInfo actor)
+        public UserGame(ICollection<IGame> games, INotifierQueryable worldNotifier, ActorInfo actor)
         {
             _Games = games;            
             _Charactors = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharactor>();
@@ -44,7 +44,7 @@ namespace PinionCore.Project2.Users
             _WorldName = new Property<string>(string.Empty);
             _DisposeHandlers = new System.Collections.Generic.List<System.Action>();
 
-            this._WorldNotifer = worldNotifer;
+            this._WorldNotifier = worldNotifier;
             this._ActorInfo = actor;
             _Views = new PinionCore.Remote.Depot<IView>();
             _ViewsNotifier = new PinionCore.Remote.Notifier<IView>(_Views);
@@ -54,7 +54,7 @@ namespace PinionCore.Project2.Users
         {
             PinionCore.Utility.Log.Instance.WriteInfo("UserGame.Enter");
             var actorId = Guid.NewGuid();
-            var obs = from uni in _WorldNotifer.QueryNotifier<IUniverse>().SupplyEvent()
+            var obs = from uni in _WorldNotifier.QueryNotifier<IUniverse>().SupplyEvent()
                       from worldId in uni.QueryWorld("Test1").RemoteValue()
                       from world in uni.WorldNotifier.SupplyEvent().Where(w => w.Id == worldId).Take(1)
                       select world;

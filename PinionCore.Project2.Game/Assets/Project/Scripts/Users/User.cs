@@ -8,7 +8,7 @@ namespace PinionCore.Project2.Users
     public class User : IDisposable , IUserEntry
     {
         private readonly ISessionBinder _Binder;
-        private readonly INotifierQueryable _WorldNotifer;
+        private readonly INotifierQueryable _WorldNotifier;
         readonly Roster _Roster;
 
         readonly PinionCore.Utility.StatusMachine _StatusMachine;
@@ -29,7 +29,7 @@ namespace PinionCore.Project2.Users
         {
             _Roster = new Roster();
             this._Binder = binder;
-            this._WorldNotifer = worldNotifier;
+            this._WorldNotifier = worldNotifier;
             this._StatusMachine = new PinionCore.Utility.StatusMachine();
 
             _Verifiables = new PinionCore.Remote.Depot<ILogin>();
@@ -59,7 +59,7 @@ namespace PinionCore.Project2.Users
 
         private void _ToGame(Shared.ActorInfo actor)
         {
-            var status = new UserGame(_Games, _WorldNotifer, actor);
+            var status = new UserGame(_Games, _WorldNotifier, actor);
             status.DoneEvent += () =>
             {
                 _Roster.Unregister(actor.DisplayName);
