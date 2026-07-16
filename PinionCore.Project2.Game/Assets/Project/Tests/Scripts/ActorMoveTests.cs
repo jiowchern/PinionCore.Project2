@@ -14,7 +14,7 @@ namespace PinionCore.Project2.Tests
     /// Actor 瞬轉直走移動端到端測試:
     /// 比照 ActorDisplayNameTests 的四場景 Standalone 流程,
     /// Verify 進入遊戲後取得 IActor / IPlayer,
-    /// 由 Client.Player.Move 送出世界座標 XZ 方向,
+    /// 由 Client.PlayerRemote.Move 送出世界座標 XZ 方向,
     /// World 即刻把朝向設為該方向並沿直線前進(ω 恆為 0),發回 MoveInfo,
     /// 驗證殼沿直線移動、改向連續、Move 節流(MoveAcceptInterval)、Stop 駐留。
     /// </summary>
@@ -433,10 +433,10 @@ namespace PinionCore.Project2.Tests
         IPlayer _PlayerGhost;
         IMoveable _MoveableGhost;
         IActor _ActorGhost;
-        PinionCore.Project2.Client.Actor _Shell;
-        PinionCore.Project2.Client.Player _ClientPlayer;
+        PinionCore.Project2.Client.ActorShell _Shell;
+        PinionCore.Project2.Client.PlayerRemote _ClientPlayer;
 
-        // 共用進場流程:Verify → 取得 IPlayer → 等 ActorProvider 建出對應殼 → 取得 Client.Player
+        // 共用進場流程:Verify → 取得 IPlayer → 等 ActorProvider 建出對應殼 → 取得 Client.PlayerRemote
         IEnumerator _EnterWorld(string playerName)
         {
             var verifiableSupply = TestWait.First(
@@ -484,11 +484,11 @@ namespace PinionCore.Project2.Tests
             Assert.NotNull(provider, "Client 場景應有 ActorProvider");
             var shellWait = TestWait.First(provider.SupplyEvent(), a => a.ActorId == actorId, System.TimeSpan.FromSeconds(15));
             yield return shellWait;
-            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出對應 ActorId 的 Client.Actor");
+            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出對應 ActorId 的 Client.ActorShell");
             _Shell = shellWait.Result;
 
-            _ClientPlayer = _Scenes.FindComponent<PinionCore.Project2.Client.Player>("Client", "Handlers");
-            Assert.NotNull(_ClientPlayer, "Client 場景的 Handlers 應掛有 Client.Player");
+            _ClientPlayer = _Scenes.FindComponent<PinionCore.Project2.Client.PlayerRemote>("Client", "Handlers");
+            Assert.NotNull(_ClientPlayer, "Client 場景的 Handlers 應掛有 Client.PlayerRemote");
         }
     }
 }

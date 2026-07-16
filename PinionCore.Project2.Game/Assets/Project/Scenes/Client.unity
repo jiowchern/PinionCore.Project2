@@ -634,7 +634,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 65962f2a25b495344b9a8f1d8c87e46e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.Player
+  m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.PlayerRemote
   GatewayClient: {fileID: 213339232}
 --- !u!114 &800024550
 MonoBehaviour:

@@ -44,7 +44,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e2842622b0a41d54bb85bde4fe2bf47c, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.Actor
+  m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.ActorShell
   DisplayName: {fileID: 208189555657446850}
   Target: {fileID: 3360977608489013076}
 --- !u!1 &7158520227741655592

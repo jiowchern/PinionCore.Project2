@@ -14,7 +14,7 @@ namespace PinionCore.Project2.Client
         public Unity.Cinemachine.CinemachineCamera FollowCamera;
 
         // 目前綁定的殼,用於殼被銷毀時比對解除
-        Actor _bound;
+        ActorShell _bound;
 
         void Start()
         {
@@ -44,7 +44,7 @@ namespace PinionCore.Project2.Client
                 .Subscribe(_ => _Unbind()).AddTo(this);
         }
 
-        IObservable<Actor> _ResolveShell(Guid actorId)
+        IObservable<ActorShell> _ResolveShell(Guid actorId)
         {
             return from shell in Provider.SupplyEvent().Where(s => s.ActorId == actorId).Take(1)
                    from _ in shell.gameObject
@@ -53,7 +53,7 @@ namespace PinionCore.Project2.Client
                    select shell;
         }
 
-        void _Bind(Actor shell)
+        void _Bind(ActorShell shell)
         {
             _bound = shell;
             FollowCamera.Follow = shell.Target;

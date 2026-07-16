@@ -155,10 +155,10 @@ namespace PinionCore.Project2.Tests
         // PlayerCameraHandler 的解綁路徑只在連線中的正常 unsupply(離開世界、actor 銷毀)生效。
 
         IPlayer _PlayerGhost;
-        PinionCore.Project2.Client.Actor _Shell;
-        PinionCore.Project2.Client.Player _ClientPlayer;
+        PinionCore.Project2.Client.ActorShell _Shell;
+        PinionCore.Project2.Client.PlayerRemote _ClientPlayer;
 
-        // 共用進場流程:Verify → 取得 IPlayer → 等 ActorProvider 建出對應殼 → 取得 Client.Player
+        // 共用進場流程:Verify → 取得 IPlayer → 等 ActorProvider 建出對應殼 → 取得 Client.PlayerRemote
         IEnumerator _EnterWorld(string playerName)
         {
             var verifiableSupply = TestWait.First(
@@ -190,11 +190,11 @@ namespace PinionCore.Project2.Tests
             Assert.NotNull(provider, "Client 場景應有 ActorProvider");
             var shellWait = TestWait.First(provider.SupplyEvent(), a => a.ActorId == actorId, System.TimeSpan.FromSeconds(15));
             yield return shellWait;
-            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出對應 ActorId 的 Client.Actor");
+            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出對應 ActorId 的 Client.ActorShell");
             _Shell = shellWait.Result;
 
-            _ClientPlayer = _Scenes.FindComponent<PinionCore.Project2.Client.Player>("Client", "Handlers");
-            Assert.NotNull(_ClientPlayer, "Client 場景的 Handlers 應掛有 Client.Player");
+            _ClientPlayer = _Scenes.FindComponent<PinionCore.Project2.Client.PlayerRemote>("Client", "Handlers");
+            Assert.NotNull(_ClientPlayer, "Client 場景的 Handlers 應掛有 Client.PlayerRemote");
         }
 
         // 從 Client 場景根物件找元件(含 inactive)

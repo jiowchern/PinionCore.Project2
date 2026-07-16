@@ -9,7 +9,7 @@ namespace PinionCore.Project2.Client
 {
     /// <summary>
     /// 攻擊輸入:戰鬥狀態下按鍵觸發 IBattle.Attack RPC。
-    /// 動作的表現(動畫/凍結旋轉)與位移全由 Actor 殼跟著伺服器事件走,本層只負責觸發;
+    /// 動作的表現(動畫/凍結旋轉)與位移全由 ActorShell 殼跟著伺服器事件走,本層只負責觸發;
     /// 收到殼的 ActionEvent None(動作結束)時通知 PlayerInputHandler 補送按住中的移動。
     ///
     /// 在途鎖與逾時:冒險狀態下 IBattle 不被供應,Attack 的訂閱不會發射(回呼不來),
@@ -20,7 +20,7 @@ namespace PinionCore.Project2.Client
         // 抽象為 QueryerHost:可掛 Client(直連)或 GatewayClient(經 Router)
         public PinionCore.NetSync.QueryerHost Client;
         public ActorProvider Provider;
-        public Player ClientPlayer;
+        public PlayerRemote ClientPlayer;
         public PlayerInputHandler InputHandler;
 
         // InputSystem_Actions 的 Player/Attack
@@ -32,7 +32,7 @@ namespace PinionCore.Project2.Client
         // 測試接縫:非 null 時取代 InputAction 讀值
         public Func<bool> InputSource;
 
-        Actor _shell;
+        ActorShell _shell;
         readonly UniRx.CompositeDisposable _shellSubscriptions = new UniRx.CompositeDisposable();
         bool _actionActive;
         bool _awaitingResponse;
@@ -66,7 +66,7 @@ namespace PinionCore.Project2.Client
                 .Subscribe(_ => _Unbind()).AddTo(this);
         }
 
-        IObservable<Actor> _ResolveShell(Guid actorId)
+        IObservable<ActorShell> _ResolveShell(Guid actorId)
         {
             return from shell in Provider.SupplyEvent().Where(s => s.ActorId == actorId).Take(1)
                    from _ in shell.gameObject
@@ -75,7 +75,7 @@ namespace PinionCore.Project2.Client
                    select shell;
         }
 
-        void _Bind(Actor shell)
+        void _Bind(ActorShell shell)
         {
             _shellSubscriptions.Clear();
             _shell = shell;

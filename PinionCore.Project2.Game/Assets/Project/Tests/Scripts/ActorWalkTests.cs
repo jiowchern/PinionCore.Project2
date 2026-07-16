@@ -237,7 +237,7 @@ namespace PinionCore.Project2.Tests
         IPlayer _PlayerGhost;
         IMoveable _MoveableGhost;
         IActor _ActorGhost;
-        PinionCore.Project2.Client.Actor _Shell;
+        PinionCore.Project2.Client.ActorShell _Shell;
 
         // 共用進場流程:Verify → 取得 IPlayer / IMoveable / IActor → 等 ActorProvider 建出對應殼
         IEnumerator _EnterWorld(string playerName)
@@ -284,7 +284,7 @@ namespace PinionCore.Project2.Tests
             Assert.NotNull(provider, "Client 場景應有 ActorProvider");
             var shellWait = TestWait.First(provider.SupplyEvent(), a => a.ActorId == actorId, System.TimeSpan.FromSeconds(15));
             yield return shellWait;
-            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出對應 ActorId 的 Client.Actor");
+            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出對應 ActorId 的 Client.ActorShell");
             _Shell = shellWait.Result;
         }
     }

@@ -162,7 +162,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72fadd15fdd8aaf47b727f370d8d3138, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PinionCore.Project2.Worlds::Entry
+  m_EditorClassIdentifier: PinionCore.Project2.Worlds::PinionCore.Project2.Worlds.WorldsEntry
   Universe: {fileID: 2137534725}
   Server: {fileID: 1443965422}
 --- !u!1 &418914038
@@ -276,7 +276,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 384217295}
-        m_TargetAssemblyTypeName: Entry, PinionCore.Project2.Worlds
+        m_TargetAssemblyTypeName: PinionCore.Project2.Worlds.WorldsEntry, PinionCore.Project2.Worlds
         m_MethodName: OnBinderCommand
         m_Mode: 0
         m_Arguments:

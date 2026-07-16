@@ -21,7 +21,7 @@ namespace PinionCore.Project2.Client
         // 抽象為 QueryerHost:可掛 Client(直連)或 GatewayClient(經 Router)
         public PinionCore.NetSync.QueryerHost Client;
         public ActorProvider Provider;
-        public Player ClientPlayer;
+        public PlayerRemote ClientPlayer;
 
         // Main Camera(CinemachineBrain 輸出),讀玩家實際所見的朝向;不讀 vcam 內部軸值
         public Transform CameraTransform;
@@ -45,7 +45,7 @@ namespace PinionCore.Project2.Client
         // 測試接縫:非 null 時取代 InputAction 讀值,測試不需 InputTestFixture
         public Func<Vector2> InputSource;
 
-        Actor _shell;
+        ActorShell _shell;
         bool _moving;
         float _lastSendTime;
         Vector2 _lastWorldDir; // 上次送出指令的世界方向
@@ -85,7 +85,7 @@ namespace PinionCore.Project2.Client
                 .Subscribe(_ => _Unbind()).AddTo(this);
         }
 
-        IObservable<Actor> _ResolveShell(Guid actorId)
+        IObservable<ActorShell> _ResolveShell(Guid actorId)
         {
             return from shell in Provider.SupplyEvent().Where(s => s.ActorId == actorId).Take(1)
                    from _ in shell.gameObject

@@ -241,7 +241,7 @@ namespace PinionCore.Project2.Tests
 
         IPlayer _PlayerGhost;
         IActor _ActorGhost;
-        PinionCore.Project2.Client.Actor _Shell;
+        PinionCore.Project2.Client.ActorShell _Shell;
 
         // 統一入口:entry.Games 合約鏈(能力介面 IMoveable/IAdventure/IBattle 均由 IPlayer 供應)
         System.IObservable<IGame> _Games()
@@ -286,7 +286,7 @@ namespace PinionCore.Project2.Tests
             Assert.NotNull(provider, "Client 場景應有 ActorProvider");
             var shellWait = TestWait.First(provider.SupplyEvent(), a => a.ActorId == actorId, System.TimeSpan.FromSeconds(15));
             yield return shellWait;
-            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出對應 ActorId 的 Client.Actor");
+            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出對應 ActorId 的 Client.ActorShell");
             _Shell = shellWait.Result;
         }
     }

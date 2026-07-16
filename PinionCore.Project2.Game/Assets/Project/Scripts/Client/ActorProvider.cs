@@ -14,7 +14,7 @@ namespace PinionCore.Project2.Client
         public GameObject ActorRoot;
 
         // 殼 prefab:直接序列化引用(不走 Addressables),保證 Supply 時同步建立成功
-        public Actor ShellPrefab;
+        public ActorShell ShellPrefab;
 
         // 抽象為 QueryerHost:可掛 Client(直連)或 GatewayClient(經 Router)
         public PinionCore.NetSync.QueryerHost Client;
@@ -25,28 +25,28 @@ namespace PinionCore.Project2.Client
         readonly CompositeDisposable _disposables;
 
         // Supply 時同步插入,配合事件有序(Supply 必先於 Unsupply),
-        // Unsupply 時 entry 必定存在;模型資源的載入與釋放由 Actor 自行負責
-        readonly System.Collections.Generic.Dictionary<Guid, Actor> _actors;
+        // Unsupply 時 entry 必定存在;模型資源的載入與釋放由 ActorShell 自行負責
+        readonly System.Collections.Generic.Dictionary<Guid, ActorShell> _actors;
 
         // 殼的 Supply/Unsupply,語意比照 NetSync 的 SupplyEvent:訂閱時 replay 既有殼,再接未來建立
-        readonly Subject<Actor> _supplied;
-        readonly Subject<Actor> _unsupplied;
+        readonly Subject<ActorShell> _supplied;
+        readonly Subject<ActorShell> _unsupplied;
 
         public ActorProvider()
         {
             _disposables = new CompositeDisposable();
-            _actors = new System.Collections.Generic.Dictionary<Guid, Actor>();
-            _supplied = new Subject<Actor>();
-            _unsupplied = new Subject<Actor>();
+            _actors = new System.Collections.Generic.Dictionary<Guid, ActorShell>();
+            _supplied = new Subject<ActorShell>();
+            _unsupplied = new Subject<ActorShell>();
         }
 
         // 全程主執行緒且 replay 快照同步完成,Concat 不會漏事件
-        public IObservable<Actor> SupplyEvent()
+        public IObservable<ActorShell> SupplyEvent()
         {
             return Observable.Defer(() => _actors.Values.ToArray().ToObservable()).Concat(_supplied);
         }
 
-        public IObservable<Actor> UnsupplyEvent()
+        public IObservable<ActorShell> UnsupplyEvent()
         {
             return _unsupplied;
         }
@@ -78,7 +78,7 @@ namespace PinionCore.Project2.Client
             _disposables.Dispose();
             _supplied.OnCompleted();
             _unsupplied.OnCompleted();
-            // 殼是 ActorRoot 子物件,場景卸載時各自的 Actor.OnDestroy 釋放模型資源
+            // 殼是 ActorRoot 子物件,場景卸載時各自的 ActorShell.OnDestroy 釋放模型資源
             _actors.Clear();
         }
 

@@ -6,14 +6,14 @@ using UnityEngine;
 namespace PinionCore.Project2.Users
 {
     
-    public class Entry : MonoBehaviour
+    public class UsersEntry : MonoBehaviour
     {
         // 以 binder 為 key:User 不實作 ISessionBinder,session 關閉時只能靠 binder 找回對應的 User 做清理
         readonly System.Collections.Generic.Dictionary<ISessionBinder, User> _Users;
         public NetSync.Client WorldAgent;
         public NetSync.Server User;
 
-        public Entry()
+        public UsersEntry()
         {
             _Users = new System.Collections.Generic.Dictionary<ISessionBinder, User>();
         }
@@ -44,10 +44,10 @@ namespace PinionCore.Project2.Users
         {
             if (!_Users.TryGetValue(binder, out var user))
             {
-                PinionCore.Utility.Log.Instance.WriteInfo($"Users.Entry leave miss binder:{binder.GetHashCode()}");
+                PinionCore.Utility.Log.Instance.WriteInfo($"UsersEntry leave miss binder:{binder.GetHashCode()}");
                 return;
             }
-            PinionCore.Utility.Log.Instance.WriteInfo($"Users.Entry leave binder:{binder.GetHashCode()}");
+            PinionCore.Utility.Log.Instance.WriteInfo($"UsersEntry leave binder:{binder.GetHashCode()}");
             _Users.Remove(binder);
             System.IDisposable disposable = user;
             disposable.Dispose();
@@ -55,7 +55,7 @@ namespace PinionCore.Project2.Users
 
         private void _UserEnter(ISessionBinder binder)
         {
-            PinionCore.Utility.Log.Instance.WriteInfo($"Users.Entry enter binder:{binder.GetHashCode()}");
+            PinionCore.Utility.Log.Instance.WriteInfo($"UsersEntry enter binder:{binder.GetHashCode()}");
             PinionCore.Remote.INotifierQueryable notifier = WorldAgent.Queryer;
             var user = new User(binder, notifier);
             _Users.Add(binder, user);

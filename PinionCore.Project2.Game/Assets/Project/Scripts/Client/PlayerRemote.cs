@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace PinionCore.Project2.Client
 {
-    public class Player :MonoBehaviour
+    public class PlayerRemote : MonoBehaviour
     {        
         // 抽象為 QueryerHost:可掛 Client(直連)或 GatewayClient(經 Router)
         public PinionCore.NetSync.QueryerHost GatewayClient;
@@ -17,7 +17,7 @@ namespace PinionCore.Project2.Client
         // 攻擊用獨立容器:與 Move/Stop 共用 Clear 會取消在途移動回應,
         // 害 PlayerInputHandler 的在途鎖永久卡死
         readonly UniRx.CompositeDisposable _AttackDisposable;
-        public Player()
+        public PlayerRemote()
         {
             _Disposable = new UniRx.CompositeDisposable();
             _AttackDisposable = new UniRx.CompositeDisposable();

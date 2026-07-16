@@ -14,7 +14,7 @@ namespace PinionCore.Project2.Tests
     /// 斷線清理端到端測試:
     /// 比照 ActorDisplayNameTests 的四場景 Standalone 流程,
     /// client 登入進入世界後主動斷線,
-    /// User 服務的 Entry 應由 binder 找回 User 並 Dispose,
+    /// User 服務的 UsersEntry 應由 binder 找回 User 並 Dispose,
     /// 讓 UserGame.Leave 呼叫 world.Leave,伺服器世界的玩家數歸零。
     /// 斷言走伺服器側 Universe 的權威狀態(InternalsVisibleTo),
     /// 因為斷線的 client 自己收不到 Unsupply(見 gateway 斷線行為)。
@@ -109,7 +109,7 @@ namespace PinionCore.Project2.Tests
             yield return entered;
             TestWait.AssertDone(entered, "Verify 通過後伺服器世界應有一位玩家");
 
-            // 模擬 client 斷線:session 關閉 → Entry._UserLeave 由 binder 找回 User 並 Dispose
+            // 模擬 client 斷線:session 關閉 → UsersEntry._UserLeave 由 binder 找回 User 並 Dispose
             _Connector.Disconnect();
 
             var left = TestWait.Until(

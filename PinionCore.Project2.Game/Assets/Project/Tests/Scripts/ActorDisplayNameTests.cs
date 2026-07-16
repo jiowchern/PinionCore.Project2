@@ -12,10 +12,10 @@ using PinionCore.Project2.Shared.Users;
 namespace PinionCore.Project2.Tests
 {
     /// <summary>
-    /// Client.Actor 端到端測試:
+    /// Client.ActorShell 端到端測試:
     /// 比照 ViewTimeTicksTests 的四場景 Standalone 流程,
     /// Verify 進入遊戲後 client 收到 IActor,
-    /// ActorProvider 依 ActorConfig 從 Addressables 實例化 Client.Actor,
+    /// ActorProvider 依 ActorConfig 從 Addressables 實例化 Client.ActorShell,
     /// 驗證 TMP 名牌顯示的 DisplayName 與 Verify 的名字一致。
     /// </summary>
     public class ActorDisplayNameTests
@@ -129,7 +129,7 @@ namespace PinionCore.Project2.Tests
             Assert.NotNull(provider, "Client 場景應有 ActorProvider");
             var shellWait = TestWait.First(provider.SupplyEvent(), System.TimeSpan.FromSeconds(15));
             yield return shellWait;
-            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出 Client.Actor");
+            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出 Client.ActorShell");
             var actorComponent = shellWait.Result;
 
             Assert.NotNull(actorComponent.DisplayName, "Actor prefab 應已設定 DisplayName 的 TMP 參考");

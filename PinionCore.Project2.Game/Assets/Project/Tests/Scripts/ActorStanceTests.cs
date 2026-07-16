@@ -14,7 +14,7 @@ namespace PinionCore.Project2.Tests
     /// 比照 ActorMoveTests 的四場景 Standalone 流程,進場後驗證
     /// IActor.StanceEvent 訂閱即 replay 初始冒險狀態;
     /// 經 IAdventure.ToBattle / IBattle.ToAdventure 切換伺服器狀態機時,
-    /// 狀態由 world 端 Adventure/Battle 子狀態切換時廣播到 IActor ghost,殼(Client.Actor.Status)跟著切換。
+    /// 狀態由 world 端 Adventure/Battle 子狀態切換時廣播到 IActor ghost,殼(Client.ActorShell.Status)跟著切換。
     /// </summary>
     public class ActorStanceTests
     {
@@ -149,7 +149,7 @@ namespace PinionCore.Project2.Tests
 
         IPlayer _PlayerGhost;
         IActor _ActorGhost;
-        PinionCore.Project2.Client.Actor _Shell;
+        PinionCore.Project2.Client.ActorShell _Shell;
 
         // 統一入口:entry.Games 合約鏈(能力介面 IAdventure/IBattle 由 IPlayer 供應)
         System.IObservable<IGame> _Games()
@@ -196,7 +196,7 @@ namespace PinionCore.Project2.Tests
             Assert.NotNull(provider, "Client 場景應有 ActorProvider");
             var shellWait = TestWait.First(provider.SupplyEvent(), a => a.ActorId == actorId, System.TimeSpan.FromSeconds(15));
             yield return shellWait;
-            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出對應 ActorId 的 Client.Actor");
+            TestWait.AssertDone(shellWait, "ActorProvider 應在 Client 場景實例化出對應 ActorId 的 Client.ActorShell");
             _Shell = shellWait.Result;
         }
     }
