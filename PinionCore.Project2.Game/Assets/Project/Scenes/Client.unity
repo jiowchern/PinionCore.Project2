@@ -383,6 +383,7 @@ GameObject:
   - component: {fileID: 440969113}
   - component: {fileID: 440969112}
   - component: {fileID: 440969111}
+  - component: {fileID: 440969114}
   m_Layer: 0
   m_Name: Console
   m_TagString: Untagged
@@ -438,6 +439,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &440969114
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 440969110}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2b642873eb7f5144983e30e6cf5e16b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: '::'
+  Console: {fileID: 440969111}
+  QueryerHost: {fileID: 213339232}
 --- !u!1 &497929650
 GameObject:
   m_ObjectHideFlags: 0
@@ -685,6 +700,7 @@ MonoBehaviour:
   RedirectAngleThreshold: 10
   MinSendInterval: 0.2
   RecheckInterval: 1
+  ResponseTimeout: 2
   DeadZone: 0.2
 --- !u!114 &800024553
 MonoBehaviour:
