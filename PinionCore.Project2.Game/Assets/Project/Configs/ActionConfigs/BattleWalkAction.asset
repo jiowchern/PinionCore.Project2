@@ -18,10 +18,10 @@ MonoBehaviour:
   Interruptible: 1
   HoldRotation: 0
   Stance: 1
-  Duration: 0.8000001
+  Duration: 0.6
   Segments:
-  - LocalOffset: {x: 0, y: 1.3706892}
-    Duration: 0.8000001
+  - LocalOffset: {x: 0, y: 2.0560303}
+    Duration: 0.6
   Clip: {fileID: 3094330708855449807, guid: b5aa46a35563ed44bb6dc4be5dabd918, type: 3}
   BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
   SimplifyTolerance: 0.05

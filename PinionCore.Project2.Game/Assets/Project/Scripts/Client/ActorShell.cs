@@ -46,20 +46,13 @@ namespace PinionCore.Project2.Client
         ActionType _appliedAction = ActionType.None;
         long _appliedActionTicks = long.MinValue;
 
-        // ActionType → Animator state 名稱:動作型別已含冒險/戰鬥語意,一對一映射;
+        // ActionType → Animator state 名:約定 state 名 = enum 名,與 ActionAnimatorGenerator 同一約定
+        //(controller 由產生器從 ActorConfig.Actions 重生,不再維護手寫映射表)。
         // 動作 state 只靠 code CrossFade 進入(以 world time 差當起播偏移),不掛參數轉換。
         // 是否凍結旋轉由 ActionConfig.HoldRotation 決定(_HoldRotation):
         // 攻擊類凍結:段 Facing 是速度方向(側移/滑行)不是視覺朝向;
         // 走路/idle 不凍結:Facing 即移動方向,角色照常面向前進方向。
-        static readonly System.Collections.Generic.Dictionary<ActionType, string> _ActionStates =
-            new System.Collections.Generic.Dictionary<ActionType, string>
-            {
-                { ActionType.BattleAttack, "Battle Attack" },
-                { ActionType.AdventureWalk, "Adventure Walk" },
-                { ActionType.BattleWalk, "Battle Walk" },
-                { ActionType.AdventureIdle, "Adventure Idle" },
-                { ActionType.BattleIdle, "Battle Idle" },
-            };
+        static string _StateName(ActionType action) => action.ToString();
 
         // 此角色可播放的動作 config(與伺服器同一份資產,由 ActorProvider 於 Setup 傳入);
         // client 據此以 ActionType 查表取得表現資訊(HoldRotation/Stance/Loop 等),不過線
@@ -224,12 +217,12 @@ namespace PinionCore.Project2.Client
                     // 收養權威時戳即可,不重播避免自己疊自己
                     var predicted = _appliedAction == _actionInfo.Action &&
                         Math.Abs(_actionInfo.StartTicks - _appliedActionTicks) < _PredictionToleranceTicks;
-                    if (!predicted && _ActionStates.TryGetValue(_actionInfo.Action, out var stateName))
+                    if (!predicted)
                     {
                         var offset = (float)actionElapsed;
                         if (offset < 0f)
                             offset = 0f;
-                        _animator.CrossFadeInFixedTime(stateName, 0.1f, 0, offset);
+                        _animator.CrossFadeInFixedTime(_StateName(_actionInfo.Action), 0.1f, 0, offset);
                     }
                     _appliedAction = _actionInfo.Action;
                     _appliedActionTicks = _actionInfo.StartTicks;
@@ -242,10 +235,9 @@ namespace PinionCore.Project2.Client
                     var config = FindAction(_actionInfo.Action);
                     if (config != null && !config.Loop && actionElapsed >= config.Duration &&
                         _transitions.Transitions.TryGetValue(_actionInfo.Action, out var transition) &&
-                        _appliedAction != transition.Next.Action &&
-                        _ActionStates.TryGetValue(transition.Next.Action, out var nextState))
+                        _appliedAction != transition.Next.Action)
                     {
-                        _animator.CrossFadeInFixedTime(nextState, 0.1f, 0, (float)(actionElapsed - config.Duration));
+                        _animator.CrossFadeInFixedTime(_StateName(transition.Next.Action), 0.1f, 0, (float)(actionElapsed - config.Duration));
                         _appliedAction = transition.Next.Action;
                         // 預測起點 = 排程邊界(StartTicks + Duration),權威事件抵達時據此收養
                         _appliedActionTicks = _actionInfo.StartTicks + (long)(config.Duration * TimeSpan.TicksPerSecond);

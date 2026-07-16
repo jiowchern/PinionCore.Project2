@@ -374,6 +374,7 @@ MonoBehaviour:
   Universe: {fileID: 2137534725}
   DrawActors: 1
   DrawTerrainBounds: 1
+  DrawSightRadius: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
