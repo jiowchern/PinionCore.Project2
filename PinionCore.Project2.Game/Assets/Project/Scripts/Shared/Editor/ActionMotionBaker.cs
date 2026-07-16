@@ -92,7 +92,7 @@ namespace PinionCore.Project2.Shared.Editor
                         "(in-place clip 或匯入設定勾了 Bake Into Pose XZ),烘出原地動作");
 
                 if (action.Loop)
-                    AlignNetDisplacementForward(action, points);
+                    AlignNetDisplacementForward(action, points, total);
 
                 var tolerance = Mathf.Max(0.001f, action.SimplifyTolerance);
                 var maxSegments = Mathf.Max(1, action.MaxSegments);
@@ -159,16 +159,19 @@ namespace PinionCore.Project2.Shared.Editor
         /// <summary>
         /// 旋轉整條取樣路徑,使每循環淨位移對齊 +y(局部前方)。
         /// 循環動作的側向淨分量會每循環累積成緩慢偏航(Kevin 走路 clip 確有側向分量),必須在烘焙時消除;
-        /// 淨位移過小的 clip 無法循環推進,直接報錯提醒檢查匯入設定。
+        /// in-place 循環(idle 類,總路徑長也趨近零)零位移合法,直接跳過;
+        /// 有位移但淨位移過小(原地繞圈類)無法循環推進,才報錯提醒檢查匯入設定。
         /// </summary>
-        static void AlignNetDisplacementForward(ActionConfig action, List<(float t, Vector2 xz)> points)
+        static void AlignNetDisplacementForward(ActionConfig action, List<(float t, Vector2 xz)> points, float totalPathLength)
         {
             var net = points[points.Count - 1].xz - points[0].xz;
             if (net.magnitude < 0.01f)
             {
+                if (totalPathLength < 0.01f)
+                    return;   // in-place 循環:無位移即無側向偏航,無需對齊
                 Debug.LogError(
-                    $"[ActionMotionBaker] {action.name}: Locomotion clip '{action.Clip.name}' 每循環淨位移過小" +
-                    $"({net.magnitude:F4}m)—— 循環動作需要淨位移(檢查匯入設定 Bake Into Pose XZ)");
+                    $"[ActionMotionBaker] {action.name}: Locomotion clip '{action.Clip.name}' 有位移(路徑長 {totalPathLength:F3}m)" +
+                    $"但每循環淨位移過小({net.magnitude:F4}m)—— 無法循環推進(檢查匯入設定 Bake Into Pose XZ)");
                 return;
             }
 
