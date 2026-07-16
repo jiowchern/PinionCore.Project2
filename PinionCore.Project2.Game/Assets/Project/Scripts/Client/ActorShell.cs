@@ -107,9 +107,9 @@ namespace PinionCore.Project2.Client
             _actionInfo = info;
             if (info.Action == ActionType.None)
             {
-                // None 是解除旋轉凍結的唯一權威訊號(不靠本地計時);
-                // 下一幀 _Step 會以終停 MoveInfo 的 Facing(伺服器恢復的視覺朝向)重新定向。
-                // Stance 沿用上一個值:None 是 Cast 播完到下一狀態之間的短暫訊號,不代表換 stance
+                // 哨兵防禦:伺服器不再廣播 None(動作播完直接接下一狀態的 ActionInfo),
+                // 只剩交棒空窗/首動作前晚訂閱的 replay 會是 None。解除旋轉凍結不依賴此分支:
+                // 下一顆 ActionInfo 的 HoldRotation=false 會讓 _Step 的 else 路徑自然解凍
                 _rotationHeld = false;
                 _appliedAction = ActionType.None;
                 _appliedActionTicks = long.MinValue;

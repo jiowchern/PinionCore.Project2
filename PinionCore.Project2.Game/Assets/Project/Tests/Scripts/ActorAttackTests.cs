@@ -166,13 +166,14 @@ namespace PinionCore.Project2.Tests
             yield return displaced;
             TestWait.AssertDone(displaced, "攻擊期間殼應跟著伺服器分段 MoveInfo 位移");
 
-            // 動作結束:None 且 StartTicks 晚於攻擊開始(不是訂閱 replay 撿到的舊事件)
-            var noneEvent = TestWait.First(
+            // 動作結束:不再廣播 None,攻擊播完直接接下一狀態的 BattleIdle
+            //(StartTicks 晚於攻擊開始 = 不是訂閱 replay 撿到的舊事件)
+            var idleEvent = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost),
-                a => a.Action == ActionType.None && a.StartTicks > attackStartTicks,
+                a => a.Action == ActionType.BattleIdle && a.StartTicks > attackStartTicks,
                 System.TimeSpan.FromSeconds(10));
-            yield return noneEvent;
-            TestWait.AssertDone(noneEvent, "動作應以 ActionEvent None 結束");
+            yield return idleEvent;
+            TestWait.AssertDone(idleEvent, "攻擊播完應直接廣播下一狀態的 BattleIdle");
 
             Assert.AreNotEqual(true, walkDuringAttack, "攻擊中 Play(BattleWalk) 不得被接受");
 
@@ -236,12 +237,12 @@ namespace PinionCore.Project2.Tests
             yield return attackEvent;
             TestWait.AssertDone(attackEvent, "unitychan 出招應被受理(ActorConfig2 需掛 BattleAttackAction)");
 
-            var noneEvent = TestWait.First(
+            var idleEvent = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost),
-                a => a.Action == ActionType.None && a.StartTicks > attackEvent.Result.StartTicks,
+                a => a.Action == ActionType.BattleIdle && a.StartTicks > attackEvent.Result.StartTicks,
                 System.TimeSpan.FromSeconds(10));
-            yield return noneEvent;
-            TestWait.AssertDone(noneEvent, "動作應以 ActionEvent None 結束");
+            yield return idleEvent;
+            TestWait.AssertDone(idleEvent, "攻擊播完應直接廣播下一狀態的 BattleIdle");
 
             // 模型子物件必須貼著殼:root motion 不得疊進 localPosition(XZ)
             var local = animator.transform.localPosition;

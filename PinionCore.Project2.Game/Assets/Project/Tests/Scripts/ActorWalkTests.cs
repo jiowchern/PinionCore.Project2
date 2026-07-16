@@ -213,21 +213,20 @@ namespace PinionCore.Project2.Tests
             TestWait.AssertDone(attackEvent, "走路中 Play(BattleAttack) 應被受理並廣播");
             var attackStartTicks = attackEvent.Result.StartTicks;
 
-            // 取代不發中間 None:走路開始與攻擊開始之間不得有 None 事件
+            // None 已不再廣播:進場後的整段事件流(走路→攻擊→接續)不得出現 None
             foreach (var info in actionLog)
             {
-                if (info.Action == ActionType.None)
-                    Assert.IsFalse(info.StartTicks > walkStartTicks && info.StartTicks < attackStartTicks,
-                        "攻擊取代走路不得發中間 None");
+                if (info.StartTicks >= walkStartTicks)
+                    Assert.AreNotEqual(ActionType.None, info.Action, "動作事件流全程不得廣播 None");
             }
 
-            // 攻擊結束 → None(Cast 播完到下一狀態 Enter 之間的短暫訊號)
-            var noneEvent = TestWait.First(
+            // 攻擊播完直接接下一狀態的 BattleIdle 廣播(無 None 空窗)
+            var idleEvent = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost),
-                a => a.Action == ActionType.None && a.StartTicks > attackStartTicks,
+                a => a.Action == ActionType.BattleIdle && a.StartTicks > attackStartTicks,
                 System.TimeSpan.FromSeconds(10));
-            yield return noneEvent;
-            TestWait.AssertDone(noneEvent, "攻擊應以 ActionEvent None 結束");
+            yield return idleEvent;
+            TestWait.AssertDone(idleEvent, "攻擊播完應直接廣播下一狀態的 BattleIdle");
 
             // 攻擊播完自動轉移回 BattleIdle:新 soul 供應(SupplyEvent 有 replay,晚訂閱安全)
             var idleResupply = TestWait.First(

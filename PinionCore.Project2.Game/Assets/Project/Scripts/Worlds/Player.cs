@@ -169,8 +169,9 @@ namespace PinionCore.Project2.Worlds
 
         }
 
-        // 動作播放狀態:與 MoveEvent 同款「訂閱即 replay」;Action == None 表示無動作,
-        // 結束時也以 None 發出 —— 這是 client 解除旋轉凍結的唯一權威訊號。
+        // 動作播放狀態:與 MoveEvent 同款「訂閱即 replay」;Action == None 是哨兵
+        //(初始與動作結束後的 replay 值),結束不再廣播 None —— 既有訂閱者看到的是
+        // 舊動作 → 下一狀態動作的無空窗接續,結束訊號走內部 EndEvent。
         ActionInfo _ActionInfo;
         event Action<ActionInfo> _ActionEvent;
         public event Action<ActionInfo> ActionEvent
@@ -191,6 +192,12 @@ namespace PinionCore.Project2.Worlds
             _ActionInfo = info;
             _ActionEvent?.Invoke(info);
         }
+
+        /// <summary>
+        /// 動作自然結束/被 Stop 結束(不含被新動作取代):world 內部交棒訊號,不過線、無 replay。
+        /// 參數 = 結束的動作型別與結束時刻 tick;ControllerStatus 據此轉移到 Transition.Next。
+        /// </summary>
+        internal event Action<ActionType, long> EndEvent;
 
         /// <summary>
         /// 開始播放自帶位移動作。force = false 為玩家觸發路徑(進行中不可重入);
@@ -312,9 +319,14 @@ namespace PinionCore.Project2.Worlds
             return (candidate.Position - extrapolated).sqrMagnitude <= 1e-8f;
         }
 
-        /// <summary>動作結束:發終停 MoveInfo(恢復視覺朝向)與 ActionInfo.None,解除移動鎖定。</summary>
+        /// <summary>
+        /// 動作結束:發終停 MoveInfo(恢復視覺朝向)、解除移動鎖定,並 raise 內部 EndEvent。
+        /// _ActionInfo 歸位 None 哨兵但「不廣播」:晚訂閱者在交棒空窗/首動作前 replay 到 None,
+        /// 既有訂閱者等下一狀態 Enter 的新 ActionInfo,無 None 空窗。
+        /// </summary>
         void _EndAction(Vector2 position, long tick)
         {
+            var ended = _CurrentAction.Action;
             _CurrentAction = null;
             _BoundaryTicks = null;
             _SetMoveInfo(new MoveInfo
@@ -324,7 +336,8 @@ namespace PinionCore.Project2.Worlds
                 Speed = 0f,
                 StartTicks = tick
             }, emit: true);
-            _SetActionInfo(new ActionInfo { Action = ActionType.None, StartTicks = tick });
+            _ActionInfo = new ActionInfo { Action = ActionType.None, StartTicks = tick };
+            EndEvent?.Invoke(ended, tick);
         }
 
         // 以當下時間取樣權威位置/朝向,作為新 MoveInfo 的起點。

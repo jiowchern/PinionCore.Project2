@@ -10,7 +10,8 @@ namespace PinionCore.Project2.Tests
 {
     /// <summary>
     /// 自帶位移動作(root motion 烘焙段)的伺服器權威單元測試(WorldTestScript 模式:直接 new World)。
-    /// 動作 = 分段等速直線,依絕對 tick 排程:每段一發 MoveInfo、結束發終停 MoveInfo 與 ActionInfo.None。
+    /// 動作 = 分段等速直線,依絕對 tick 排程:每段一發 MoveInfo、結束發終停 MoveInfo 與內部 EndEvent
+    /// (不再廣播 ActionInfo.None;None 只剩訂閱 replay 的哨兵)。
     /// 地形同 WorldCollisionTests:Wall 世界盒 x∈[-2.5,2.5], y∈[0,1], z∈[-3.5,-2.5],半徑 0.3 接觸面 z≈-2.2。
     /// 時鐘是真實 Stopwatch,位置比對留寬鬆容差;tick 排程值是決定性 long,可精確比對。
     /// </summary>
@@ -76,7 +77,7 @@ namespace PinionCore.Project2.Tests
             _world = null;
         }
 
-        PinionCore.Project2.Worlds.Player _Enter(out List<MoveInfo> moveEvents, out List<ActionInfo> actionEvents)
+        PinionCore.Project2.Worlds.Player _Enter(out List<MoveInfo> moveEvents, out List<ActionInfo> actionEvents, out List<(ActionType Action, long Ticks)> endEvents)
         {
             IWorld world = _world;
             var actorId = System.Guid.NewGuid();
@@ -93,11 +94,15 @@ namespace PinionCore.Project2.Tests
             var actions = new List<ActionInfo>();
             player.ActionEvent += info => actions.Add(info);
             Assert.AreEqual(1, actions.Count, "ActionEvent 訂閱應 replay 一次");
-            Assert.AreEqual(ActionType.None, actions[0].Action, "初始動作狀態應為 None");
+            Assert.AreEqual(ActionType.None, actions[0].Action, "初始動作狀態應為 None(哨兵)");
             actions.Clear();
+
+            var ends = new List<(ActionType, long)>();
+            player.EndEvent += (type, tick) => ends.Add((type, tick));
 
             moveEvents = moves;
             actionEvents = actions;
+            endEvents = ends;
             return player;
         }
 
@@ -122,7 +127,7 @@ namespace PinionCore.Project2.Tests
         [UnityTest]
         public IEnumerator TwoSegmentDisplacementTest()
         {
-            var player = _Enter(out var moveEvents, out var actionEvents);
+            var player = _Enter(out var moveEvents, out var actionEvents, out var endEvents);
 
             var start = player.CurrentMoveInfo.Position;
 
@@ -132,15 +137,14 @@ namespace PinionCore.Project2.Tests
             Assert.AreEqual(1, actionEvents.Count, "接受後應立即發出 ActionInfo");
             Assert.AreEqual(ActionType.BattleAttack, actionEvents[0].Action);
 
-            yield return _PumpUntil(
-                () => actionEvents.Any(a => a.Action == ActionType.None),
-                timeoutSeconds: 5f);
+            yield return _PumpUntil(() => endEvents.Count > 0, timeoutSeconds: 5f);
 
-            // 動作事件:Attack → None,None 時刻 = 開始 + 總時長(絕對 tick 排程,精確)
-            Assert.AreEqual(2, actionEvents.Count, "應恰有 Attack 與 None 兩個動作事件");
+            // 動作事件:只有 Attack 一發(結束不廣播 None);EndEvent 時刻 = 開始 + 總時長(絕對 tick 排程,精確)
+            Assert.AreEqual(1, actionEvents.Count, "動作結束不應再廣播 ActionInfo");
             var attackStart = actionEvents[0].StartTicks;
-            Assert.AreEqual(ActionType.None, actionEvents[1].Action);
-            Assert.AreEqual(attackStart + TotalTicks, actionEvents[1].StartTicks, "結束時刻應為開始 + 總時長");
+            Assert.AreEqual(1, endEvents.Count, "應恰有一發 EndEvent");
+            Assert.AreEqual(ActionType.BattleAttack, endEvents[0].Action, "EndEvent 應帶結束的動作型別");
+            Assert.AreEqual(attackStart + TotalTicks, endEvents[0].Ticks, "結束時刻應為開始 + 總時長");
 
             // 移動事件:前衝段、收招駐留段、終停,共三發;邊界時刻精確落在排程 tick
             Assert.AreEqual(3, moveEvents.Count, "應恰有三個移動事件:前衝段、駐留段、終停");
@@ -164,7 +168,7 @@ namespace PinionCore.Project2.Tests
         [UnityTest]
         public IEnumerator MoveRejectedDuringActionTest()
         {
-            var player = _Enter(out _, out var actionEvents);
+            var player = _Enter(out _, out var actionEvents, out var endEvents);
 
             player.StartAction(ActionType.BattleAttack, force: false);
             Assert.AreEqual(1, actionEvents.Count, "前置條件:動作已開始");
@@ -181,10 +185,8 @@ namespace PinionCore.Project2.Tests
             var replayAccepted = player.StartAction(ActionType.BattleAttack, force: false);
             Assert.IsFalse(replayAccepted, "動作進行中不可重入");
 
-            yield return _PumpUntil(
-                () => actionEvents.Any(a => a.Action == ActionType.None),
-                timeoutSeconds: 5f);
-            Assert.IsTrue(actionEvents.Any(a => a.Action == ActionType.None), "動作應準時結束");
+            yield return _PumpUntil(() => endEvents.Count > 0, timeoutSeconds: 5f);
+            Assert.IsTrue(endEvents.Any(e => e.Action == ActionType.BattleAttack), "動作應準時結束(EndEvent)");
 
             // 結束後移動恢復可用
             var acceptedAfter = false;
@@ -195,7 +197,7 @@ namespace PinionCore.Project2.Tests
         [UnityTest]
         public IEnumerator LungeIntoWallTest()
         {
-            var player = _Enter(out var moveEvents, out var actionEvents);
+            var player = _Enter(out var moveEvents, out var actionEvents, out var endEvents);
 
             // 先朝牆(-Z)走到 z ≤ -1.4 讓朝向面牆,再出招:
             // 前衝 1m 的目標 z ≤ -2.4 超出接觸面(-2.2),必定撞牆
@@ -213,7 +215,7 @@ namespace PinionCore.Project2.Tests
 
             // 前衝 1m 會超出接觸面(出招點 z ≤ -1.4,接觸面 -2.2):逐幀驗證不穿牆
             yield return _PumpUntil(
-                () => actionEvents.Any(a => a.Action == ActionType.None),
+                () => endEvents.Count > 0,
                 timeoutSeconds: 5f,
                 perFrame: () =>
                 {
@@ -221,9 +223,9 @@ namespace PinionCore.Project2.Tests
                     Assert.GreaterOrEqual(pos.y, PenetrationLimitZ, "動作位移不得穿入牆面");
                 });
 
-            // 撞牆不平移排程:None 仍準時(開始 + 總時長)
-            var none = actionEvents.First(a => a.Action == ActionType.None);
-            Assert.AreEqual(attackStart + TotalTicks, none.StartTicks, "撞牆不應延後動作結束時刻");
+            // 撞牆不平移排程:EndEvent 仍準時(開始 + 總時長)
+            Assert.AreEqual(1, endEvents.Count, "應恰有一發 EndEvent");
+            Assert.AreEqual(attackStart + TotalTicks, endEvents[0].Ticks, "撞牆不應延後動作結束時刻");
 
             // 最終停在接觸面附近,且再也不動
             var finalPos = player.CurrentMoveInfo.Position;
@@ -235,7 +237,7 @@ namespace PinionCore.Project2.Tests
         [UnityTest]
         public IEnumerator ReplaySemanticsTest()
         {
-            var player = _Enter(out _, out var actionEvents);
+            var player = _Enter(out _, out var actionEvents, out var endEvents);
 
             player.StartAction(ActionType.BattleAttack, force: false);
             var attackStart = actionEvents[0].StartTicks;
@@ -249,11 +251,9 @@ namespace PinionCore.Project2.Tests
             Assert.AreEqual(attackStart, midReplay[0].StartTicks, "replay 應帶原始 StartTicks");
             player.ActionEvent -= midHandler;
 
-            yield return _PumpUntil(
-                () => actionEvents.Any(a => a.Action == ActionType.None),
-                timeoutSeconds: 5f);
+            yield return _PumpUntil(() => endEvents.Count > 0, timeoutSeconds: 5f);
 
-            // 結束後新訂閱:replay 應為 None(不得憑空重播過期的攻擊)
+            // 結束後新訂閱:replay 應為 None 哨兵(不得憑空重播過期的攻擊)
             var lateReplay = new List<ActionInfo>();
             System.Action<ActionInfo> lateHandler = info => lateReplay.Add(info);
             player.ActionEvent += lateHandler;
@@ -265,7 +265,7 @@ namespace PinionCore.Project2.Tests
         [UnityTest]
         public IEnumerator ForceOverrideTest()
         {
-            var player = _Enter(out var moveEvents, out var actionEvents);
+            var player = _Enter(out var moveEvents, out var actionEvents, out var endEvents);
 
             player.StartAction(ActionType.BattleAttack, force: false);
             var firstStart = actionEvents[0].StartTicks;
@@ -274,7 +274,7 @@ namespace PinionCore.Project2.Tests
             yield return _PumpUntil(
                 () => _world.ElapsedTicks >= firstStart + DashTicks / 2,
                 timeoutSeconds: 5f);
-            Assert.IsFalse(actionEvents.Any(a => a.Action == ActionType.None), "前置條件:動作仍在進行");
+            Assert.AreEqual(0, endEvents.Count, "前置條件:動作仍在進行");
 
             // 伺服器主動覆蓋(未來僵直/死亡路徑):作廢舊排程、發新 ActionInfo 取代 replay 值
             moveEvents.Clear();
@@ -289,13 +289,13 @@ namespace PinionCore.Project2.Tests
             Assert.AreEqual(1, moveEvents.Count, "覆蓋應立即發出新段的 MoveInfo");
             var restartPos = moveEvents[0].Position;
 
-            yield return _PumpUntil(
-                () => actionEvents.Any(a => a.Action == ActionType.None),
-                timeoutSeconds: 5f);
+            yield return _PumpUntil(() => endEvents.Count > 0, timeoutSeconds: 5f);
 
-            // 舊排程作廢:None 時刻以覆蓋時刻起算,不是原動作的結束時刻
-            var none = actionEvents.First(a => a.Action == ActionType.None);
-            Assert.AreEqual(secondStart + TotalTicks, none.StartTicks, "結束時刻應以覆蓋時刻起算");
+            // 舊排程作廢:EndEvent 時刻以覆蓋時刻起算,不是原動作的結束時刻;
+            // 全程不得廣播 None(取代與結束都不發)
+            Assert.AreEqual(1, endEvents.Count, "覆蓋只該有一發 EndEvent(舊排程已作廢)");
+            Assert.AreEqual(secondStart + TotalTicks, endEvents[0].Ticks, "結束時刻應以覆蓋時刻起算");
+            Assert.IsFalse(actionEvents.Any(a => a.Action == ActionType.None), "全程不應廣播 None");
 
             // 覆蓋沿用原動作的視覺朝向基底(+Z):終點 = 覆蓋點 + (0, DashDistance)
             var finalPos = player.CurrentMoveInfo.Position;

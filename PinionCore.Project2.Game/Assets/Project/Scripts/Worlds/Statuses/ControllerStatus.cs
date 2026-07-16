@@ -8,7 +8,7 @@ namespace PinionCore.Project2.Worlds.Statuses
     /// <summary>
     /// 控制狀態:狀態類自身即協議實作(IControllable),Enter 播放 Current 動作並供應自己、
     /// Leave 收回(每狀態一顆 soul)。「動作能不能執行」由 Transition.Playables 白名單表達
-    /// (攻擊中無法移動 = 攻擊態白名單為空);Cast 自然播完(ActionEvent None)自動轉移到 Next。
+    /// (攻擊中無法移動 = 攻擊態白名單為空);動作自然播完(Player.EndEvent)自動轉移到 Next。
     /// </summary>
     internal class ControllerStatus : IStatus, IControllable
     {
@@ -18,10 +18,8 @@ namespace PinionCore.Project2.Worlds.Statuses
         readonly UnityEngine.Vector2 _Direction;   // 進場方向(走路轉移用;零向量 = 無指定)
         readonly Property<Transition> _TransitionProperty;   // soul 綁定要求固定實例,禁止 getter 內新建
 
-        ActionInfo _Started;   // 訂閱 replay 記下的基準(本狀態剛啟動的那筆)
-        bool _Baselined;       // 已收到 replay 基準
-        bool _Subscribed;      // 已訂閱 ActionEvent(Leave 據此取消)
-        bool _Done;            // 已發出轉移,之後的 Play/ActionEvent 一律忽略,防重複 push
+        bool _Subscribed;      // 已訂閱 EndEvent(Leave 據此取消)
+        bool _Done;            // 已發出轉移,之後的 Play/EndEvent 一律忽略,防重複 push
 
         /// <summary>要求轉移到指定動作狀態(方向給走路;非位移動作忽略)。</summary>
         public event System.Action<ActionType, UnityEngine.Vector2> NextEvent;
@@ -49,8 +47,8 @@ namespace PinionCore.Project2.Worlds.Statuses
                 UnityEngine.Debug.Log($"[ControllerStatus] 無 {_Transition.Current.Action} 的 ActionConfig,僅供應狀態不播動作");
             }
 
-            // 訂閱即 replay:第一發即本狀態剛啟動的 ActionInfo,記為基準
-            _Player.ActionEvent += _OnAction;
+            // EndEvent 無 replay:只會收到訂閱之後的結束訊號,不需基線過濾
+            _Player.EndEvent += _OnEnd;
             _Subscribed = true;
 
             _Controllers.Add(this);
@@ -59,7 +57,7 @@ namespace PinionCore.Project2.Worlds.Statuses
         void IStatus.Leave()
         {
             if (_Subscribed)
-                _Player.ActionEvent -= _OnAction;
+                _Player.EndEvent -= _OnEnd;
             _Controllers.Remove(this);
         }
 
@@ -92,27 +90,20 @@ namespace PinionCore.Project2.Worlds.Statuses
             return true;
         }
 
-        void _OnAction(ActionInfo info)
+        void _OnEnd(ActionType ended, long tick)
         {
-            if (!_Baselined)
-            {
-                _Started = info;
-                _Baselined = true;
-                return;
-            }
             if (_Done)
                 return;
-            if (info.Action == ActionType.None)
-            {
-                // 動作自然播完(Cast 到期/locomotion 被守門結束):轉移到 Next;
-                // Next = 自身(idle)時不轉移,避免無意義的 soul churn
-                if (_Transition.Next.Action == _Transition.Current.Action)
-                    return;
-                _Done = true;
-                NextEvent(_Transition.Next.Action, UnityEngine.Vector2.zero);
-            }
-            // 非本狀態的 (Action, StartTicks) = 伺服器 force 覆蓋(未來傷害管線):
-            // 由覆蓋方負責 push 對應狀態,這裡不自動轉移
+            // 非本狀態的動作結束不代打轉移:伺服器 force 覆蓋(未來傷害管線)的動作播完
+            // 由覆蓋方負責 push 對應狀態;測試直啟路徑(Move/StartAction)的結束同理
+            if (ended != _Transition.Current.Action)
+                return;
+            // 動作自然播完(一次性動作到期/循環被守門結束):轉移到 Next;
+            // Next = 自身(idle)時不轉移,避免無意義的 soul churn
+            if (_Transition.Next.Action == _Transition.Current.Action)
+                return;
+            _Done = true;
+            NextEvent(_Transition.Next.Action, UnityEngine.Vector2.zero);
         }
     }
 }

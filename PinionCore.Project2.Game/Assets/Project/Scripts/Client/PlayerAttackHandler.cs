@@ -10,7 +10,7 @@ namespace PinionCore.Project2.Client
     /// <summary>
     /// 攻擊輸入:戰鬥狀態下按鍵觸發 IControllable.Play(BattleAttack) RPC。
     /// 動作的表現(動畫/凍結旋轉)與位移全由 ActorShell 殼跟著伺服器事件走,本層只負責觸發;
-    /// 收到殼的 ActionEvent None(動作結束)時通知 PlayerInputHandler 補送按住中的移動。
+    /// 收到殼廣播循環動作(攻擊播完自動回 idle)時通知 PlayerInputHandler 補送按住中的移動。
     ///
     /// 在途鎖與逾時:冒險系狀態的 Playables 不含 BattleAttack,伺服器直接回 false;
     /// 狀態轉移瞬間發往舊 soul 的 Play 會被靜默丟棄(回呼不來),由逾時自動解鎖。
@@ -89,12 +89,12 @@ namespace PinionCore.Project2.Client
 
         void _OnActionEvent(ActionInfo info)
         {
-            // 循環動作(走路/idle)不佔用攻擊鎖:循環進行中視為佔用會永久擋住攻擊輸入;
-            // 攻擊取代走路時照常上鎖。查無 config 的未知動作保守視為佔用
+            // 一次性動作(攻擊等非 Loop)佔用攻擊鎖;查無 config 的未知動作保守視為佔用。
+            // 解鎖訊號 = 循環動作(下一狀態的 idle/走路)抵達 —— 伺服器不再廣播 None,
+            // 動作播完直接接下一狀態的 ActionInfo;None 只剩晚訂閱 replay 的哨兵,一併視為解鎖
             var config = _shell != null ? _shell.FindAction(info.Action) : null;
-            if (config != null && config.Loop)
-                return;
-            if (info.Action != ActionType.None)
+            var occupies = info.Action != ActionType.None && (config == null || !config.Loop);
+            if (occupies)
             {
                 _actionActive = true;
                 return;

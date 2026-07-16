@@ -9,9 +9,10 @@ using UnityEngine.TestTools;
 namespace PinionCore.Project2.Tests
 {
     /// <summary>
-    /// 走路(Locomotion)動作的伺服器權威單元測試(WorldTestScript 模式:直接 new World)。
-    /// 走路 = 循環播放的分段 root motion:Move 啟動(恰一發 ActionInfo)、段邊界 wrap 不發 None、
-    /// Move 重定向不重發 ActionInfo(邊界 tick 不動)、Stop 結束、Cast 可直接取代(無中間 None)。
+    /// 走路(循環 Loop)動作的伺服器權威單元測試(WorldTestScript 模式:直接 new World)。
+    /// 走路 = 循環播放的分段 root motion:Move 啟動(恰一發 ActionInfo)、段邊界 wrap 無事件、
+    /// Move 重定向不重發 ActionInfo(邊界 tick 不動)、Stop 結束(內部 EndEvent,不廣播 None)、
+    /// 一次性動作可直接取代(無中間事件)。
     /// 地形同 ActionMotionTests:Wall 世界盒 x∈[-2.5,2.5], z∈[-3.5,-2.5],半徑 0.3 接觸面 z≈-2.2。
     /// </summary>
     public class WalkMotionTests
@@ -105,7 +106,7 @@ namespace PinionCore.Project2.Tests
             _world = null;
         }
 
-        PinionCore.Project2.Worlds.Player _Enter(string modelName, out List<MoveInfo> moveEvents, out List<ActionInfo> actionEvents)
+        PinionCore.Project2.Worlds.Player _Enter(string modelName, out List<MoveInfo> moveEvents, out List<ActionInfo> actionEvents, out List<(ActionType Action, long Ticks)> endEvents)
         {
             IWorld world = _world;
             var actorId = System.Guid.NewGuid();
@@ -121,11 +122,15 @@ namespace PinionCore.Project2.Tests
 
             var actions = new List<ActionInfo>();
             player.ActionEvent += info => actions.Add(info);
-            Assert.AreEqual(ActionType.None, actions[0].Action, "初始動作狀態應為 None");
+            Assert.AreEqual(ActionType.None, actions[0].Action, "初始動作狀態應為 None(哨兵)");
             actions.Clear();
+
+            var ends = new List<(ActionType, long)>();
+            player.EndEvent += (type, tick) => ends.Add((type, tick));
 
             moveEvents = moves;
             actionEvents = actions;
+            endEvents = ends;
             return player;
         }
 
@@ -157,7 +162,7 @@ namespace PinionCore.Project2.Tests
         [UnityTest]
         public IEnumerator WalkLoopTest()
         {
-            var player = _Enter("Walker", out var moveEvents, out var actionEvents);
+            var player = _Enter("Walker", out var moveEvents, out var actionEvents, out var endEvents);
             var start = player.CurrentMoveInfo.Position;
 
             Assert.IsTrue(_Accepted(player.Move(new Vector2(0f, 1f))), "啟動走路應被接受");
@@ -165,11 +170,12 @@ namespace PinionCore.Project2.Tests
             Assert.AreEqual(ActionType.AdventureWalk, actionEvents[0].Action);
             var walkStart = actionEvents[0].StartTicks;
 
-            // 泵超過兩個循環:不得出現 None、不得重發 ActionInfo
+            // 泵超過兩個循環:不得重發 ActionInfo、不得觸發結束
             yield return _PumpUntil(
                 () => _world.ElapsedTicks >= walkStart + CycleTicks * 2 + SegmentTicks / 2,
                 timeoutSeconds: 5f);
-            Assert.AreEqual(1, actionEvents.Count, "循環 wrap 不得重發 ActionInfo,也不得發 None");
+            Assert.AreEqual(1, actionEvents.Count, "循環 wrap 不得重發 ActionInfo");
+            Assert.AreEqual(0, endEvents.Count, "循環 wrap 不得觸發 EndEvent");
 
             // 段邊界 tick 精確:第 k 發 MoveInfo 的 StartTicks = walkStart + k * SegmentTicks
             //(wrap 基準 = 上一輪最後邊界,零漂移;快慢段速度不同,每個邊界都必 emit)
@@ -191,7 +197,7 @@ namespace PinionCore.Project2.Tests
         [UnityTest]
         public IEnumerator WalkStraightLineQuietTest()
         {
-            var player = _Enter("StraightWalker", out var moveEvents, out var actionEvents);
+            var player = _Enter("StraightWalker", out var moveEvents, out var actionEvents, out _);
 
             Assert.IsTrue(_Accepted(player.Move(new Vector2(0f, 1f))), "啟動走路應被接受");
             var walkStart = actionEvents[0].StartTicks;
@@ -212,7 +218,7 @@ namespace PinionCore.Project2.Tests
         [UnityTest]
         public IEnumerator WalkRedirectTest()
         {
-            var player = _Enter("Walker", out var moveEvents, out var actionEvents);
+            var player = _Enter("Walker", out var moveEvents, out var actionEvents, out _);
 
             Assert.IsTrue(_Accepted(player.Move(new Vector2(0f, 1f))));
             var walkStart = actionEvents[0].StartTicks;
@@ -243,7 +249,7 @@ namespace PinionCore.Project2.Tests
         [UnityTest]
         public IEnumerator WalkThrottleTest()
         {
-            var player = _Enter("Walker", out _, out var actionEvents);
+            var player = _Enter("Walker", out _, out var actionEvents, out _);
 
             Assert.IsTrue(_Accepted(player.Move(new Vector2(0f, 1f))));
             Assert.IsFalse(_Accepted(player.Move(new Vector2(1f, 0f))), "節流窗內的重定向應被拒收");
@@ -257,7 +263,7 @@ namespace PinionCore.Project2.Tests
         [UnityTest]
         public IEnumerator WalkStopTest()
         {
-            var player = _Enter("Walker", out var moveEvents, out var actionEvents);
+            var player = _Enter("Walker", out var moveEvents, out var actionEvents, out var endEvents);
 
             Assert.IsTrue(_Accepted(player.Move(new Vector2(0f, 1f))));
             var walkStart = actionEvents[0].StartTicks;
@@ -269,8 +275,9 @@ namespace PinionCore.Project2.Tests
 
             moveEvents.Clear();
             Assert.IsTrue(_Accepted(player.Stop()), "走路中 Stop 應被接受");
-            Assert.AreEqual(2, actionEvents.Count, "Stop 應發出 None");
-            Assert.AreEqual(ActionType.None, actionEvents[1].Action);
+            Assert.AreEqual(1, actionEvents.Count, "Stop 不再廣播 ActionInfo(None 已拆)");
+            Assert.AreEqual(1, endEvents.Count, "Stop 應觸發一發 EndEvent");
+            Assert.AreEqual(ActionType.AdventureWalk, endEvents[0].Action);
             Assert.AreEqual(1, moveEvents.Count, "Stop 應發出終停 MoveInfo");
             Assert.AreEqual(0f, moveEvents[0].Speed);
             Assert.Greater(moveEvents[0].Facing.y, 0.999f, "終停朝向 = 移動指令方向");
@@ -280,14 +287,14 @@ namespace PinionCore.Project2.Tests
                 () => _world.ElapsedTicks >= walkStart + (long)(MoveAcceptInterval * 1.5 * System.TimeSpan.TicksPerSecond),
                 timeoutSeconds: 5f);
             Assert.IsTrue(_Accepted(player.Move(new Vector2(0f, 1f))), "停止後 Move 應恢復可用");
-            Assert.AreEqual(3, actionEvents.Count, "重新啟動走路應發新 ActionInfo");
-            Assert.AreEqual(ActionType.AdventureWalk, actionEvents[2].Action);
+            Assert.AreEqual(2, actionEvents.Count, "重新啟動走路應發新 ActionInfo");
+            Assert.AreEqual(ActionType.AdventureWalk, actionEvents[1].Action);
         }
 
         [UnityTest]
         public IEnumerator CastInterruptsWalkTest()
         {
-            var player = _Enter("Walker", out _, out var actionEvents);
+            var player = _Enter("Walker", out _, out var actionEvents, out var endEvents);
 
             Assert.IsTrue(_Accepted(player.Move(new Vector2(1f, 0f))), "先朝 +X 走");
             var walkStart = actionEvents[0].StartTicks;
@@ -296,24 +303,23 @@ namespace PinionCore.Project2.Tests
                 () => _world.ElapsedTicks >= walkStart + SegmentTicks / 2,
                 timeoutSeconds: 5f);
 
-            // Cast 直接取代走路:無中間 None
+            // 一次性動作直接取代走路:取代不觸發 EndEvent(換排程不走 _EndAction)、無中間事件
             var interruptPos = _SamplePosition(player.CurrentMoveInfo, _world.ElapsedTicks);
             Assert.IsTrue(player.StartAction(ActionType.BattleAttack, force: false), "走路中出招應被接受");
-            Assert.AreEqual(2, actionEvents.Count, "取代不得發中間 None");
+            Assert.AreEqual(2, actionEvents.Count, "取代只該有 Walk、Attack 兩發 ActionInfo");
             Assert.AreEqual(ActionType.BattleAttack, actionEvents[1].Action);
+            Assert.AreEqual(0, endEvents.Count, "取代不得觸發 EndEvent(走路排程直接作廢)");
             var attackStart = actionEvents[1].StartTicks;
 
-            // 攻擊進行中:Move / Stop 拒收(Cast 閘)
-            Assert.IsFalse(_Accepted(player.Move(new Vector2(0f, 1f))), "Cast 中 Move 應被拒收");
-            Assert.IsFalse(_Accepted(player.Stop()), "Cast 中 Stop 應被拒收");
+            // 攻擊進行中:Move / Stop 拒收(不可重定向閘)
+            Assert.IsFalse(_Accepted(player.Move(new Vector2(0f, 1f))), "攻擊中 Move 應被拒收");
+            Assert.IsFalse(_Accepted(player.Stop()), "攻擊中 Stop 應被拒收");
 
-            yield return _PumpUntil(
-                () => actionEvents.Any(a => a.Action == ActionType.None),
-                timeoutSeconds: 5f);
+            yield return _PumpUntil(() => endEvents.Count > 0, timeoutSeconds: 5f);
 
             // 攻擊基底沿用走路方向(+X):前衝終點 = 打斷點 + (DashDistance, 0)
-            var none = actionEvents.First(a => a.Action == ActionType.None);
-            Assert.AreEqual(attackStart + AttackTotalTicks, none.StartTicks, "攻擊結束時刻應以取代時刻起算");
+            Assert.AreEqual(ActionType.BattleAttack, endEvents[0].Action, "結束的應是攻擊");
+            Assert.AreEqual(attackStart + AttackTotalTicks, endEvents[0].Ticks, "攻擊結束時刻應以取代時刻起算");
             var finalPos = player.CurrentMoveInfo.Position;
             Assert.AreEqual(interruptPos.x + DashDistance, finalPos.x, 0.01f, "攻擊應沿走路方向前衝");
             Assert.AreEqual(interruptPos.y, finalPos.y, 0.01f);
@@ -325,10 +331,10 @@ namespace PinionCore.Project2.Tests
         [UnityTest]
         public IEnumerator WalkIntoWallTest()
         {
-            var player = _Enter("Walker", out _, out var actionEvents);
+            var player = _Enter("Walker", out _, out var actionEvents, out var endEvents);
 
             // 朝牆(-Z)走:接觸面 z≈-2.2,平均速度 1.4m/s,兩秒多可達;
-            // 逐幀驗證不穿牆,且撞停後循環不終止(無 None)
+            // 逐幀驗證不穿牆,且撞停後循環不終止(無 EndEvent)
             Assert.IsTrue(_Accepted(player.Move(new Vector2(0f, -1f))));
             var walkStart = actionEvents[0].StartTicks;
 
@@ -341,19 +347,22 @@ namespace PinionCore.Project2.Tests
                     Assert.GreaterOrEqual(pos.y, PenetrationLimitZ, "走路位移不得穿入牆面");
                 });
 
-            Assert.AreEqual(1, actionEvents.Count, "撞牆不得終止走路循環(無 None)");
+            Assert.AreEqual(1, actionEvents.Count, "撞牆不得終止走路循環");
+            Assert.AreEqual(0, endEvents.Count, "撞牆不得觸發 EndEvent");
             var finalPos = _SamplePosition(player.CurrentMoveInfo, _world.ElapsedTicks);
             Assert.AreEqual(ContactZ, finalPos.y, 0.1f, "應停在牆邊接觸面附近");
 
-            // 撞牆卡住仍可 Stop
+            // 撞牆卡住仍可 Stop(結束走內部 EndEvent,不再廣播 ActionInfo)
             Assert.IsTrue(_Accepted(player.Stop()), "撞牆卡住仍應能停止走路");
-            Assert.AreEqual(ActionType.None, actionEvents.Last().Action);
+            Assert.AreEqual(1, actionEvents.Count, "Stop 不再廣播 ActionInfo");
+            Assert.AreEqual(1, endEvents.Count, "Stop 應觸發一發 EndEvent");
+            Assert.AreEqual(ActionType.AdventureWalk, endEvents[0].Action);
         }
 
         [UnityTest]
         public IEnumerator WalkReplayTest()
         {
-            var player = _Enter("Walker", out _, out var actionEvents);
+            var player = _Enter("Walker", out _, out var actionEvents, out _);
 
             Assert.IsTrue(_Accepted(player.Move(new Vector2(0f, 1f))));
             var walkStart = actionEvents[0].StartTicks;
@@ -384,7 +393,7 @@ namespace PinionCore.Project2.Tests
         [UnityTest]
         public IEnumerator MoveRejectedWithoutLocomotionTest()
         {
-            var player = _Enter("Legacy", out var moveEvents, out var actionEvents);
+            var player = _Enter("Legacy", out var moveEvents, out var actionEvents, out _);
             var spawn = player.CurrentMoveInfo.Position;
 
             // 無走路動作的角色:Move 一律拒收,不發任何事件
