@@ -36,10 +36,10 @@ namespace PinionCore.Project2.Tests
             _worldInfo.Name = "CollisionTestWorld";
             _worldInfo.TerrainPrefab = new UnityEngine.AddressableAssets.AssetReferenceGameObject("84e3641b69ee6b2419379df04933bb0d");
 
-            // 移動一律走 Locomotion(root motion 排程):單段直線走路提供等速直線移動
+            // 移動一律走循環走路動作(root motion 排程):單段直線提供等速直線移動
             var walk = ScriptableObject.CreateInstance<ActionConfig>();
             walk.Action = ActionType.AdventureWalk;
-            walk.Category = ActionCategory.Locomotion;
+            walk.Loop = walk.Redirectable = walk.Interruptible = true;
             walk.Duration = WalkSegmentDuration;
             walk.Segments = new[]
             {

@@ -91,7 +91,7 @@ namespace PinionCore.Project2.Shared.Editor
                         $"[ActionMotionBaker] {action.name}: clip '{action.Clip.name}' 幾乎沒有 root 位移" +
                         "(in-place clip 或匯入設定勾了 Bake Into Pose XZ),烘出原地動作");
 
-                if (action.Category == ActionCategory.Locomotion)
+                if (action.Loop)
                     AlignNetDisplacementForward(action, points);
 
                 var tolerance = Mathf.Max(0.001f, action.SimplifyTolerance);
@@ -121,13 +121,13 @@ namespace PinionCore.Project2.Shared.Editor
                 }
 
                 // 段總時長對齊 clip 長度:位移取樣終點可能略短於 clip(取樣步長殘差)。
-                // Cast 補零位移尾段;Locomotion 殘差併入最後一段 —— 循環動作不得有零速尾段,
-                // 否則 client 的 speed 參數每循環歸零一次,walk 動畫閃 idle
+                // 一次性動作補零位移尾段;循環(Loop)動作殘差併入最後一段 —— 循環不得有零速尾段,
+                // 否則線速度每循環歸零一次,walk 表現閃 idle
                 var covered = points[cuts[cuts.Count - 1]].t;
                 var residual = action.Clip.length - covered;
                 if (residual > 1e-4f)
                 {
-                    if (action.Category == ActionCategory.Locomotion && segments.Count > 0)
+                    if (action.Loop && segments.Count > 0)
                     {
                         var last = segments[segments.Count - 1];
                         last.Duration += residual;

@@ -12,7 +12,7 @@ namespace PinionCore.Project2.Tests
     /// <summary>
     /// 冒險/戰鬥表現狀態切換端到端測試:
     /// 比照 ActorMoveTests 的四場景 Standalone 流程。StanceEvent 已拆除,
-    /// 表現狀態由 IActor.ActionEvent 廣播的 ActionType 推導(StanceOf):
+    /// 表現狀態由 IActor.ActionEvent 廣播的 ActionType 查 ActionConfig.Stance:
     /// 經 IControllable.Play(BattleIdle / AdventureIdle) 驅動 world 端控制狀態機轉移時,
     /// 新狀態 soul 重新供應(Transition.Current 隨之切換),
     /// ActionEvent 廣播戰鬥/冒險系動作,殼(Client.ActorShell.Stance)推導跟著切換。
@@ -92,13 +92,13 @@ namespace PinionCore.Project2.Tests
         {
             yield return _EnterWorld("StatusTester");
 
-            // 訂閱即 replay:新訂閱應收到當前動作(晚一個網路往返),stance 由 ActionType 推導
+            // 訂閱即 replay:新訂閱應收到當前動作(晚一個網路往返),stance 由 ActionConfig.Stance 查表
             var replay = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost), a => a.Action != ActionType.None,
                 System.TimeSpan.FromSeconds(10));
             yield return replay;
             TestWait.AssertDone(replay, "ActionEvent 訂閱後應 replay 當前動作");
-            Assert.AreEqual(StanceType.Adventure, replay.Result.Action.StanceOf(), "進場初始動作應屬冒險系");
+            Assert.AreEqual(ActionType.AdventureIdle, replay.Result.Action, "進場初始動作應為冒險 idle");
             Assert.AreEqual(StanceType.Adventure, _Shell.Stance, "殼的初始狀態應為冒險");
 
             // IControllable 只供應給本地玩家(IPlayer.Controllable,world 端控制狀態機開關);
@@ -126,7 +126,7 @@ namespace PinionCore.Project2.Tests
             // 戰鬥系動作廣播抵達 IActor ghost(晚訂閱安全:已切換則 replay 即滿足)與殼推導
             var battleAction = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost),
-                a => a.Action.StanceOf() == StanceType.Battle, System.TimeSpan.FromSeconds(10));
+                a => a.Action == ActionType.BattleIdle, System.TimeSpan.FromSeconds(10));
             yield return battleAction;
             TestWait.AssertDone(battleAction, "Play(BattleIdle) 後 ActionEvent 應廣播戰鬥系動作");
 
@@ -147,7 +147,7 @@ namespace PinionCore.Project2.Tests
 
             var adventureAction = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost),
-                a => a.Action != ActionType.None && a.Action.StanceOf() == StanceType.Adventure,
+                a => a.Action == ActionType.AdventureIdle,
                 System.TimeSpan.FromSeconds(10));
             yield return adventureAction;
             TestWait.AssertDone(adventureAction, "Play(AdventureIdle) 後 ActionEvent 應廣播冒險系動作");

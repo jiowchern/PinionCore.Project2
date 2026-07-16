@@ -31,8 +31,8 @@ namespace PinionCore.Project2.Client
         // 收到第一個 MoveEvent(訂閱時必有 replay)前殼保持隱藏。
         MoveInfo? _MoveInfo;
 
-        // 冒險/戰鬥表現狀態:由最新非 None 的 ActionType 推導(StanceOf,StanceEvent 已拆除),
-        // 驅動 Animator 的 status 參數;None(Cast 播完到下一狀態之間)沿用上一個值不閃切
+        // 冒險/戰鬥表現狀態:由最新非 None 動作的 ActionConfig.Stance 查表(StanceEvent 已拆除),
+        // 驅動 Animator 的 status 參數;None 或查無 config 時沿用上一個值不閃切
         public StanceType Stance { get; private set; }
 
         // 自帶位移動作:來自 IActor.ActionEvent(訂閱時必有 replay)。位移仍由 MoveEvent 驅動
@@ -48,9 +48,9 @@ namespace PinionCore.Project2.Client
 
         // ActionType → Animator state 名稱:動作型別已含冒險/戰鬥語意,一對一映射;
         // 動作 state 只靠 code CrossFade 進入(以 world time 差當起播偏移),不掛參數轉換。
-        // 是否凍結旋轉改由 ActionConfig.Category 決定(_HoldRotation):
-        // Cast(攻擊)凍結:段 Facing 是速度方向(側移/滑行)不是視覺朝向;
-        // Locomotion(走路/idle)不凍結:Facing 即移動方向,角色照常面向前進方向。
+        // 是否凍結旋轉由 ActionConfig.HoldRotation 決定(_HoldRotation):
+        // 攻擊類凍結:段 Facing 是速度方向(側移/滑行)不是視覺朝向;
+        // 走路/idle 不凍結:Facing 即移動方向,角色照常面向前進方向。
         static readonly System.Collections.Generic.Dictionary<ActionType, string> _ActionStates =
             new System.Collections.Generic.Dictionary<ActionType, string>
             {
@@ -62,7 +62,7 @@ namespace PinionCore.Project2.Client
             };
 
         // 此角色可播放的動作 config(與伺服器同一份資產,由 ActorProvider 於 Setup 傳入);
-        // client 據此以 ActionType 查表取得表現資訊(Category 等),不過線
+        // client 據此以 ActionType 查表取得表現資訊(HoldRotation/Stance/Loop 等),不過線
         ActionConfig[] _actionConfigs;
 
         // 供輸入層(PlayerAttackHandler)觀察動作進行狀態;None = 結束(解鎖補送 Move 的訊號)
@@ -116,7 +116,9 @@ namespace PinionCore.Project2.Client
             }
             else
             {
-                Stance = info.Action.StanceOf();
+                var config = FindAction(info.Action);
+                if (config != null)
+                    Stance = config.Stance;
             }
             ActionEvent?.Invoke(info);
         }
@@ -218,19 +220,25 @@ namespace PinionCore.Project2.Client
             }
         }
 
-        // 動作是否凍結旋轉:以 ActionType 查 ActionConfig(與伺服器同一份資產)取 Category,
-        // Cast 凍結、Locomotion 不凍;查無 config(降級/未知動作)時非走路類保守凍結
+        /// <summary>以 ActionType 查此角色的 ActionConfig(與伺服器同一份資產);查無回 null。</summary>
+        public ActionConfig FindAction(ActionType action)
+        {
+            if (_actionConfigs == null)
+                return null;
+            foreach (var config in _actionConfigs)
+            {
+                if (config != null && config.Action == action)
+                    return config;
+            }
+            return null;
+        }
+
+        // 動作是否凍結旋轉:讀 ActionConfig.HoldRotation;查無 config(降級/未知動作)保守凍結
+        //(降級角色無模型無 animator,只剩空殼 Target 的旋轉,凍結無視覺影響)
         bool _HoldRotation(ActionType action)
         {
-            if (_actionConfigs != null)
-            {
-                foreach (var config in _actionConfigs)
-                {
-                    if (config != null && config.Action == action)
-                        return config.Category == ActionCategory.Cast;
-                }
-            }
-            return !action.IsLocomotion();
+            var config = FindAction(action);
+            return config != null ? config.HoldRotation : true;
         }
 
         public void LoadModel(AssetReferenceGameObject modelPrefab)

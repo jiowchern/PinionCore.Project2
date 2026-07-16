@@ -61,7 +61,7 @@ namespace PinionCore.Project2.Worlds
         // 供 editor 除錯繪製(WorldDebugDrawer)走訪權威玩家狀態
         internal System.Collections.Generic.IEnumerable<Player> PlayerItems => _Controllers.Items.Select(c => c.Player);
 
-        // 供測試直接觸發狀態轉換(ToConscious/ToUnconscious)
+        // 供測試以 ActorId 找 controller 直接觸發狀態轉換
         internal System.Collections.Generic.IEnumerable<PlayerController> ControllerItems => _Controllers.Items;
 
         // TimeSpan ticks(100ns),與 TimeTicksEvent / 前端 WorldTimeHandler.CurrentTime 同單位;

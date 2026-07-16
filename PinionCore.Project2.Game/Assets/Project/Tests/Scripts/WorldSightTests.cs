@@ -29,10 +29,10 @@ namespace PinionCore.Project2.Tests
             _worldInfo.TerrainPrefab = new UnityEngine.AddressableAssets.AssetReferenceGameObject("84e3641b69ee6b2419379df04933bb0d");
             _worldInfo.Entrance = entrance;
 
-            // 移動走 Locomotion:單段直線走路,段速度 = moveSpeed(位置取樣仍是等速直線外推)
+            // 移動走循環走路動作:單段直線,段速度 = moveSpeed(位置取樣仍是等速直線外推)
             var walk = ScriptableObject.CreateInstance<ActionConfig>();
             walk.Action = ActionType.AdventureWalk;
-            walk.Category = ActionCategory.Locomotion;
+            walk.Loop = walk.Redirectable = walk.Interruptible = true;
             walk.Duration = 1f;
             walk.Segments = new[]
             {

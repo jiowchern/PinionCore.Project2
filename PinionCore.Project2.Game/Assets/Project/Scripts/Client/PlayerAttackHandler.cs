@@ -89,9 +89,10 @@ namespace PinionCore.Project2.Client
 
         void _OnActionEvent(ActionInfo info)
         {
-            // 走路(Locomotion)不佔用攻擊鎖:循環動作直到 Stop 才發 None,
-            // 視為進行中會永久擋住攻擊輸入;攻擊取代走路時照常上鎖
-            if (info.Action.IsLocomotion())
+            // 循環動作(走路/idle)不佔用攻擊鎖:循環進行中視為佔用會永久擋住攻擊輸入;
+            // 攻擊取代走路時照常上鎖。查無 config 的未知動作保守視為佔用
+            var config = _shell != null ? _shell.FindAction(info.Action) : null;
+            if (config != null && config.Loop)
                 return;
             if (info.Action != ActionType.None)
             {

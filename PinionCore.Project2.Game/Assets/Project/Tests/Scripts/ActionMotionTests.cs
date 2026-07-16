@@ -42,6 +42,7 @@ namespace PinionCore.Project2.Tests
 
             var attack = ScriptableObject.CreateInstance<ActionConfig>();
             attack.Action = ActionType.BattleAttack;
+            attack.Loop = false;
             attack.Duration = DashDuration + RecoverDuration;
             attack.Segments = new[]
             {
@@ -49,10 +50,10 @@ namespace PinionCore.Project2.Tests
                 new ActionConfig.MotionSegment { LocalOffset = Vector2.zero, Duration = RecoverDuration },
             };
 
-            // 走位移動走 Locomotion(Cast 出招可直接打斷走路)
+            // 走位移動:循環、可重定向、可被出招(非 Loop)打斷
             var walk = ScriptableObject.CreateInstance<ActionConfig>();
             walk.Action = ActionType.AdventureWalk;
-            walk.Category = ActionCategory.Locomotion;
+            walk.Loop = walk.Redirectable = walk.Interruptible = true;
             walk.Duration = WalkSegmentDuration;
             walk.Segments = new[]
             {

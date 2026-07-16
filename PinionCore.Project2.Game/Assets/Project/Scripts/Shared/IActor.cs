@@ -1,7 +1,7 @@
 namespace PinionCore.Project2.Shared
 {
     // 表現狀態分類(client 端動畫組切換/輸入 gating 用):
-    // 不再獨立過線 —— ActionType 自帶 stance 語意,由 ActionTypeExtensions.StanceOf 推導
+    // 不再獨立過線 —— 由 ActionConfig.Stance 查表(資產與伺服器同一份)
     public enum StanceType
     {
         Adventure,

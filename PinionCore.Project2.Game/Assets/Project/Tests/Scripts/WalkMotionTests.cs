@@ -48,7 +48,7 @@ namespace PinionCore.Project2.Tests
 
             var walk = ScriptableObject.CreateInstance<ActionConfig>();
             walk.Action = ActionType.AdventureWalk;
-            walk.Category = ActionCategory.Locomotion;
+            walk.Loop = walk.Redirectable = walk.Interruptible = true;
             walk.Duration = SegmentDuration * 2f;
             walk.Segments = new[]
             {
@@ -58,7 +58,7 @@ namespace PinionCore.Project2.Tests
 
             var attack = ScriptableObject.CreateInstance<ActionConfig>();
             attack.Action = ActionType.BattleAttack;
-            attack.Category = ActionCategory.Cast;
+            attack.Loop = false;
             attack.Duration = DashDuration + RecoverDuration;
             attack.Segments = new[]
             {
@@ -75,7 +75,7 @@ namespace PinionCore.Project2.Tests
             // 單段直線走路:wrap 的新段與外推等價 → 不 emit(冗餘抑制)
             var straightWalk = ScriptableObject.CreateInstance<ActionConfig>();
             straightWalk.Action = ActionType.AdventureWalk;
-            straightWalk.Category = ActionCategory.Locomotion;
+            straightWalk.Loop = straightWalk.Redirectable = straightWalk.Interruptible = true;
             straightWalk.Duration = SegmentDuration;
             straightWalk.Segments = new[]
             {

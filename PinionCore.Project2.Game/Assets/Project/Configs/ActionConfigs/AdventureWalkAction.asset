@@ -13,7 +13,11 @@ MonoBehaviour:
   m_Name: AdventureWalkAction
   m_EditorClassIdentifier: 
   Action: 2
-  Category: 1
+  Loop: 1
+  Redirectable: 1
+  Interruptible: 1
+  HoldRotation: 0
+  Stance: 0
   Duration: 0.8000001
   Segments:
   - LocalOffset: {x: 0, y: 1.3706892}

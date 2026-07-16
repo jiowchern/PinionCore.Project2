@@ -13,7 +13,11 @@ MonoBehaviour:
   m_Name: BattleIdleAction
   m_EditorClassIdentifier: 
   Action: 4
-  Category: 1
+  Loop: 1
+  Redirectable: 0
+  Interruptible: 1
+  HoldRotation: 0
+  Stance: 1
   Duration: 0.8000001
   Segments:
   - LocalOffset: {x: 0, y: 0}

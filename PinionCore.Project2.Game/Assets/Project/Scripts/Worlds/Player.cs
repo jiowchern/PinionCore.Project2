@@ -115,13 +115,13 @@ namespace PinionCore.Project2.Worlds
             _Radius = radius;
             _SightRadius = sightRadius;
             _Actions = actions ?? Array.Empty<ActionConfig>();
-            // 快取走路動作:需有段資料、總循環時長 > 0(零時長循環會無限 wrap)、
-            // 且總位移 > 0(零位移的 locomotion 是 idle,Move 起走不該選中它);
+            // 快取走路動作:需可重定向(Redirectable)、有段資料、總循環時長 > 0
+            // (零時長循環會無限 wrap)、且總位移 > 0(零位移的循環是 idle,Move 起走不該選中它);
             // 此路徑僅供 Move 直接起走(測試/舊路徑),production 由 ControllerStatus
             // 以 StartAction 指名走路型別進場。
             foreach (var c in _Actions)
             {
-                if (c == null || c.Category != ActionCategory.Locomotion ||
+                if (c == null || !c.Redirectable ||
                     c.Segments == null || c.Segments.Length == 0)
                     continue;
                 var total = 0.0;
@@ -217,10 +217,11 @@ namespace PinionCore.Project2.Worlds
 
             // 先結清到期事件:可能包含「動作剛好已結束」,避免誤判進行中
             _ProcessDueRedirects(_World.ElapsedTicks);
-            // 走路(Locomotion)可被 Cast 打斷:發新 ActionInfo 直接取代,不發中間 None;
-            // Cast 進行中且非 force 仍不可重入
+            // 可打斷(Interruptible)的循環動作可被一次性動作(非 Loop)取代:
+            // 發新 ActionInfo 直接取代,不發中間 None;其餘進行中且非 force 不可重入
+            //(循環→循環的切換走狀態機 force 路徑,非 force 拒收)
             if (_CurrentAction != null && !force &&
-                !(_CurrentAction.Category == ActionCategory.Locomotion && config.Category == ActionCategory.Cast))
+                !(_CurrentAction.Interruptible && !config.Loop))
                 return false;
 
             _SampleNow(out var position, out var facing, out var now);
@@ -233,9 +234,9 @@ namespace PinionCore.Project2.Worlds
             _CurrentAction = config;
             _ActionForward = baseForward;
             _ActionRight = new Vector2(baseForward.y, -baseForward.x);
-            // 起走也計入 Move 節流基準(與 Move 直接起走一致):
+            // 可重定向動作起播也計入 Move 節流基準(與 Move 直接起走一致):
             // 進走路狀態後的首次重定向同樣受 MoveAcceptInterval 約束
-            if (config.Category == ActionCategory.Locomotion)
+            if (config.Redirectable)
                 _LastMoveAcceptedTicks = now;
             _ScheduleBoundaries(config, now);
 
@@ -346,8 +347,8 @@ namespace PinionCore.Project2.Worlds
             // 取樣前先結清已到期的撞牆 redirect,避免以穿牆的外推位置當新起點
             _ProcessDueRedirects(_World.ElapsedTicks);
 
-            // Cast 動作進行中位移權威屬於動作排程,玩家移動輸入一律拒收(結清後動作可能剛好結束)
-            if (_CurrentAction != null && _CurrentAction.Category != ActionCategory.Locomotion)
+            // 不可重定向的動作進行中位移權威屬於動作排程,玩家移動輸入一律拒收(結清後動作可能剛好結束)
+            if (_CurrentAction != null && !_CurrentAction.Redirectable)
                 return false;
 
             if (_CurrentAction != null)
@@ -385,9 +386,10 @@ namespace PinionCore.Project2.Worlds
             _ProcessDueRedirects(_World.ElapsedTicks);
             if (_CurrentAction != null)
             {
-                // Cast 不能被玩家停止;走路 = 結束循環(發 None + Speed=0,
+                // 停止語意在轉移圖(production 停止 = Play(Next) 轉移),此為測試/舊路徑:
+                // 只有可被 Move 操縱(Redirectable)的動作可被 Stop 結束(結束循環 + Speed=0,
                 // 終停朝向 = _ActionForward = 移動指令方向,語意剛好)
-                if (_CurrentAction.Category != ActionCategory.Locomotion)
+                if (!_CurrentAction.Redirectable)
                     return false;
                 _SampleNow(out var current, out _, out var tick);
                 _EndAction(current, tick);
@@ -405,19 +407,6 @@ namespace PinionCore.Project2.Worlds
                 StartTicks = now
             }, emit: true);
             return true;
-        }
-
-        /// <summary>
-        /// 結束進行中的走路動作(Cast 不受影響):供狀態機在收回移動能力(無意識等)時呼叫,
-        /// 避免能力已收回但角色繼續循環走路。
-        /// </summary>
-        internal void StopLocomotion()
-        {
-            _ProcessDueRedirects(_World.ElapsedTicks);
-            if (_CurrentAction == null || _CurrentAction.Category != ActionCategory.Locomotion)
-                return;
-            _SampleNow(out var position, out _, out var now);
-            _EndAction(position, now);
         }
 
         /// <summary>
@@ -511,7 +500,7 @@ namespace PinionCore.Project2.Worlds
                     MoveSampler.Sample(_MoveInfo, elapsed, out var position, out _);
                     if (_NextBoundary == _CurrentAction.Segments.Length - 1)
                     {
-                        if (_CurrentAction.Category == ActionCategory.Locomotion)
+                        if (_CurrentAction.Loop)
                         {
                             // 循環 wrap:以本輪最後邊界時刻(非 now)為下一輪基準,零漂移;
                             // 朝向基底不變、不重發 ActionInfo(client 的 loop 動畫自己循環)。
