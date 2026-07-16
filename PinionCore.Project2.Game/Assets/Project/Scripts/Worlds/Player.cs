@@ -348,7 +348,7 @@ namespace PinionCore.Project2.Worlds
             MoveSampler.Sample(_MoveInfo, elapsed, out position, out facing);
         }
 
-        public Value<bool> Move(Vector2 direction)
+        public bool Move(Vector2 direction)
         {
             if (direction.sqrMagnitude <= 1e-6f)
                 return false;

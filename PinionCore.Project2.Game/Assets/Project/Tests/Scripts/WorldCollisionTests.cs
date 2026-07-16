@@ -104,8 +104,7 @@ namespace PinionCore.Project2.Tests
         {
             var player = _Enter(out var events);
 
-            var accepted = false;
-            player.Move(new Vector2(0f, -1f)).OnValue += (r, error) => accepted = r;
+            var accepted = player.Move(new Vector2(0f, -1f));
             Assert.IsTrue(accepted, "朝牆的 Move 應被接受(撞牆是伺服器的事,不是拒收)");
 
             // 直到停下為止,每幀檢查不可穿牆不變量
@@ -173,8 +172,7 @@ namespace PinionCore.Project2.Tests
             events.Clear();
             var positionBefore = player.CurrentMoveInfo.Position;
 
-            var accepted = false;
-            player.Move(new Vector2(0f, -1f)).OnValue += (r, error) => accepted = r;
+            var accepted = player.Move(new Vector2(0f, -1f));
             Assert.IsTrue(accepted, "貼牆朝牆的 Move 仍應被接受");
             Assert.AreEqual(1, events.Count, "貼牆即滑應只發一個(已處理過碰撞的)MoveInfo");
             Assert.AreEqual(0f, events[0].Speed, "正對牆的貼牆 Move 應立即轉為停狀態");

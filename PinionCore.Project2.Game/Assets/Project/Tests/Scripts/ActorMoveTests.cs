@@ -339,19 +339,19 @@ namespace PinionCore.Project2.Tests
                         movingInfos.Add(info);
                 });
 
-            // 先起走(朝向 0°),等走路狀態的新 soul 供應(重定向要打在走路 soul 上)
-            var walkSoul = TestWait.FirstWithRetry(
-                () => _PlayerGhost.Controllable.SupplyEvent()
-                    .Where(c => c.Transition.Value.Current.Action == ActionType.AdventureWalk),
+            // 先起走(朝向 0°),等控制狀態轉移到走路(重定向要在走路狀態時送出)
+            var walkTransition = TestWait.FirstWithRetry(
+                () => TestWait.TransitionEvents(_ControllableGhost)
+                    .Where(t => t.Current.Action == ActionType.AdventureWalk),
                 onAttempt: () => _ControllableGhost.Play(ActionType.AdventureWalk, new Vector2(0f, 1f)).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
-            yield return walkSoul;
-            TestWait.AssertDone(walkSoul, "起走後應供應 Current==AdventureWalk 的控制 soul");
+            yield return walkTransition;
+            TestWait.AssertDone(walkTransition, "起走後控制狀態應為 Current==AdventureWalk");
 
             // 同一幀連發 6 個相異方向的重定向(與起走方向皆相距 ≥60°),
             // 再緊接一發 Play(AdventureIdle)(有序管道保證 server 依序處理)
-            var walker = walkSoul.Result;
+            var walker = _ControllableGhost;
             var degrees = new[] { 90f, 150f, 210f, 270f, 330f, 30f };
             var results = new System.Collections.Generic.List<UniRx.ObservableYieldInstruction<bool>>();
             foreach (var deg in degrees)

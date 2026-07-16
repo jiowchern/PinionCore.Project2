@@ -89,8 +89,7 @@ namespace PinionCore.Project2.Tests
         IEnumerator _WalkUntil(PinionCore.Project2.Worlds.PlayerController mover, Vector2 direction, System.Func<bool> arrived, float timeoutSeconds)
         {
             // 走位直接呼叫伺服器端 Player 純模擬核心(ICharacter 已不含移動介面)
-            var accepted = false;
-            mover.Player.Move(direction.normalized).OnValue += (r, error) => accepted = r;
+            var accepted = mover.Player.Move(direction.normalized);
             Assert.IsTrue(accepted, "Move 應被接受");
             var deadline = Time.realtimeSinceStartup + timeoutSeconds;
             while (!arrived() && Time.realtimeSinceStartup < deadline)

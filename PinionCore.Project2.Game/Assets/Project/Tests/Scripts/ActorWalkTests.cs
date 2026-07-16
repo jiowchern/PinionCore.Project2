@@ -79,14 +79,14 @@ namespace PinionCore.Project2.Tests
             Application.runInBackground = _PreviousRunInBackground;
         }
 
-        // 等待帶指定 Current 動作的控制 soul 供應:狀態轉移 = 新 soul 供應,
-        // SupplyEvent 有 replay,已轉移完成的晚訂閱也安全
-        ObservableYieldInstruction<IControllable> _WaitControllable(ActionType current, IControllable sender, ActionType play, Vector2 direction)
+        // 等待伺服器控制狀態轉移到指定 Current 動作:soul 恆存(與角色同生命週期),
+        // 轉移經 TransitionEvent 廣播;重訂閱即回放當前 Transition,已轉移完成的晚訂閱也安全
+        ObservableYieldInstruction<Transition> _WaitTransition(ActionType current, ActionType play, Vector2 direction)
         {
             return TestWait.FirstWithRetry(
-                () => _PlayerGhost.Controllable.SupplyEvent()
-                    .Where(c => c.Transition.Value.Current.Action == current),
-                onAttempt: () => sender.Play(play, direction).RemoteValue().Subscribe(),
+                () => TestWait.TransitionEvents(_ControllableGhost)
+                    .Where(t => t.Current.Action == current),
+                onAttempt: () => _ControllableGhost.Play(play, direction).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
         }
@@ -104,7 +104,7 @@ namespace PinionCore.Project2.Tests
             var startPos = _Shell.Target.position;
 
             // 起走 → 等 ActionEvent 廣播 AdventureWalk(訂閱 replay 是 AdventureIdle,被 predicate 濾掉);
-            // RPC 可能與 soul 轉移競態掉失,逾時重訂閱+重送(重送打在舊 soul 上被靜默丟棄,無害)
+            // RPC 掉失保護:逾時重訂閱+重送(走路中重送同型別 = 重定向,無害)
             var walkEvent = TestWait.FirstWithRetry(
                 () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.AdventureWalk),
                 onAttempt: () => _ControllableGhost.Play(ActionType.AdventureWalk, new Vector2(1f, 0f)).RemoteValue().Subscribe(),
@@ -127,21 +127,21 @@ namespace PinionCore.Project2.Tests
             var directionXZ = new Vector2(displacement.x, displacement.z).normalized;
             Assert.Greater(Vector2.Dot(directionXZ, new Vector2(1f, 0f)), 0.98f, "位移方向應沿指令方向");
 
-            // 停走:取得走路狀態的新 soul,Play(AdventureIdle) 轉移回 idle
+            // 停走:等控制狀態轉移到走路後,Play(AdventureIdle) 轉移回 idle
             //(取代制:直接廣播 AdventureIdle,無中間 None)+ 駐留 MoveInfo
-            var walkSoul = TestWait.First(
-                _PlayerGhost.Controllable.SupplyEvent()
-                    .Where(c => c.Transition.Value.Current.Action == ActionType.AdventureWalk),
+            var walkTransition = TestWait.First(
+                TestWait.TransitionEvents(_ControllableGhost),
+                t => t.Current.Action == ActionType.AdventureWalk,
                 System.TimeSpan.FromSeconds(10));
-            yield return walkSoul;
-            TestWait.AssertDone(walkSoul, "走路中應供應 Current==AdventureWalk 的控制 soul");
+            yield return walkTransition;
+            TestWait.AssertDone(walkTransition, "走路中控制狀態應為 Current==AdventureWalk");
 
             var stand = TestWait.First(
                 TestWait.MoveEvents(_ActorGhost), i => i.Speed == 0f, System.TimeSpan.FromSeconds(10));
             var idleEvent = TestWait.FirstWithRetry(
                 () => TestWait.ActionEvents(_ActorGhost)
                     .Where(a => a.Action == ActionType.AdventureIdle && a.StartTicks > walkStartTicks),
-                onAttempt: () => walkSoul.Result.Play(ActionType.AdventureIdle, Vector2.zero).RemoteValue().Subscribe(),
+                onAttempt: () => _ControllableGhost.Play(ActionType.AdventureIdle, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return idleEvent;
@@ -182,31 +182,31 @@ namespace PinionCore.Project2.Tests
             var actionSub = TestWait.ActionEvents(_ActorGhost).Subscribe(actionLog.Add);
 
             // 進戰鬥(攻擊只在戰鬥系狀態的白名單內;先切戰鬥態再起走)
-            var battleIdle = _WaitControllable(ActionType.BattleIdle, _ControllableGhost, ActionType.BattleIdle, Vector2.zero);
+            var battleIdle = _WaitTransition(ActionType.BattleIdle, ActionType.BattleIdle, Vector2.zero);
             yield return battleIdle;
-            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後應供應 Current==BattleIdle 的新 soul");
+            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後控制狀態應轉移到 Current==BattleIdle");
 
             // 起走(戰鬥走路)
             var walkEvent = TestWait.FirstWithRetry(
                 () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleWalk),
-                onAttempt: () => battleIdle.Result.Play(ActionType.BattleWalk, new Vector2(1f, 0f)).RemoteValue().Subscribe(),
+                onAttempt: () => _ControllableGhost.Play(ActionType.BattleWalk, new Vector2(1f, 0f)).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return walkEvent;
             TestWait.AssertDone(walkEvent, "Play(BattleWalk) 後 ActionEvent 應廣播 BattleWalk");
             var walkStartTicks = walkEvent.Result.StartTicks;
 
-            // 走路中攻擊:取得走路 soul,Play(BattleAttack) 直接取代走路
-            var walkSoul = TestWait.First(
-                _PlayerGhost.Controllable.SupplyEvent()
-                    .Where(c => c.Transition.Value.Current.Action == ActionType.BattleWalk),
+            // 走路中攻擊:等控制狀態轉移到走路,Play(BattleAttack) 直接取代走路
+            var walkTransition = TestWait.First(
+                TestWait.TransitionEvents(_ControllableGhost),
+                t => t.Current.Action == ActionType.BattleWalk,
                 System.TimeSpan.FromSeconds(10));
-            yield return walkSoul;
-            TestWait.AssertDone(walkSoul, "走路中應供應 Current==BattleWalk 的控制 soul");
+            yield return walkTransition;
+            TestWait.AssertDone(walkTransition, "走路中控制狀態應為 Current==BattleWalk");
 
             var attackEvent = TestWait.FirstWithRetry(
                 () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleAttack),
-                onAttempt: () => walkSoul.Result.Play(ActionType.BattleAttack, Vector2.zero).RemoteValue().Subscribe(),
+                onAttempt: () => _ControllableGhost.Play(ActionType.BattleAttack, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return attackEvent;
@@ -228,19 +228,19 @@ namespace PinionCore.Project2.Tests
             yield return idleEvent;
             TestWait.AssertDone(idleEvent, "攻擊播完應直接廣播下一狀態的 BattleIdle");
 
-            // 攻擊播完自動轉移回 BattleIdle:新 soul 供應(SupplyEvent 有 replay,晚訂閱安全)
-            var idleResupply = TestWait.First(
-                _PlayerGhost.Controllable.SupplyEvent()
-                    .Where(c => c.Transition.Value.Current.Action == ActionType.BattleIdle),
+            // 攻擊播完自動轉移回 BattleIdle(TransitionEvent 重訂閱即回放,晚訂閱安全)
+            var idleTransition = TestWait.First(
+                TestWait.TransitionEvents(_ControllableGhost),
+                t => t.Current.Action == ActionType.BattleIdle,
                 System.TimeSpan.FromSeconds(10));
-            yield return idleResupply;
-            TestWait.AssertDone(idleResupply, "攻擊結束後應自動供應 Current==BattleIdle 的新 soul");
+            yield return idleTransition;
+            TestWait.AssertDone(idleTransition, "攻擊結束後控制狀態應自動回 Current==BattleIdle");
 
             // 攻擊結束後可重新起走:重新廣播 BattleWalk(新 StartTicks)
             var resumeWalk = TestWait.FirstWithRetry(
                 () => TestWait.ActionEvents(_ActorGhost)
                     .Where(a => a.Action == ActionType.BattleWalk && a.StartTicks > attackStartTicks),
-                onAttempt: () => idleResupply.Result.Play(ActionType.BattleWalk, new Vector2(0f, 1f)).RemoteValue().Subscribe(),
+                onAttempt: () => _ControllableGhost.Play(ActionType.BattleWalk, new Vector2(0f, 1f)).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return resumeWalk;

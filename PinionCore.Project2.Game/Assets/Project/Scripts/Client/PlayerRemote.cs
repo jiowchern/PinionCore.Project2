@@ -15,10 +15,18 @@ namespace PinionCore.Project2.Client
         // 攻擊用獨立容器:與 Move/Stop 共用 Clear 會取消在途移動回應,
         // 害 PlayerInputHandler 的在途鎖永久卡死
         readonly UniRx.CompositeDisposable _AttackDisposable;
+
+        // 最新 Transition 快取:IControllable 與角色同生命週期(soul 恆存),
+        // 首次指令時常駐訂閱一次 TransitionEvent(soul 端 add 即回放當前值,之後每次轉移推播),
+        // 指令從快取讀當前狀態,不必每個指令多等一個網路往返
+        readonly UniRx.ReplaySubject<Shared.Transition> _TransitionCache;
+        System.IDisposable _TransitionFeed;
+
         public PlayerRemote()
         {
             _Disposable = new UniRx.CompositeDisposable();
             _AttackDisposable = new UniRx.CompositeDisposable();
+            _TransitionCache = new UniRx.ReplaySubject<Shared.Transition>(1);
         }
 
 
@@ -37,13 +45,19 @@ namespace PinionCore.Project2.Client
             // Clear 而非 Dispose:Dispose 後的 CompositeDisposable 會立刻銷毀之後 Add 的訂閱
             _Disposable.Clear();
 
-            // Take(1):Supply 會重播既有的 IControllable,一次 Move 只發一次 RPC,
-            // 不讓訂閱殘留到未來的 re-supply 重發 Move
+            // Take(1):Supply/快取會重播既有狀態,一次 Move 只發一次 RPC,
+            // 不讓訂閱殘留到未來的 re-supply/轉移重發 Move
             var obs = from controllable in _Controllables().Take(1)
-                      from result in controllable.Play(_WalkOf(controllable.Transition.Value.Current.Action), direction).RemoteValue()
+                      from transition in _Transitions().Take(1)
+                      from result in controllable.Play(_WalkOf(transition.Current.Action), direction).RemoteValue().DoOnError(_Error)
                       select result;
             var disp = obs.Subscribe(result => responded?.Invoke(result));
             _Disposable.Add(disp);
+        }
+
+        private void _Error(Exception exception)
+        {
+            UnityEngine.Debug.Log(exception);
         }
 
         public void Stop()
@@ -58,7 +72,8 @@ namespace PinionCore.Project2.Client
             _Disposable.Clear();
 
             var obs = from controllable in _Controllables().Take(1)
-                      from result in controllable.Play(controllable.Transition.Value.Next.Action, Vector2.zero).RemoteValue()
+                      from transition in _Transitions().Take(1)
+                      from result in controllable.Play(transition.Next.Action, Vector2.zero).RemoteValue().DoOnError(_Error)
                       select result;
             var disp = obs.Subscribe(result => responded?.Invoke(result));
             _Disposable.Add(disp);
@@ -70,15 +85,15 @@ namespace PinionCore.Project2.Client
             _AttackDisposable.Clear();
 
             var obs = from controllable in _Controllables().Take(1)
-                      from result in controllable.Play(Shared.ActionType.BattleAttack, Vector2.zero).RemoteValue()
+                      from result in controllable.Play(Shared.ActionType.BattleAttack, Vector2.zero).RemoteValue().DoOnError(_Error)
                       select result;
             var disp = obs.Subscribe(result => responded?.Invoke(result));
             _AttackDisposable.Add(disp);
         }
 
         // 統一入口:只 query IUserEntry,IControllable 沿合約鏈(entry.Games → game.Player → player.Controllable)取得;
-        // 供應由 world 端控制狀態機開關(無意識時 unsupply,此流不發射,指令由上層逾時處理)。
-        // 每狀態一顆 soul:轉移瞬間發往舊 soul 的 Play 會被伺服器靜默丟棄(無回應),同樣由逾時吸收。
+        // 供應由 world 端開關(soul 與角色同生命週期,離開世界才 unsupply;
+        // 未供應時此流不發射,指令由上層逾時處理)。
         IObservable<Shared.IControllable> _Controllables()
         {
             return from entry in GatewayClient.Queryer.QueryNotifier<Shared.IUserEntry>().SupplyEvent()
@@ -86,6 +101,21 @@ namespace PinionCore.Project2.Client
                    from player in game.Player.SupplyEvent()
                    from controllable in player.Controllable.SupplyEvent()
                    select controllable;
+        }
+
+        // 最新 Transition 流:首次呼叫啟動常駐訂閱(涵蓋 re-supply),之後快取命中立即發射;
+        // 首個指令仍需等一次回放(晚一個網路往返)。快取可能落後伺服器一個轉移,
+        // 沒關係:Play 一律由伺服器以當下白名單驗證
+        IObservable<Shared.Transition> _Transitions()
+        {
+            if (_TransitionFeed == null)
+            {
+                _TransitionFeed = _Controllables()
+                    .SelectMany(c => UniRx.Observable.FromEvent<Shared.Transition>(
+                        h => c.TransitionEvent += h, h => c.TransitionEvent -= h))
+                    .Subscribe(_TransitionCache.OnNext);
+            }
+            return _TransitionCache;
         }
 
         // 當前狀態 → 對應的走路動作:戰鬥系 → BattleWalk、冒險系 → AdventureWalk
@@ -106,6 +136,8 @@ namespace PinionCore.Project2.Client
         {
             _Disposable.Dispose();
             _AttackDisposable.Dispose();
+            _TransitionFeed?.Dispose();
+            _TransitionCache.Dispose();
         }
     }
 }

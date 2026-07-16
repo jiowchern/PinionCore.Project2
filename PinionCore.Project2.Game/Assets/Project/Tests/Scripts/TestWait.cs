@@ -131,5 +131,12 @@ namespace PinionCore.Project2.Tests
         {
             return Observable.FromEvent<ActionInfo>(h => ghost.ActionEvent += h, h => ghost.ActionEvent -= h);
         }
+
+        // ghost TransitionEvent 的標準 stream(soul 端 add 即回放當前 Transition,
+        // 與 SupplyEvent replay 同語意:重訂閱即可取回當下控制狀態)
+        public static IObservable<Transition> TransitionEvents(IControllable ghost)
+        {
+            return Observable.FromEvent<Transition>(h => ghost.TransitionEvent += h, h => ghost.TransitionEvent -= h);
+        }
     }
 }

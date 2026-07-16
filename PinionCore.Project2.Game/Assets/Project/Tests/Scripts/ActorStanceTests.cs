@@ -14,7 +14,7 @@ namespace PinionCore.Project2.Tests
     /// 比照 ActorMoveTests 的四場景 Standalone 流程。StanceEvent 已拆除,
     /// 表現狀態由 IActor.ActionEvent 廣播的 ActionType 查 ActionConfig.Stance:
     /// 經 IControllable.Play(BattleIdle / AdventureIdle) 驅動 world 端控制狀態機轉移時,
-    /// 新狀態 soul 重新供應(Transition.Current 隨之切換),
+    /// TransitionEvent 廣播新 Transition(Current 隨之切換;soul 恆存,不再換 soul),
     /// ActionEvent 廣播戰鬥/冒險系動作,殼(Client.ActorShell.Stance)推導跟著切換。
     /// </summary>
     public class ActorStanceTests
@@ -101,27 +101,34 @@ namespace PinionCore.Project2.Tests
             Assert.AreEqual(ActionType.AdventureIdle, replay.Result.Action, "進場初始動作應為冒險 idle");
             Assert.AreEqual(StanceType.Adventure, _Shell.Stance, "殼的初始狀態應為冒險");
 
-            // IControllable 只供應給本地玩家(IPlayer.Controllable,world 端控制狀態機開關);
-            // 進場即冒險 idle 狀態,supply replay 保證晚訂閱可取得
+            // IControllable 只供應給本地玩家(IPlayer.Controllable),soul 與角色同生命週期;
+            // 進場即供應,supply replay 保證晚訂閱可取得
             var idleSupply = TestWait.First(
                 _PlayerGhost.Controllable.SupplyEvent(),
                 System.TimeSpan.FromSeconds(15));
             yield return idleSupply;
             TestWait.AssertDone(idleSupply, "進場後應供應 IControllable");
-            Assert.AreEqual(ActionType.AdventureIdle, idleSupply.Result.Transition.Value.Current.Action,
+            var controllable = idleSupply.Result;
+
+            // TransitionEvent 訂閱即回放當前 Transition(晚一個網路往返)
+            var idleTransition = TestWait.First(
+                TestWait.TransitionEvents(controllable),
+                System.TimeSpan.FromSeconds(10));
+            yield return idleTransition;
+            TestWait.AssertDone(idleTransition, "TransitionEvent 訂閱後應回放當前 Transition");
+            Assert.AreEqual(ActionType.AdventureIdle, idleTransition.Result.Current.Action,
                 "進場初始控制狀態應為 AdventureIdle");
 
-            // 切戰鬥:RPC 可能與 soul 轉移競態掉失,單次逾時重訂閱(replay)+重送;
-            // 帶 Current==BattleIdle 的新 soul 供應抵達 = 伺服器狀態機已切換
-            var adventureIdle = idleSupply.Result;
-            var battleSupply = TestWait.FirstWithRetry(
-                () => _PlayerGhost.Controllable.SupplyEvent()
-                    .Where(c => c.Transition.Value.Current.Action == ActionType.BattleIdle),
-                onAttempt: () => adventureIdle.Play(ActionType.BattleIdle, Vector2.zero).RemoteValue().Subscribe(),
+            // 切戰鬥:RPC 掉失保護,單次逾時重訂閱(replay)+重送;
+            // Current==BattleIdle 的 TransitionEvent 抵達 = 伺服器狀態機已切換
+            var battleTransition = TestWait.FirstWithRetry(
+                () => TestWait.TransitionEvents(controllable)
+                    .Where(t => t.Current.Action == ActionType.BattleIdle),
+                onAttempt: () => controllable.Play(ActionType.BattleIdle, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
-            yield return battleSupply;
-            TestWait.AssertDone(battleSupply, "Play(BattleIdle) 後應供應 Current==BattleIdle 的新 soul");
+            yield return battleTransition;
+            TestWait.AssertDone(battleTransition, "Play(BattleIdle) 後控制狀態應切到 Current==BattleIdle");
 
             // 戰鬥系動作廣播抵達 IActor ghost(晚訂閱安全:已切換則 replay 即滿足)與殼推導
             var battleAction = TestWait.First(
@@ -134,16 +141,15 @@ namespace PinionCore.Project2.Tests
             yield return shellBattle;
             TestWait.AssertDone(shellBattle, "殼應推導切到戰鬥狀態");
 
-            // 切回冒險(同樣的重送保護;重送若打在已收回的 soul 上會被靜默丟棄,無害)
-            var battleIdle = battleSupply.Result;
+            // 切回冒險(同樣的重送保護;重送不在白名單只回 false,無害)
             var adventureBack = TestWait.FirstWithRetry(
-                () => _PlayerGhost.Controllable.SupplyEvent()
-                    .Where(c => c.Transition.Value.Current.Action == ActionType.AdventureIdle),
-                onAttempt: () => battleIdle.Play(ActionType.AdventureIdle, Vector2.zero).RemoteValue().Subscribe(),
+                () => TestWait.TransitionEvents(controllable)
+                    .Where(t => t.Current.Action == ActionType.AdventureIdle),
+                onAttempt: () => controllable.Play(ActionType.AdventureIdle, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return adventureBack;
-            TestWait.AssertDone(adventureBack, "Play(AdventureIdle) 後應供應 Current==AdventureIdle 的新 soul");
+            TestWait.AssertDone(adventureBack, "Play(AdventureIdle) 後控制狀態應切回 Current==AdventureIdle");
 
             var adventureAction = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost),

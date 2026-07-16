@@ -174,8 +174,7 @@ namespace PinionCore.Project2.Tests
             Assert.AreEqual(1, actionEvents.Count, "前置條件:動作已開始");
 
             // 動作進行中:Move / Stop / 重入出招一律拒收
-            var moveAccepted = true;
-            player.Move(new Vector2(1f, 0f)).OnValue += (r, error) => moveAccepted = r;
+            var moveAccepted = player.Move(new Vector2(1f, 0f));
             Assert.IsFalse(moveAccepted, "動作進行中 Move 應被拒收");
 
             var stopAccepted = true;
@@ -189,8 +188,7 @@ namespace PinionCore.Project2.Tests
             Assert.IsTrue(endEvents.Any(e => e.Action == ActionType.BattleAttack), "動作應準時結束(EndEvent)");
 
             // 結束後移動恢復可用
-            var acceptedAfter = false;
-            player.Move(new Vector2(1f, 0f)).OnValue += (r, error) => acceptedAfter = r;
+            var acceptedAfter = player.Move(new Vector2(1f, 0f));
             Assert.IsTrue(acceptedAfter, "動作結束後 Move 應恢復可用");
         }
 

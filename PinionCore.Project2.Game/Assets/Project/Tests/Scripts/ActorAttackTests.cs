@@ -99,13 +99,13 @@ namespace PinionCore.Project2.Tests
             Application.runInBackground = _PreviousRunInBackground;
         }
 
-        // 等待帶指定 Current 動作的控制 soul 供應(狀態轉移 = 新 soul,SupplyEvent 有 replay 晚訂閱安全);
-        // onAttempt 重送打在已收回的 soul 上會被靜默丟棄,無害
-        ObservableYieldInstruction<IControllable> _PlayAndWait(IControllable sender, ActionType play, ActionType expectedCurrent)
+        // 等待伺服器控制狀態轉移到指定 Current 動作(soul 恆存,轉移經 TransitionEvent 廣播;
+        // 重訂閱即回放當前 Transition,晚訂閱安全);onAttempt 重送不在白名單只回 false,無害
+        ObservableYieldInstruction<Transition> _PlayAndWait(IControllable sender, ActionType play, ActionType expectedCurrent)
         {
             return TestWait.FirstWithRetry(
-                () => _PlayerGhost.Controllable.SupplyEvent()
-                    .Where(c => c.Transition.Value.Current.Action == expectedCurrent),
+                () => TestWait.TransitionEvents(sender)
+                    .Where(t => t.Current.Action == expectedCurrent),
                 onAttempt: () => sender.Play(play, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
@@ -127,7 +127,7 @@ namespace PinionCore.Project2.Tests
             // 進戰鬥(冒險系狀態白名單沒有 BattleAttack,攻擊無從觸發)
             var battleIdle = _PlayAndWait(_ControllableGhost, ActionType.BattleIdle, ActionType.BattleIdle);
             yield return battleIdle;
-            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後應供應 Current==BattleIdle 的新 soul");
+            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後控制狀態應切到 Current==BattleIdle");
 
             // 出招前記下殼的位置(攻擊位移的比較基準)
             var startPosition = _Shell.Target.position;
@@ -136,27 +136,27 @@ namespace PinionCore.Project2.Tests
             // 攻擊:等 ActionEvent 廣播 BattleAttack = 伺服器已受理
             var attackEvent = TestWait.FirstWithRetry(
                 () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleAttack),
-                onAttempt: () => battleIdle.Result.Play(ActionType.BattleAttack, Vector2.zero).RemoteValue().Subscribe(),
+                onAttempt: () => _ControllableGhost.Play(ActionType.BattleAttack, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return attackEvent;
             TestWait.AssertDone(attackEvent, "Play(BattleAttack) 後 ActionEvent 應廣播 BattleAttack");
             var attackStartTicks = attackEvent.Result.StartTicks;
 
-            // 攻擊中無法移動(核心不變量):攻擊狀態 soul 的白名單為空、自然結束去向為 BattleIdle
-            var attackSoul = TestWait.First(
-                _PlayerGhost.Controllable.SupplyEvent()
-                    .Where(c => c.Transition.Value.Current.Action == ActionType.BattleAttack),
+            // 攻擊中無法移動(核心不變量):攻擊態 Transition 的白名單為空、自然結束去向為 BattleIdle
+            var attackTransition = TestWait.First(
+                TestWait.TransitionEvents(_ControllableGhost),
+                t => t.Current.Action == ActionType.BattleAttack,
                 System.TimeSpan.FromSeconds(10));
-            yield return attackSoul;
-            TestWait.AssertDone(attackSoul, "攻擊中應供應 Current==BattleAttack 的控制 soul");
-            Assert.AreEqual(0, attackSoul.Result.Transition.Value.Playables.Length, "攻擊中 Playables 應為空(無法移動/再出招)");
-            Assert.AreEqual(ActionType.BattleIdle, attackSoul.Result.Transition.Value.Next.Action, "攻擊自然結束應回 BattleIdle");
+            yield return attackTransition;
+            TestWait.AssertDone(attackTransition, "攻擊中控制狀態應為 Current==BattleAttack");
+            Assert.AreEqual(0, attackTransition.Result.Playables.Length, "攻擊中 Playables 應為空(無法移動/再出招)");
+            Assert.AreEqual(ActionType.BattleIdle, attackTransition.Result.Next.Action, "攻擊自然結束應回 BattleIdle");
 
-            // 行為驗證:攻擊 soul 上的 Play(BattleWalk) 若有回應必為 false
-            //(soul 已收回時 RPC 被靜默丟棄無回應,不能等待回應,改事後斷言)
+            // 行為驗證:攻擊中送出的 Play(BattleWalk) 回應必為 false
+            //(回應時機與攻擊結束存在競態,不等待、改事後斷言)
             bool? walkDuringAttack = null;
-            attackSoul.Result.Play(ActionType.BattleWalk, new Vector2(1f, 0f)).RemoteValue()
+            _ControllableGhost.Play(ActionType.BattleWalk, new Vector2(1f, 0f)).RemoteValue()
                 .Subscribe(result => walkDuringAttack = result);
 
             // 殼跟著分段 MoveInfo 位移:超過半個前衝距離即算開始位移
@@ -186,18 +186,18 @@ namespace PinionCore.Project2.Tests
             yield return settled;
             TestWait.AssertDone(settled, "動作結束後殼應停在前衝距離附近");
 
-            // 攻擊播完自動回 BattleIdle:新 soul 供應後移動恢復可用,
+            // 攻擊播完自動回 BattleIdle:轉移抵達後移動恢復可用,
             // Play(BattleWalk) 被接受會廣播 Speed > 0 的 MoveEvent
-            var idleResupply = TestWait.First(
-                _PlayerGhost.Controllable.SupplyEvent()
-                    .Where(c => c.Transition.Value.Current.Action == ActionType.BattleIdle),
+            var idleTransition = TestWait.First(
+                TestWait.TransitionEvents(_ControllableGhost),
+                t => t.Current.Action == ActionType.BattleIdle,
                 System.TimeSpan.FromSeconds(10));
-            yield return idleResupply;
-            TestWait.AssertDone(idleResupply, "攻擊結束後應自動供應 Current==BattleIdle 的新 soul");
+            yield return idleTransition;
+            TestWait.AssertDone(idleTransition, "攻擊結束後控制狀態應自動回 Current==BattleIdle");
 
             var moveResumed = TestWait.FirstWithRetry(
                 () => TestWait.MoveEvents(_ActorGhost).Where(m => m.Speed > 0f && m.StartTicks > attackStartTicks),
-                onAttempt: () => idleResupply.Result.Play(ActionType.BattleWalk, new Vector2(1f, 0f)).RemoteValue().Subscribe(),
+                onAttempt: () => _ControllableGhost.Play(ActionType.BattleWalk, new Vector2(1f, 0f)).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return moveResumed;
@@ -227,11 +227,11 @@ namespace PinionCore.Project2.Tests
             // 進戰鬥 → 出招 → 等動作結束
             var battleIdle = _PlayAndWait(_ControllableGhost, ActionType.BattleIdle, ActionType.BattleIdle);
             yield return battleIdle;
-            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後應供應 Current==BattleIdle 的新 soul");
+            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後控制狀態應切到 Current==BattleIdle");
 
             var attackEvent = TestWait.FirstWithRetry(
                 () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleAttack),
-                onAttempt: () => battleIdle.Result.Play(ActionType.BattleAttack, Vector2.zero).RemoteValue().Subscribe(),
+                onAttempt: () => _ControllableGhost.Play(ActionType.BattleAttack, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return attackEvent;
