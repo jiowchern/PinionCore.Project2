@@ -79,7 +79,7 @@ namespace PinionCore.Project2.Worlds
         readonly System.Diagnostics.Stopwatch _SightWatch;
 
         // 控制轉移表:不可變資料,全部 PlayerController 共用單一實例
-        readonly Statuses.StandardTransitionProvider _TransitionProvider;
+        readonly StandardTransitionProvider _TransitionProvider;
 
         public World(Guid id,WorldConfig worldInfo, ActorConfig[] actorConfigs)
         {
@@ -87,7 +87,7 @@ namespace PinionCore.Project2.Worlds
             _UpdateWatch = Stopwatch.StartNew();
             _Sight = new Sight();
             _SightWatch = Stopwatch.StartNew();
-            _TransitionProvider = new Statuses.StandardTransitionProvider();
+            _TransitionProvider = new StandardTransitionProvider();
             _Controllers = new Depot<PlayerController>();
             _PlayersNotifier = _Controllers.ToNotifier<ICharacter>();
 

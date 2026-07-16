@@ -1,12 +1,13 @@
-using PinionCore.Project2.Shared;
-
-namespace PinionCore.Project2.Worlds.Statuses
+namespace PinionCore.Project2.Shared
 {
     /// <summary>
     /// 標準角色的控制轉移表:Current = 狀態播放的動作、Playables = 可轉移白名單
     /// (含 locomotion 自身 = 重定向)、Next = 自然結束/停止的去向。
     /// 「攻擊中無法移動」即 BattleAttack.Playables 為空。
-    /// 轉移資料不可變,World 持有單一實例供全部 PlayerController 共用。
+    /// 轉移資料不可變,World 持有單一實例供全部 PlayerController 共用;
+    /// client(ActorShell)以同一份圖做表現預測(動作播完先行切到 Next,不等伺服器)。
+    /// 權威閘門仍是伺服器端 Transition.Playables 白名單 —— 改這張圖不等於改權限,
+    /// 兩端必須同 commit 重編以維持預測與權威一致。
     /// todo: 未來可改由外部配置(ScriptableObject)驅動,支援不同角色不同轉移表。
     /// </summary>
     public class StandardTransitionProvider

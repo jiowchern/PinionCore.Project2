@@ -65,14 +65,25 @@ namespace PinionCore.Project2.Client
         // client 據此以 ActionType 查表取得表現資訊(HoldRotation/Stance/Loop 等),不過線
         ActionConfig[] _actionConfigs;
 
-        // 供輸入層(PlayerAttackHandler)觀察動作進行狀態;None = 結束(解鎖補送 Move 的訊號)
+        // 供輸入層(PlayerAttackHandler)觀察動作進行狀態;
+        // 循環動作(下一狀態的 idle/走路)抵達 = 前一個一次性動作已結束(解鎖補送 Move 的訊號)
         public event Action<ActionInfo> ActionEvent;
 
         // 模型上的 Animator(TestActor1 等模型 prefab 自帶,controller 指向 Configs/AnimatorController);
-        // 模型非同步載入,參數由 _Step 每幀套用,晚到也會在下一幀接上
+        // 模型非同步載入,動畫由 _Step 每幀收斂(CrossFade 去重),晚到也會在下一幀接上。
+        // controller 無參數轉換圖:動作 state 的進入全靠 code CrossFade(含本地預測)
         Animator _animator;
-        static readonly int _AnimSpeed = Animator.StringToHash("speed");
-        static readonly int _AnimStatus = Animator.StringToHash("status");
+
+        // 預設轉移圖(與伺服器同一份 Shared 類):非循環動作播到 Duration 時
+        // 本地先行切到 Next,不等伺服器的下一顆 ActionInfo(省一個 RTT 的表現延遲)
+        readonly StandardTransitionProvider _transitions = new StandardTransitionProvider();
+        // 已被預測消化的 ActionInfo(Action + StartTicks):權威事件抵達前,
+        // 過期的現行動作不得被去重塊當成新事件重播回舊動畫
+        ActionType _predictedFromAction = ActionType.None;
+        long _predictedFromTicks = long.MinValue;
+        // 預測時戳容忍窗:權威 ActionInfo 與預測起點(排程邊界)的可接受差距,
+        // 窗內只收養權威時戳不重播;窗外(force 覆蓋/預測錯)照常 CrossFade 糾正
+        static readonly long _PredictionToleranceTicks = TimeSpan.TicksPerSecond / 4;
 
         IActor _Actor;
 
@@ -173,12 +184,16 @@ namespace PinionCore.Project2.Client
             Target.position = new Vector3(position.x, Target.position.y, position.y);
 
             var actionActive = _actionInfo.Action != ActionType.None;
+            // 現行動作已播放的秒數(world time - StartTicks;可為負 = 時間還沒追上)
+            var actionElapsed = actionActive
+                ? (WorldTime.CurrentTime.Ticks - _actionInfo.StartTicks) / (double)TimeSpan.TicksPerSecond
+                : 0.0;
 
-            // 凍結旋轉只對 Cast 類動作(以 config 查 Category;查無 config 保守處理);
-            // 走路/idle 照常面向移動方向
-            if (actionActive && _HoldRotation(_actionInfo.Action))
+            // 凍結旋轉:讀 ActionConfig.HoldRotation;非循環動作播到 Duration 即預測解凍
+            //(伺服器終停 MoveInfo 在邊界 tick 恢復視覺朝向,解凍後立即以它定向,銜接自然)
+            if (actionActive && _HoldRotation(_actionInfo.Action, actionElapsed))
             {
-                // 首次進入動作時捕捉當下旋轉(動作開始前最後一次套用的朝向)並保持到 None
+                // 首次進入動作時捕捉當下旋轉(動作開始前最後一次套用的朝向)並保持到動作結束
                 if (!_rotationHeld)
                 {
                     _heldRotation = Target.rotation;
@@ -192,30 +207,51 @@ namespace PinionCore.Project2.Client
                 Target.rotation = Quaternion.LookRotation(new Vector3(facing.x, 0f, facing.y), Vector3.up);
             }
 
-            // 動作驅動:speed 直接用伺服器線速度(fallback 角色與 walk↔idle 過渡仍靠它),
-            // status 切換冒險/戰鬥動作組
             if (_animator != null)
             {
-                _animator.SetFloat(_AnimSpeed, info.Speed);
-                _animator.SetInteger(_AnimStatus, (int)Stance);
-
                 // 動作動畫:每顆 ActionInfo 只 CrossFade 一次,以 world time 差當起播偏移
                 //(晚加入者/模型晚載入都在此收斂到正確的動畫時間點)。
                 // 走路是 loop state:fixedTime 偏移超過 clip 長度由 Animator 自行取模
                 //(normalizedTime 含圈數、視覺取小數),晚加入者也收斂;float 精度在
-                // 小時級連續走路後誤差約毫秒級,可接受(每次重新起走 StartTicks 都會刷新)
-                if (actionActive &&
+                // 小時級連續走路後誤差約毫秒級,可接受(每次重新起走 StartTicks 都會刷新)。
+                // 已被預測消化的那顆不重播(過期動作不得蓋掉預測切出去的 Next)
+                var consumedByPrediction = _predictedFromAction == _actionInfo.Action &&
+                    _predictedFromTicks == _actionInfo.StartTicks;
+                if (actionActive && !consumedByPrediction &&
                     (_appliedAction != _actionInfo.Action || _appliedActionTicks != _actionInfo.StartTicks))
                 {
-                    if (_ActionStates.TryGetValue(_actionInfo.Action, out var stateName))
+                    // 預測命中:權威 ActionInfo 與預測只差時戳(排程邊界 vs 下一次 Update 取樣),
+                    // 收養權威時戳即可,不重播避免自己疊自己
+                    var predicted = _appliedAction == _actionInfo.Action &&
+                        Math.Abs(_actionInfo.StartTicks - _appliedActionTicks) < _PredictionToleranceTicks;
+                    if (!predicted && _ActionStates.TryGetValue(_actionInfo.Action, out var stateName))
                     {
-                        var offset = (float)((WorldTime.CurrentTime.Ticks - _actionInfo.StartTicks) / (double)TimeSpan.TicksPerSecond);
+                        var offset = (float)actionElapsed;
                         if (offset < 0f)
                             offset = 0f;
                         _animator.CrossFadeInFixedTime(stateName, 0.1f, 0, offset);
                     }
                     _appliedAction = _actionInfo.Action;
                     _appliedActionTicks = _actionInfo.StartTicks;
+                }
+
+                // 本地預測:非循環動作播到 Duration 即先行 CrossFade 到轉移圖的 Next,
+                // 不等伺服器(權威 ActionInfo 約一個 RTT 後抵達,由上方時戳收養/糾正)
+                if (actionActive)
+                {
+                    var config = FindAction(_actionInfo.Action);
+                    if (config != null && !config.Loop && actionElapsed >= config.Duration &&
+                        _transitions.Transitions.TryGetValue(_actionInfo.Action, out var transition) &&
+                        _appliedAction != transition.Next.Action &&
+                        _ActionStates.TryGetValue(transition.Next.Action, out var nextState))
+                    {
+                        _animator.CrossFadeInFixedTime(nextState, 0.1f, 0, (float)(actionElapsed - config.Duration));
+                        _appliedAction = transition.Next.Action;
+                        // 預測起點 = 排程邊界(StartTicks + Duration),權威事件抵達時據此收養
+                        _appliedActionTicks = _actionInfo.StartTicks + (long)(config.Duration * TimeSpan.TicksPerSecond);
+                        _predictedFromAction = _actionInfo.Action;
+                        _predictedFromTicks = _actionInfo.StartTicks;
+                    }
                 }
             }
         }
@@ -234,11 +270,16 @@ namespace PinionCore.Project2.Client
         }
 
         // 動作是否凍結旋轉:讀 ActionConfig.HoldRotation;查無 config(降級/未知動作)保守凍結
-        //(降級角色無模型無 animator,只剩空殼 Target 的旋轉,凍結無視覺影響)
-        bool _HoldRotation(ActionType action)
+        //(降級角色無模型無 animator,只剩空殼 Target 的旋轉,凍結無視覺影響)。
+        // 非循環動作播到 Duration 即預測解凍,與動畫預測同步,不等權威事件
+        bool _HoldRotation(ActionType action, double elapsedSeconds)
         {
             var config = FindAction(action);
-            return config != null ? config.HoldRotation : true;
+            if (config == null)
+                return true;
+            if (!config.Loop && elapsedSeconds >= config.Duration)
+                return false;
+            return config.HoldRotation;
         }
 
         public void LoadModel(AssetReferenceGameObject modelPrefab)
