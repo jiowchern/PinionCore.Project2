@@ -122,7 +122,7 @@ namespace PinionCore.Project2.Client
         static Shared.ActionType _WalkOf(Shared.ActionType current)
         {
             switch (current)
-            {
+            { 
                 case Shared.ActionType.BattleIdle:
                 case Shared.ActionType.BattleWalk:
                 case Shared.ActionType.BattleAttack:
