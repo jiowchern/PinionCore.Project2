@@ -53,9 +53,13 @@ namespace PinionCore.Project2.Client.Editor
             var loginPanel = _Panel(res, canvasGo.transform, "LoginPanel",
                 new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(460, 340), new Color(0.08f, 0.09f, 0.12f, 0.92f));
 
-            var title = _Text(font, loginPanel.transform, "Title", "演示登入", 30, TextAnchor.MiddleCenter, new Vector2(0, 120), new Vector2(400, 44));
+            var title = _Text(font, loginPanel.transform, "Title", "演示登入", 30, TextAnchor.MiddleCenter, new Vector2(0, 122), new Vector2(400, 44));
             title.color = Color.white;
             title.fontStyle = FontStyle.Bold;
+
+            // 內容由 DemoLoginUI 依平台推導後填入
+            var mode = _Text(font, loginPanel.transform, "Mode", string.Empty, 16, TextAnchor.MiddleCenter, new Vector2(0, 90), new Vector2(400, 24));
+            mode.color = new Color(0.6f, 0.75f, 0.9f, 1f);
 
             var nameInput = _InputField(res, font, loginPanel.transform, new Vector2(0, 52), new Vector2(340, 46), "輸入角色名稱");
             var dropdown = _Dropdown(res, font, loginPanel.transform, new Vector2(0, -8), new Vector2(340, 46),
@@ -75,6 +79,21 @@ namespace PinionCore.Project2.Client.Editor
                 22, TextAnchor.UpperLeft, new Vector2(10, -40), new Vector2(300, 170));
             controlsBody.color = new Color(0.92f, 0.94f, 1f, 1f);
 
+            // ---- Ping(操作說明正下方) ----
+            // 掛在 ControlsPanel 底下跟著一起顯示/隱藏;背景同款深色面板+文字描邊,
+            // 疊在任何世界背景上都可讀
+            var pingPanel = _Panel(res, controls.transform, "PingPanel",
+                new Vector2(0.5f, 0f), new Vector2(0, -34), new Vector2(340, 44), new Color(0.08f, 0.09f, 0.12f, 0.72f));
+            var pingText = _Text(font, pingPanel.transform, "Label", "Ping --", 22, TextAnchor.MiddleCenter, Vector2.zero, new Vector2(320, 36));
+            pingText.color = Color.white;
+            pingText.fontStyle = FontStyle.Bold;
+            var pingOutline = pingText.gameObject.AddComponent<Outline>();
+            pingOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            pingOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            var pingDisplay = pingPanel.AddComponent<PingDisplay>();
+            pingDisplay.Label = pingText;
+
             // ---- 接線 ----
             var ui = canvasGo.AddComponent<DemoLoginUI>();
             ui.QueryerHost = _FindQueryerHost(scene);
@@ -84,6 +103,8 @@ namespace PinionCore.Project2.Client.Editor
             ui.ModelDropdown = dropdown;
             ui.LoginButton = button;
             ui.StatusText = status;
+            ui.ModeText = mode;
+            pingDisplay.QueryerHost = ui.QueryerHost;
 
             if (ui.QueryerHost == null)
                 Debug.LogWarning("DemoLoginUIBuilder: 找不到 QueryerHost(wrapper),請手動指定 DemoLoginUI.QueryerHost");

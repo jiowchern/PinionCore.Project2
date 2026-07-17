@@ -8,8 +8,9 @@ namespace PinionCore.Project2.Client
 {
     /// <summary>
     /// 演示用登入介面:client 不掛 AutoConnector(設計決定),連線由本 UI 觸發。
+    /// 連線模式依平台決定(WebGL→Web、Editor→Standalone、其他 build→Tcp),
     /// 連線物件解析方式同 Bot/ClientConsole:從 QueryerHost.Resolve() 的物件取
-    /// TcpConnector 或 Standalone.Connector+ListenerLocator。
+    /// 對應的 connector(Standalone 另需 ListenerLocator)。
     /// 登入成功(IPlayer supply)後隱藏登入面板、顯示操作說明框;
     /// 斷線(IPlayer unsupply)收回說明框並回到登入面板。
     /// </summary>
@@ -19,10 +20,13 @@ namespace PinionCore.Project2.Client
         {
             Tcp,
             Standalone,
+            Web,
         }
 
         public PinionCore.NetSync.QueryerHost QueryerHost;
-        public ConnectionMode Connection = ConnectionMode.Standalone;
+
+        // 由平台推導,僅供 Inspector 檢視
+        [ReadOnly] public ConnectionMode Connection;
 
         [Header("UI")]
         public GameObject LoginPanel;
@@ -31,11 +35,25 @@ namespace PinionCore.Project2.Client
         public Dropdown ModelDropdown;   // 選項順序對齊 ModelType enum 值
         public Button LoginButton;
         public Text StatusText;
+        public Text ModeText;
 
         bool _busy;
 
+        static ConnectionMode _DetectMode()
+        {
+#if UNITY_EDITOR
+            return ConnectionMode.Standalone;
+#elif UNITY_WEBGL
+            return ConnectionMode.Web;
+#else
+            return ConnectionMode.Tcp;
+#endif
+        }
+
         void Start()
         {
+            Connection = _DetectMode();
+            ModeText.text = $"連線模式:{Connection}";
             LoginPanel.SetActive(true);
             ControlsPanel.SetActive(false);
             StatusText.text = string.Empty;
@@ -132,6 +150,21 @@ namespace PinionCore.Project2.Client
                 while (connector.CurrentStatus != PinionCore.NetSync.Tcp.TcpConnector.ConnectorStatus.Online)
                 {
                     if (connector.CurrentStatus == PinionCore.NetSync.Tcp.TcpConnector.ConnectorStatus.Offline)
+                        connector.Connect();
+                    yield return new WaitForSeconds(1.0f);
+                }
+            }
+            else if (Connection == ConnectionMode.Web)
+            {
+                var connector = host.GetComponent<PinionCore.NetSync.Web.WebConnector>();
+                if (connector == null)
+                {
+                    _Unlock($"找不到 WebConnector({host.name})");
+                    yield break;
+                }
+                while (connector.CurrentStatus != PinionCore.NetSync.Web.WebConnector.ConnectorStatus.Online)
+                {
+                    if (connector.CurrentStatus == PinionCore.NetSync.Web.WebConnector.ConnectorStatus.Offline)
                         connector.Connect();
                     yield return new WaitForSeconds(1.0f);
                 }
