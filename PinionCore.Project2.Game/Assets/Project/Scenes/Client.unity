@@ -584,6 +584,7 @@ GameObject:
   - component: {fileID: 800024551}
   - component: {fileID: 800024552}
   - component: {fileID: 800024553}
+  - component: {fileID: 800024554}
   m_Layer: 0
   m_Name: Handlers
   m_TagString: Untagged
@@ -719,6 +720,24 @@ MonoBehaviour:
   ClientPlayer: {fileID: 800024549}
   InputHandler: {fileID: 800024552}
   AttackAction: {fileID: 1120369429361536294, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  ResponseTimeout: 2
+--- !u!114 &800024554
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 800024545}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d69dc4f5d04dde347bb055c00af40ad9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.PlayerStanceHandler
+  Client: {fileID: 213339232}
+  Provider: {fileID: 800024547}
+  ClientPlayer: {fileID: 800024549}
+  InputHandler: {fileID: 800024552}
+  SwitchStanceAction: {fileID: -691031491553993618, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   ResponseTimeout: 2
 --- !u!1 &914587121
 GameObject:

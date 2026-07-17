@@ -15,6 +15,8 @@ namespace PinionCore.Project2.Client
         // 攻擊用獨立容器:與 Move/Stop 共用 Clear 會取消在途移動回應,
         // 害 PlayerInputHandler 的在途鎖永久卡死
         readonly UniRx.CompositeDisposable _AttackDisposable;
+        // 姿態切換同理,獨立容器不與攻擊互相取消
+        readonly UniRx.CompositeDisposable _StanceDisposable;
 
         // 最新 Transition 快取:IControllable 與角色同生命週期(soul 恆存),
         // 首次指令時常駐訂閱一次 TransitionEvent(soul 端 add 即回放當前值,之後每次轉移推播),
@@ -26,6 +28,7 @@ namespace PinionCore.Project2.Client
         {
             _Disposable = new UniRx.CompositeDisposable();
             _AttackDisposable = new UniRx.CompositeDisposable();
+            _StanceDisposable = new UniRx.CompositeDisposable();
             _TransitionCache = new UniRx.ReplaySubject<Shared.Transition>(1);
         }
 
@@ -79,6 +82,28 @@ namespace PinionCore.Project2.Client
             _Disposable.Add(disp);
         }
 
+        // 姿態切換:目標 = 當前 Transition.Playables 中「另一側的 idle」,由 ActionConfig
+        // 能力欄位判定(idle = Loop 且非 Redirectable、側別 = Stance),不硬編碼 ActionType;
+        // findAction 由呼叫端提供(handler 傳 ActorShell.FindAction,與伺服器同一份資產)。
+        // 白名單查無目標(如 BattleWalk 不含另一側 idle)不發 RPC,直接回 false
+        public void SwitchStance(Func<Shared.ActionType, Shared.ActionConfig> findAction, Action<bool> responded)
+        {
+            _StanceDisposable.Clear();
+
+            var obs = (from controllable in _Controllables().Take(1)
+                       from transition in _Transitions().Take(1)
+                       select new { controllable, transition })
+                      .SelectMany(ct =>
+                      {
+                          var target = _SwitchStanceTargetOf(ct.transition, findAction);
+                          if (target == Shared.ActionType.None)
+                              return Observable.Return(false);
+                          return ct.controllable.Play(target, Vector2.zero).RemoteValue().DoOnError(_Error);
+                      });
+            var disp = obs.Subscribe(result => responded?.Invoke(result));
+            _StanceDisposable.Add(disp);
+        }
+
         // 出招:BattleAttack 只在戰鬥系狀態的 Playables 白名單內,冒險態下伺服器回 false
         public void Attack(Action<bool> responded)
         {
@@ -118,6 +143,24 @@ namespace PinionCore.Project2.Client
             return _TransitionCache;
         }
 
+        // 白名單中「idle(Loop 且非 Redirectable)且 Stance 與當前不同」的動作;
+        // 需比對 Stance:走路狀態的白名單同時含兩側 idle(同側 = Stop 的去向),只挑另一側。
+        // 查無 config 或無目標回 None
+        static Shared.ActionType _SwitchStanceTargetOf(Shared.Transition transition, Func<Shared.ActionType, Shared.ActionConfig> findAction)
+        {
+            var current = findAction(transition.Current.Action);
+            if (current == null)
+                return Shared.ActionType.None;
+
+            foreach (var playable in transition.Playables)
+            {
+                var config = findAction(playable.Action);
+                if (config != null && config.Loop && !config.Redirectable && config.Stance != current.Stance)
+                    return playable.Action;
+            }
+            return Shared.ActionType.None;
+        }
+
         // 當前狀態 → 對應的走路動作:戰鬥系 → BattleWalk、冒險系 → AdventureWalk
         static Shared.ActionType _WalkOf(Shared.ActionType current)
         {
@@ -136,6 +179,7 @@ namespace PinionCore.Project2.Client
         {
             _Disposable.Dispose();
             _AttackDisposable.Dispose();
+            _StanceDisposable.Dispose();
             _TransitionFeed?.Dispose();
             _TransitionCache.Dispose();
         }
