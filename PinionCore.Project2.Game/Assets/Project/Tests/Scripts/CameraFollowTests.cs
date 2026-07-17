@@ -125,7 +125,7 @@ namespace PinionCore.Project2.Tests
             // 移動主角 ~1.5 單位,鏡頭應保持跟隨距離並朝相同方向位移
             var camStart = mainCam.transform.position;
             var shellStart = _Shell.Target.position;
-            _ClientPlayer.Move(new Vector2(0f, 1f));
+            _ClientPlayer.Move(_Shell.FindAction, new Vector2(0f, 1f));
 
             var moved = TestWait.Until(
                 () => (_Shell.Target.position - shellStart).magnitude >= 1.5f,

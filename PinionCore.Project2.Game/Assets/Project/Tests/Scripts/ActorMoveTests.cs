@@ -105,7 +105,7 @@ namespace PinionCore.Project2.Tests
                 TestWait.MoveEvents(_ActorGhost), i => i.Speed > 0f, System.TimeSpan.FromSeconds(15));
 
             var startPos = _Shell.Target.position;
-            _ClientPlayer.Move(new Vector2(0f, 1f));
+            _ClientPlayer.Move(_Shell.FindAction, new Vector2(0f, 1f));
 
             yield return moving;
             TestWait.AssertDone(moving, "ghost 應收到移動中的 MoveInfo");
@@ -145,7 +145,7 @@ namespace PinionCore.Project2.Tests
             //(觸發 replay 取回當下狀態)並重送 Move,兩種掉失模式都能恢復
             var moving = TestWait.FirstWithRetry(
                 () => TestWait.MoveEvents(_ActorGhost).Where(i => i.Speed > 0f),
-                onAttempt: () => _ClientPlayer.Move(new Vector2(halfSqrt2, halfSqrt2)), // 世界右前 45°
+                onAttempt: () => _ClientPlayer.Move(_Shell.FindAction, new Vector2(halfSqrt2, halfSqrt2)), // 世界右前 45°
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return moving;
@@ -224,7 +224,7 @@ namespace PinionCore.Project2.Tests
                 TestWait.MoveEvents(_ActorGhost),
                 i => i.Speed > 0f && i.Facing.x > 0.5f,
                 System.TimeSpan.FromSeconds(15));
-            _ClientPlayer.Move(new Vector2(halfSqrt2, halfSqrt2)); // 世界右前 45°
+            _ClientPlayer.Move(_Shell.FindAction, new Vector2(halfSqrt2, halfSqrt2)); // 世界右前 45°
 
             yield return firstMove;
             TestWait.AssertDone(firstMove, "第一段應朝世界右前方直走");
@@ -241,7 +241,7 @@ namespace PinionCore.Project2.Tests
                 TestWait.MoveEvents(_ActorGhost),
                 i => i.Facing.x < -0.5f,
                 System.TimeSpan.FromSeconds(15));
-            _ClientPlayer.Move(new Vector2(-halfSqrt2, halfSqrt2)); // 途中改世界左前 45°
+            _ClientPlayer.Move(_Shell.FindAction, new Vector2(-halfSqrt2, halfSqrt2)); // 途中改世界左前 45°
 
             yield return secondMove;
             TestWait.AssertDone(secondMove, "改向後 ghost 應收到朝向翻轉的 MoveInfo");
@@ -271,7 +271,7 @@ namespace PinionCore.Project2.Tests
             yield return _EnterWorld("StopTester");
 
             var startPos = _Shell.Target.position;
-            _ClientPlayer.Move(new Vector2(0f, 1f));
+            _ClientPlayer.Move(_Shell.FindAction, new Vector2(0f, 1f));
 
             // 等殼走出約 1 單位再喊停
             var moved = TestWait.Until(
@@ -420,7 +420,7 @@ namespace PinionCore.Project2.Tests
             // 走 PlayerRemote(自動依當前 Transition 選走路型別與停止目標)
             var resumeMove = TestWait.FirstWithRetry(
                 () => TestWait.MoveEvents(_ActorGhost).Where(i => i.Speed > 0f && i.Facing.x < -0.9f),
-                onAttempt: () => _ClientPlayer.Move(new Vector2(-1f, 0f)),
+                onAttempt: () => _ClientPlayer.Move(_Shell.FindAction, new Vector2(-1f, 0f)),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return resumeMove;

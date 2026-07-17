@@ -159,7 +159,7 @@ namespace PinionCore.Project2.Client
             if (!send || (_moving && sinceLast < MinSendInterval))
                 return;
 
-            _Send(() => ClientPlayer.Move(worldDir, _OnResponded));
+            _Send(() => ClientPlayer.Move(_shell.FindAction, worldDir, _OnResponded));
             _moving = true;
             _lastWorldDir = worldDir;
         }

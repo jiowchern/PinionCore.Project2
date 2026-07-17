@@ -34,26 +34,35 @@ namespace PinionCore.Project2.Client
 
 
         // direction 為世界座標 XZ 方向:x=+X、y=+Z
-        public void Move(Vector2 direction)
+        public void Move(Func<Shared.ActionType, Shared.ActionConfig> findAction, Vector2 direction)
         {
-            Move(direction, null);
+            Move(findAction, direction, null);
         }
 
         // responded:收到伺服器回傳值(接受與否)時回呼;
         // 下一個指令的 Clear 會取消未回應的訂閱,屆時不回呼(視同掉失,由上層逾時處理)。
-        // 走路型別依當前 Transition 的表現側選:戰鬥系狀態走 BattleWalk,否則 AdventureWalk;
-        // 已在走路狀態時同型別 Play = 重定向(伺服器端節流)。
-        public void Move(Vector2 direction, Action<bool> responded)
+        // 走路動作 = 當前 Transition.Playables 中同側的可重定向循環動作,由 ActionConfig
+        // 能力欄位判定,不硬編碼 ActionType;findAction 由呼叫端提供
+        //(handler 傳 ActorShell.FindAction,與伺服器同一份資產)。
+        // 已在走路狀態時同型別 Play = 重定向(伺服器端節流);
+        // 白名單查無走路(如攻擊/受傷中 Playables 為空)不發 RPC,直接回 false
+        public void Move(Func<Shared.ActionType, Shared.ActionConfig> findAction, Vector2 direction, Action<bool> responded)
         {
             // Clear 而非 Dispose:Dispose 後的 CompositeDisposable 會立刻銷毀之後 Add 的訂閱
             _Disposable.Clear();
 
             // Take(1):Supply/快取會重播既有狀態,一次 Move 只發一次 RPC,
             // 不讓訂閱殘留到未來的 re-supply/轉移重發 Move
-            var obs = from controllable in _Controllables().Take(1)
-                      from transition in _Transitions().Take(1)
-                      from result in controllable.Play(_WalkOf(transition.Current.Action), direction).RemoteValue().DoOnError(_Error)
-                      select result;
+            var obs = (from controllable in _Controllables().Take(1)
+                       from transition in _Transitions().Take(1)
+                       select new { controllable, transition })
+                      .SelectMany(ct =>
+                      {
+                          var target = _WalkOf(ct.transition, findAction);
+                          if (target == Shared.ActionType.None)
+                              return Observable.Return(false);
+                          return ct.controllable.Play(target, direction).RemoteValue().DoOnError(_Error);
+                      });
             var disp = obs.Subscribe(result => responded?.Invoke(result));
             _Disposable.Add(disp);
         }
@@ -161,18 +170,23 @@ namespace PinionCore.Project2.Client
             return Shared.ActionType.None;
         }
 
-        // 當前狀態 → 對應的走路動作:戰鬥系 → BattleWalk、冒險系 → AdventureWalk
-        static Shared.ActionType _WalkOf(Shared.ActionType current)
+        // 白名單中「走路(Loop 且 Redirectable,見 ActionConfig 註解:Redirectable 也是
+        // Move 直接起走與 Stop 的選型條件)且 Stance 與當前相同」的動作;
+        // 需比對 Stance:idle 的白名單同時含另一側 idle,同側限定避免誤選跨側動作。
+        // 走路狀態的白名單含自身(= 重定向),同樣由此規則選中。查無 config 或無目標回 None
+        static Shared.ActionType _WalkOf(Shared.Transition transition, Func<Shared.ActionType, Shared.ActionConfig> findAction)
         {
-            switch (current)
-            { 
-                case Shared.ActionType.BattleIdle:
-                case Shared.ActionType.BattleWalk:
-                case Shared.ActionType.BattleAttack:
-                    return Shared.ActionType.BattleWalk;
-                default:
-                    return Shared.ActionType.AdventureWalk;
+            var current = findAction(transition.Current.Action);
+            if (current == null)
+                return Shared.ActionType.None;
+
+            foreach (var playable in transition.Playables)
+            {
+                var config = findAction(playable.Action);
+                if (config != null && config.Loop && config.Redirectable && config.Stance == current.Stance)
+                    return playable.Action;
             }
+            return Shared.ActionType.None;
         }
 
         void OnDestroy()
