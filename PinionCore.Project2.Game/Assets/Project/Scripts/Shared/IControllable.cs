@@ -13,9 +13,11 @@ namespace PinionCore.Project2.Shared
     // Next = 自然結束/停止的去向(Cast 播完自動轉移;client 的「停止」= Play(Next))
     public struct Transition
     {
+        public uint Id;
         public PlayInfo Current;
         public PlayInfo[] Playables;
         public PlayInfo Next;
+        public PlayInfo Damage;
     }
 
     // 單一控制能力:world 端 PlayerController 自身即 soul,與角色同生命週期
@@ -24,6 +26,7 @@ namespace PinionCore.Project2.Shared
     // 「動作能不能執行」由 Playables 白名單天然表達(如攻擊中無法移動)。
     public interface IControllable : Protocolable
     {
+        // todo 未來這邊改成 Transition.Id
         event System.Action<Transition> TransitionEvent;
 
         // direction 為世界座標 XZ 方向(x=+X、y=+Z),只有走路類動作使用:

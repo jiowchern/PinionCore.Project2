@@ -6,5 +6,6 @@ namespace PinionCore.Project2.Shared
     // client 走 IPlayer.Controllable 供應的 IControllable,表現廣播走 IActor 事件。
     public interface ICharacter : IPlayer, IActor
     {
-    }
+        void Damage();
+    } 
 }

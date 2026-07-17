@@ -28,6 +28,7 @@ namespace PinionCore.Project2.Shared
                     _Play(ActionType.BattleIdle),
                 },
                 Next = _Play(ActionType.AdventureIdle),
+                Damage = _Play(ActionType.AdventureDamage),
             };
 
             var adventureWalk = new Transition
@@ -40,6 +41,7 @@ namespace PinionCore.Project2.Shared
                     _Play(ActionType.BattleIdle),
                 },
                 Next = _Play(ActionType.AdventureIdle),
+                Damage = _Play(ActionType.AdventureDamage),
             };
 
             var battleIdle = new Transition
@@ -52,6 +54,7 @@ namespace PinionCore.Project2.Shared
                     _Play(ActionType.AdventureIdle),
                 },
                 Next = _Play(ActionType.BattleIdle),
+                Damage = _Play(ActionType.BattleDamage),
             };
 
             var battleWalk = new Transition
@@ -64,6 +67,7 @@ namespace PinionCore.Project2.Shared
                     _Play(ActionType.BattleAttack),
                 },
                 Next = _Play(ActionType.BattleIdle),
+                Damage = _Play(ActionType.BattleDamage),
             };
 
             var battleAttack = new Transition
@@ -71,6 +75,23 @@ namespace PinionCore.Project2.Shared
                 Current = _Play(ActionType.BattleAttack),
                 Playables = System.Array.Empty<PlayInfo>(),   // 攻擊中無法移動/再出招
                 Next = _Play(ActionType.BattleIdle),
+                Damage = _Play(ActionType.BattleDamage),
+            };
+
+            var adventureDamage = new Transition
+            {
+                Current = _Play(ActionType.AdventureDamage),
+                Playables = System.Array.Empty<PlayInfo>(),   // 受傷中無法移動/攻擊
+                Next = _Play(ActionType.AdventureIdle),
+                Damage = _Play(ActionType.AdventureDamage),   // 連續挨打:重進硬直(刷新)
+            };
+
+            var battleDamage = new Transition
+            {
+                Current = _Play(ActionType.BattleDamage),
+                Playables = System.Array.Empty<PlayInfo>(),   // 受傷中無法移動/攻擊
+                Next = _Play(ActionType.BattleIdle),
+                Damage = _Play(ActionType.BattleDamage),      // 連續挨打:重進硬直(刷新)
             };
 
             _Transitions = new System.Collections.Generic.Dictionary<ActionType, Transition>
@@ -80,6 +101,8 @@ namespace PinionCore.Project2.Shared
                 { ActionType.BattleIdle, battleIdle },
                 { ActionType.BattleWalk, battleWalk },
                 { ActionType.BattleAttack, battleAttack },
+                { ActionType.AdventureDamage, adventureDamage },
+                { ActionType.BattleDamage, battleDamage },
             };
             Transitions = _Transitions;
         }

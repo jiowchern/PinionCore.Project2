@@ -12,6 +12,7 @@ namespace PinionCore.Project2.Users
     
     internal class UserGame : PinionCore.Utility.IStatus ,IGame
     {
+        
         readonly System.Collections.Generic.ICollection<IGame> _Games;
         private readonly INotifierQueryable _WorldNotifier;
         private readonly ActorInfo _ActorInfo;
@@ -21,9 +22,15 @@ namespace PinionCore.Project2.Users
         readonly Property<string> _WorldName;
         Property<string> IGame.WorldName => _WorldName;
 
-        readonly PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharacter> _Characters;
+        readonly PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharacter> _Players;
         readonly Remote.Notifier<IPlayer> _PlayersNotifier;
         Remote.Notifier<IPlayer> IGame.Player => _PlayersNotifier;
+
+        readonly PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharacter> _Characters;
+        readonly Remote.Notifier<ICharacter> _CharactersNotifier;
+        Remote.Notifier<ICharacter> IGame.Character => _CharactersNotifier;
+
+
 
         // 控制能力(IControllable)供應已下沉 world:由 IPlayer.Controllable 承載,
         // world 端控制狀態機(PlayerController)控制開關,user 零經手
@@ -37,9 +44,14 @@ namespace PinionCore.Project2.Users
         
         public UserGame(ICollection<IGame> games, INotifierQueryable worldNotifier, ActorInfo actor)
         {
+            
             _Games = games;            
-            _Characters = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharacter>();
-            _PlayersNotifier = _Characters.ToNotifier<IPlayer>();
+            _Players = new PinionCore.Remote.Depot<PinionCore.Project2.Shared.ICharacter>();           
+            _PlayersNotifier = _Players.ToNotifier<IPlayer>();
+
+            _Characters = new Depot<ICharacter>();
+            _CharactersNotifier = new Remote.Notifier<ICharacter>(_Characters);
+
 
             _WorldName = new Property<string>(string.Empty);
             _DisposeHandlers = new System.Collections.Generic.List<System.Action>();
@@ -65,6 +77,8 @@ namespace PinionCore.Project2.Users
                 disposable.Dispose();
             });
 
+
+            
         }
 
         private void _EnterWorld(IWorld world, Guid actorId)
@@ -89,6 +103,9 @@ namespace PinionCore.Project2.Users
                     PinionCore.Utility.Log.Instance.WriteInfo($"UserGame world.Enter rejected actor:{actorId}");
             });
             _DisposeHandlers.Add(() => disposable.Dispose());
+
+
+
         }
 
         private void _Join(IWorld world,Guid actorId)
@@ -110,6 +127,8 @@ namespace PinionCore.Project2.Users
             var disposablePlayersRemoveObs = playersRemoveObs.Subscribe(_End);
             _DisposeHandlers.Add(() => disposablePlayersRemoveObs.Dispose());
 
+            
+
             // IActor 供應由 IPlayer.Actors 承載:綁給 client 的 IPlayer ghost
             // 其 Actors 屬性由框架遞迴綁定自動轉發,User 端不需再手動搬運。
             // world.Leave 的補償退場已在 _EnterWorld 註冊,這裡不再重複。
@@ -117,7 +136,12 @@ namespace PinionCore.Project2.Users
 
         private void _End(ICharacter charactor)
         {
-            _Characters.Items.Remove(charactor);
+            if (_ActorInfo.DisplayName == "jc")
+            {
+                _Characters.Items.Remove(charactor);
+            }
+                
+            _Players.Items.Remove(charactor);
             // 玩家被 world 移除(Unsupply)→ 通知 User 回到 verify + Roster.Unregister。
             // 斷線收尾不會走到這:dispose 時 UnsupplyEvent 訂閱已先解除。
             DoneEvent?.Invoke();
@@ -129,7 +153,13 @@ namespace PinionCore.Project2.Users
         {
             // 角色流程(意識/冒險/戰鬥)已全數下沉 world 端狀態機;
             // user 只負責把 ICharacter ghost 供應給 client(IPlayer)
-            _Characters.Items.Add(charactor);
+            _Players.Items.Add(charactor);
+
+            // 開發權限
+            if (_ActorInfo.DisplayName == "jc")
+            {
+                _Characters.Items.Add(charactor);
+            }
         }
 
         void IStatus.Leave()

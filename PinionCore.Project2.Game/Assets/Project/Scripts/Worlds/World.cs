@@ -232,7 +232,7 @@ namespace PinionCore.Project2.Worlds
             // 自己永遠可見;其餘互見交給 Sight 依「距離 + 遮蔽」判定。
             // 先投影全體 transform(ctor 去穿透可能把出生點推離 Entrance)再評估;
             // 只投影 Player、不泵 controller 狀態機(能力供應時序維持在 World.Update);
-            // 先填好新玩家的名單再加入 _Controllers,綁定時的 replay 會送出完整名單。
+            // 先填好新玩家的名單再加入 _Controllers,綁定時的 replay 會送出完整名單。 
             controller.VisibleActors.Items.Add(controller);
             var evaluated = new System.Collections.Generic.List<PlayerController>(_Controllers.Items) { controller };
             foreach (var c in evaluated)

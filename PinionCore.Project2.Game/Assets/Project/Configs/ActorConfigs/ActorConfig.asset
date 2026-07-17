@@ -26,5 +26,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 884b9f659d4f5144caa4208be044df03, type: 2}
   - {fileID: 11400000, guid: 5da317c1a89e52b4b8e2f26a01a0028a, type: 2}
   - {fileID: 11400000, guid: 4bcb22d1a7cadfa4c9a24370ba39dfb1, type: 2}
+  - {fileID: 11400000, guid: 71f9ff55dbd7a274d8bd28a4470f4302, type: 2}
+  - {fileID: 11400000, guid: 20d9a84c30ca2e64bbc37aca08a82c94, type: 2}
   _Radius: 0.3
   _SightRadius: 5

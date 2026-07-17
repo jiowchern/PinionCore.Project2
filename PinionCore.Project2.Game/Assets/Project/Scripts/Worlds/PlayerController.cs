@@ -13,7 +13,7 @@ namespace PinionCore.Project2.Worlds
     /// Play 委派給當前 ControllerStatus(依轉移表換狀態)、狀態轉移經 TransitionEvent 廣播,
     /// 轉換為 world 內部直接呼叫、不過傳輸協議,於下一次 Update 生效。
     /// </summary>
-    internal class PlayerController : ICharacter, IControllable
+    internal class PlayerController : ICharacter, IControllable 
     {
         public readonly Player Player;
 
@@ -129,6 +129,18 @@ namespace PinionCore.Project2.Worlds
             // _ToController 同步切換 _ControllerStatus:指令一律以最新 Transition 的白名單驗證,
             // 不再有舊「每狀態一顆 soul」時代打在已收回 soul 上被靜默丟棄的空窗
             return _ControllerStatus.Play(name, direction);
+        }
+
+        void ICharacter.Damage()
+        {
+            _ToDamage();
+        }
+
+        private void _ToDamage()
+        {
+            if (_ControllerStatus.Transition.Damage.Action == ActionType.None)
+                return;
+            _ToController(_TransitionProvider.Transitions[_ControllerStatus.Transition.Damage.Action], UnityEngine.Vector2.zero);
         }
     }
 }
