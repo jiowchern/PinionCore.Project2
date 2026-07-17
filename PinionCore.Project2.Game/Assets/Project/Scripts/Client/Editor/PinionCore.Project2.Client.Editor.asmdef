@@ -2,7 +2,10 @@
     "name": "PinionCore.Project2.Client.Editor",
     "rootNamespace": "",
     "references": [
-        "PinionCore.Project2.Client"
+        "PinionCore.Project2.Client",
+        "PinionCore.NetSync",
+        "UnityEngine.UI",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [
         "Editor"
