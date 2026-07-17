@@ -14,6 +14,7 @@ namespace PinionCore.Project2.Worlds
         public bool DrawActors = true;
         public bool DrawTerrainBounds = true;
         public bool DrawSightRadius = true;
+        public bool DrawHitboxes = true;
 
 #if UNITY_EDITOR
         void OnDrawGizmos()
@@ -25,13 +26,13 @@ namespace PinionCore.Project2.Worlds
             foreach (var world in Universe.WorldItems)
             {
                 if (DrawActors)
-                    _DrawActors(world, DrawSightRadius);
+                    _DrawActors(world, DrawSightRadius, DrawHitboxes);
                 if (DrawTerrainBounds)
                     _DrawTerrainBounds(world);
             }
         }
 
-        static void _DrawActors(World world, bool drawSightRadius)
+        static void _DrawActors(World world, bool drawSightRadius, bool drawHitboxes)
         {
             var em = world.Dots.EntityManager;
             foreach (var player in world.PlayerItems)
@@ -71,6 +72,10 @@ namespace PinionCore.Project2.Worlds
                     }
                 }
 
+                // 攻擊命中窗(伺服器權威 hitbox):窗內紅(Sweep 畫掃掠進度)、未到窗淡灰、已過窗不畫
+                if (drawHitboxes && player.ActionActive)
+                    _DrawHitSegments(world, player, pos);
+
                 // 視野圈:實線 = 進入半徑,淡色 = 離開半徑(hysteresis 緩衝帶)
                 if (drawSightRadius)
                 {
@@ -89,6 +94,31 @@ namespace PinionCore.Project2.Worlds
                     Gizmos.DrawLine(hit + Vector3.left * 0.2f, hit + Vector3.right * 0.2f);
                     Gizmos.DrawLine(hit + Vector3.back * 0.2f, hit + Vector3.forward * 0.2f);
                 }
+            }
+        }
+
+        static void _DrawHitSegments(World world, Player player, Vector3 pos)
+        {
+            var config = player.CurrentActionConfig;
+            if (config == null || config.HitSegments == null || config.HitSegments.Length == 0)
+                return;
+
+            var now = world.ElapsedTicks;
+            var anchor = new Vector2(pos.x, pos.z);
+            foreach (var segment in config.HitSegments)
+            {
+                var segStart = player.ActionStartTicks + (long)(Mathf.Max(0f, segment.StartTime) * System.TimeSpan.TicksPerSecond);
+                var segEnd = segStart + (long)(Mathf.Max(0f, segment.Duration) * System.TimeSpan.TicksPerSecond);
+                if (now > segEnd)
+                    continue;
+                var active = now >= segStart;
+                var fill = active ? new Color(1f, 0f, 0f, 0.25f) : new Color(0.5f, 0.5f, 0.5f, 0.08f);
+                var outline = active ? Color.red : new Color(0.6f, 0.6f, 0.6f, 0.5f);
+                var progress = active && segment.Sweep == Shared.SectorSweepMode.Sweep && segEnd > segStart
+                    ? (now - segStart) / (float)(segEnd - segStart)
+                    : float.NaN;
+                Shared.HitShapeGizmos.Draw(segment, anchor, player.ActionRight, player.ActionForward,
+                    0.03f, fill, outline, progress);
             }
         }
 

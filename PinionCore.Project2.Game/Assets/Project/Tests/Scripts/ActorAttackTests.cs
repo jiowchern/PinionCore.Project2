@@ -22,6 +22,7 @@ namespace PinionCore.Project2.Tests
         StandaloneSceneLoader _Scenes;
         PinionCore.NetSync.Standalone.Connector _Connector;
         PinionCore.NetSync.QueryerHost _Client;
+        GameObject _BotObject;   // 命中測試的靶:headless bot client(不掛 BotsMove,站在原地)
         bool _PreviousRunInBackground;
 
         // 攻擊總位移從 BattleAttackAction.asset 推導(烘焙會改寫段資料,測試不寫死數值);
@@ -89,6 +90,15 @@ namespace PinionCore.Project2.Tests
                 _Connector.Disconnect();
             _Connector = null;
             _Client = null;
+
+            if (_BotObject != null)
+            {
+                var botConnector = _BotObject.GetComponent<PinionCore.NetSync.Standalone.Connector>();
+                if (botConnector != null && botConnector.IsConnect())
+                    botConnector.Disconnect();
+                Object.Destroy(_BotObject);
+                _BotObject = null;
+            }
 
             yield return null;
 
@@ -248,6 +258,86 @@ namespace PinionCore.Project2.Tests
             var local = animator.transform.localPosition;
             Assert.Less(new Vector2(local.x, local.z).magnitude, 0.05f,
                 $"動作結束後模型不得漂離殼(localPosition={local})");
+        }
+
+        /// <summary>
+        /// 命中端到端(全鏈路):A 出招 → 伺服器 HitResolver 以 BattleAttackAction 的
+        /// HitSegments 判定命中站在原地的 bot → 對 bot 呼叫 ICharacter.Damage() →
+        /// 硬直動作 StartAction → ActionInfo 廣播 → A 的 client 從 bot 的 IActor ghost
+        /// 收到 AdventureDamage(client 端零新碼)。
+        /// bot 是複製連線物件的 headless client(不掛 BotsMove,站在出生點當靶)。
+        /// </summary>
+        [UnityTest]
+        [Timeout(120000)]
+        public IEnumerator AttackHitPlaysDamageOnTargetTest()
+        {
+            yield return _EnterWorld("HitAttacker");
+
+            // 生 bot:複製連線物件、掛 Bot 元件自行連線+Verify(名字 Bot_N)。
+            // Bot 吃的是 Client.QueryerHost wrapper(場景複製體上只有底層 host),
+            // 先取底層 host 再補掛 wrapper 指向它
+            _BotObject = Object.Instantiate(_Client.gameObject);
+            _BotObject.name = "TestBotClient";
+            var botHost = _BotObject.GetComponent<PinionCore.NetSync.QueryerHost>();
+            var botWrapper = _BotObject.AddComponent<PinionCore.Project2.Client.QueryerHost>();
+            botWrapper.Host = botHost;
+            var bot = _BotObject.AddComponent<PinionCore.Project2.Client.Bots.Bot>();
+            bot.QueryerHost = botWrapper;
+            bot.Connection = PinionCore.Project2.Client.Bots.Bot.ConnectionMode.Standalone;
+            bot.ModelType = ModelType.Cube;
+
+            // 等 bot 進入世界:A 的視野收到第二個 actor(名字 Bot_ 開頭)
+            System.Guid selfId = _PlayerGhost.ActorId;
+            var botSupply = TestWait.First(
+                _PlayerGhost.Actors.SupplyEvent(),
+                a => a.ActorId.Value != selfId && a.DisplayName.Value != null && a.DisplayName.Value.StartsWith("Bot_"),
+                System.TimeSpan.FromSeconds(30));
+            yield return botSupply;
+            TestWait.AssertDone(botSupply, "bot 應進入世界並出現在 A 的視野");
+            var botGhost = botSupply.Result;
+
+            // 攻擊是前衝突進、命中窗在前衝段:同點出招時目標會落在攻擊者正後方(扇形不中)。
+            // 比照實戰:先走開拉出距離,再以 Play 的 direction 指定攻擊朝向回身衝向 bot。
+            var battleIdle = _PlayAndWait(_ControllableGhost, ActionType.BattleIdle, ActionType.BattleIdle);
+            yield return battleIdle;
+            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後控制狀態應切到 Current==BattleIdle");
+
+            var standPosition = _Shell.Target.position;
+            var walked = TestWait.FirstWithRetry(
+                () => TestWait.TransitionEvents(_ControllableGhost).Where(t => t.Current.Action == ActionType.BattleWalk),
+                onAttempt: () => _ControllableGhost.Play(ActionType.BattleWalk, new Vector2(0f, 1f)).RemoteValue().Subscribe(),
+                perAttempt: System.TimeSpan.FromSeconds(3),
+                attempts: 5);
+            yield return walked;
+            TestWait.AssertDone(walked, "Play(BattleWalk) 應被接受(拉開與 bot 的距離)");
+
+            var separated = TestWait.Until(
+                () => Vector3.Distance(_Shell.Target.position, standPosition) > 1.0f,
+                System.TimeSpan.FromSeconds(10));
+            yield return separated;
+            TestWait.AssertDone(separated, "攻擊者應走離出生點 1m 以上");
+
+            var stopped = _PlayAndWait(_ControllableGhost, ActionType.BattleIdle, ActionType.BattleIdle);
+            yield return stopped;
+            TestWait.AssertDone(stopped, "走開後 Play(BattleIdle) 應停下");
+
+            // 回身出招:direction 是動作朝向基底,前衝與扇形都朝 -Z(bot 方向)
+            var attackEvent = TestWait.FirstWithRetry(
+                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleAttack),
+                onAttempt: () => _ControllableGhost.Play(ActionType.BattleAttack, new Vector2(0f, -1f)).RemoteValue().Subscribe(),
+                perAttempt: System.TimeSpan.FromSeconds(3),
+                attempts: 5);
+            yield return attackEvent;
+            TestWait.AssertDone(attackEvent, "Play(BattleAttack) 後 ActionEvent 應廣播 BattleAttack");
+            var attackStartTicks = attackEvent.Result.StartTicks;
+
+            // 全鏈路驗證:bot ghost 廣播 AdventureDamage(StartTicks 晚於攻擊開始 = 非訂閱 replay)
+            var damaged = TestWait.First(
+                TestWait.ActionEvents(botGhost),
+                a => a.Action == ActionType.AdventureDamage && a.StartTicks > attackStartTicks,
+                System.TimeSpan.FromSeconds(15));
+            yield return damaged;
+            TestWait.AssertDone(damaged, "命中後 bot 的 IActor ghost 應廣播 AdventureDamage(受擊硬直)");
         }
 
         IPlayer _PlayerGhost;

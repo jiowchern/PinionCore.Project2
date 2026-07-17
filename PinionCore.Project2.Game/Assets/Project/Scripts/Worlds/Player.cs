@@ -106,6 +106,22 @@ namespace PinionCore.Project2.Worlds
             }
         }
 
+        // 供命中判定(HitResolver)讀取:動作實例序號識別「同一次揮擊」(每次動作起播遞增,
+        // 不用 StartTicks 當識別 —— 同 tick 內 force 重啟同動作會撞號);
+        // 基底 = 動作開始朝向,攻擊不可重定向且攻擊態白名單為空,進行中不變,
+        // 撞牆滑行只改 MoveInfo.Facing 不動基底,可安全作為 hitbox 座標系。
+        long _ActionInstance;
+        internal long ActionInstance => _ActionInstance;
+        internal ActionConfig CurrentActionConfig => _CurrentAction;
+        internal long ActionStartTicks => _ActionInfo.StartTicks;   // 僅 CurrentActionConfig != null 時有意義
+        internal Vector2 ActionForward => _ActionForward;
+        internal Vector2 ActionRight => _ActionRight;
+        internal Vector2 SamplePositionNow()
+        {
+            _SampleNow(out var position, out _, out _);
+            return position;
+        }
+
         public Player(Guid actorId, ActorInfo info, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, float moveAcceptInterval, float radius, float sightRadius, ActionConfig[] actions, Vector3 spawnPosition, World world)
         {
             _World = world;
@@ -238,6 +254,7 @@ namespace PinionCore.Project2.Worlds
             var baseForward = forward.HasValue && forward.Value.sqrMagnitude > 1e-6f
                 ? forward.Value.normalized
                 : (_CurrentAction != null ? _ActionForward : facing);
+            _ActionInstance++;
             _CurrentAction = config;
             _ActionForward = baseForward;
             _ActionRight = new Vector2(baseForward.y, -baseForward.x);
@@ -384,6 +401,7 @@ namespace PinionCore.Project2.Worlds
             // 啟動走路:同 StartAction 排程,但朝向基底 = 指令方向(非取樣朝向);
             // 循環直到 Stop / 被 Cast 打斷,速度由烘焙的 root motion 決定。
             _SampleNow(out var start, out _, out var startTick);
+            _ActionInstance++;
             _CurrentAction = _LocomotionConfig;
             _ActionForward = direction.normalized;
             _ActionRight = new Vector2(_ActionForward.y, -_ActionForward.x);

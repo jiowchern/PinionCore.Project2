@@ -78,6 +78,9 @@ namespace PinionCore.Project2.Worlds
         readonly Sight _Sight;
         readonly System.Diagnostics.Stopwatch _SightWatch;
 
+        // 攻擊命中判定:每幀對「動作進行中且帶 HitSegments」的角色掃描目標,命中即 Damage
+        readonly HitResolver _HitResolver;
+
         // 控制轉移表:不可變資料,全部 PlayerController 共用單一實例
         readonly StandardTransitionProvider _TransitionProvider;
 
@@ -87,6 +90,7 @@ namespace PinionCore.Project2.Worlds
             _UpdateWatch = Stopwatch.StartNew();
             _Sight = new Sight();
             _SightWatch = Stopwatch.StartNew();
+            _HitResolver = new HitResolver();
             _TransitionProvider = new StandardTransitionProvider();
             _Controllers = new Depot<PlayerController>();
             _PlayersNotifier = _Controllers.ToNotifier<ICharacter>();
@@ -255,6 +259,7 @@ namespace PinionCore.Project2.Worlds
                 other.VisibleActors.Items.Remove(controller);
             controller.VisibleActors.Items.Clear();
             _Sight.Forget(actorId);
+            _HitResolver.Forget(actorId);
 
             // 結束狀態機:當前狀態 Leave 收回能力供應,Unsupply 先於根解綁送達
             controller.Shutdown();
@@ -276,6 +281,9 @@ namespace PinionCore.Project2.Worlds
             // 先推進各 controller 的狀態機(能力供應開關),再把 MoveInfo 取樣結果投影到 entity。
             foreach (var controller in _Controllers.Items)
                 controller.Update();
+
+            // 攻擊命中判定:redirect 已結清、transform 已投影,取樣位置不含穿牆外推
+            _HitResolver.Tick(_Controllers.Items, ElapsedTicks);
 
             // 視野判定節流:transform 投影完才評估,結果增刪 VisibleActors → Supply/Unsupply
             if (_SightWatch.Elapsed.TotalSeconds >= Sight.UpdateIntervalSeconds)

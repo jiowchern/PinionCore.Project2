@@ -28,8 +28,10 @@ namespace PinionCore.Project2.Client.Bots
 
         public Shared.Users.ModelType ModelType;
         
-        public UnityEngine.Events.UnityEvent<QueryerHost,Shared.IPlayer> OnBotCreated;
-        public UnityEngine.Events.UnityEvent<QueryerHost, Shared.IPlayer> OnBotRemoved;
+        // 欄位初始化:場景/prefab 走序列化會覆蓋;runtime AddComponent(測試生 bot)不會跑
+        // 序列化初始化,沒有初始器會是 null 直接 NRE
+        public UnityEngine.Events.UnityEvent<QueryerHost,Shared.IPlayer> OnBotCreated = new UnityEngine.Events.UnityEvent<QueryerHost, Shared.IPlayer>();
+        public UnityEngine.Events.UnityEvent<QueryerHost, Shared.IPlayer> OnBotRemoved = new UnityEngine.Events.UnityEvent<QueryerHost, Shared.IPlayer>();
 
 
         static int _botIds = 0;
