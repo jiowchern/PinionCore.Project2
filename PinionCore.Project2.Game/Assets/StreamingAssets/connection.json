@@ -1,0 +1,6 @@
+{
+  "web": "auto",
+  "webPort": 27233,
+  "tcpHost": "127.0.0.1",
+  "tcpPort": 27232
+}

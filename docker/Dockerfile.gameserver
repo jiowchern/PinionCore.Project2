@@ -1,0 +1,12 @@
+# 統一遊戲伺服器(User+Bot+World,Unity Linux Dedicated Server build)
+# build context = publish/linux-server(見 docker-compose.yml)
+FROM ubuntu:24.04
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates libatomic1 \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY . /app
+RUN chmod +x /app/ProjectGame2Server.x86_64
+# 27232 = TCP client(LocalTcpUser)、27233 = WebSocket client(LocalWebUser)
+EXPOSE 27232/tcp 27233/tcp
+ENTRYPOINT ["/app/ProjectGame2Server.x86_64", "-batchmode", "-nographics", "-logFile", "/dev/stdout"]

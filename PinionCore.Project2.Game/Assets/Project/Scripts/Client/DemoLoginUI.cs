@@ -25,6 +25,9 @@ namespace PinionCore.Project2.Client
 
         public PinionCore.NetSync.QueryerHost QueryerHost;
 
+        [Tooltip("部署端點解析器;連線時以解析後端點傳入 connector,未指派時使用 connector 的 Config 內建值。")]
+        public ConnectionSettingsLoader Loader;
+
         // 由平台推導,僅供 Inspector 檢視
         [ReadOnly] public ConnectionMode Connection;
 
@@ -147,10 +150,16 @@ namespace PinionCore.Project2.Client
                     _Unlock($"找不到 TcpConnector({host.name})");
                     yield break;
                 }
+                var endPoint = Loader != null ? Loader.ResolveTcpEndPoint() : null;
                 while (connector.CurrentStatus != PinionCore.NetSync.Tcp.TcpConnector.ConnectorStatus.Online)
                 {
                     if (connector.CurrentStatus == PinionCore.NetSync.Tcp.TcpConnector.ConnectorStatus.Offline)
-                        connector.Connect();
+                    {
+                        if (endPoint != null)
+                            connector.Connect(endPoint);
+                        else
+                            connector.Connect();
+                    }
                     yield return new WaitForSeconds(1.0f);
                 }
             }
@@ -162,10 +171,16 @@ namespace PinionCore.Project2.Client
                     _Unlock($"找不到 WebConnector({host.name})");
                     yield break;
                 }
+                var url = Loader != null ? Loader.ResolveWebUrl() : null;
                 while (connector.CurrentStatus != PinionCore.NetSync.Web.WebConnector.ConnectorStatus.Online)
                 {
                     if (connector.CurrentStatus == PinionCore.NetSync.Web.WebConnector.ConnectorStatus.Offline)
-                        connector.Connect();
+                    {
+                        if (!string.IsNullOrEmpty(url))
+                            connector.Connect(url);
+                        else
+                            connector.Connect();
+                    }
                     yield return new WaitForSeconds(1.0f);
                 }
             }

@@ -1,0 +1,36 @@
+# 本地發布:統一遊戲伺服器 + WebGL client 網頁托管
+# 先跑 PublishBuilder.BuildAll 產出 publish/,再:
+#   docker compose -f docker/docker-compose.yml up --build -d
+# 連線端點外部化在 publish/webgl-client/StreamingAssets/connection.json,
+# 部署換環境改 json 即可,不需重新建置。
+services:
+  game-server:
+    build:
+      context: ../publish/linux-server
+      dockerfile: ../../docker/Dockerfile.gameserver
+    image: projectgame2-server:latest
+    ports:
+      - "27232:27232" # TCP client(LocalTcpUser)
+      - "27233:27233" # WebSocket client(LocalWebUser)
+    stop_grace_period: 10s
+    restart: unless-stopped
+
+  webgl-client:
+    image: nginx:alpine
+    volumes:
+      - ../publish/webgl-client:/usr/share/nginx/html:ro
+      - ./nginx-webgl.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      # 8080 被本機 WSL 舊服務(wslrelay 於 ::1)佔用,避開
+      - "8081:80"
+    restart: unless-stopped
+
+  # 診斷用 development build(符號+完整例外堆疊),問題排除後可移除
+  webgl-client-dev:
+    image: nginx:alpine
+    volumes:
+      - ../publish/webgl-client-dev:/usr/share/nginx/html:ro
+      - ./nginx-webgl.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8082:80"
+    restart: unless-stopped

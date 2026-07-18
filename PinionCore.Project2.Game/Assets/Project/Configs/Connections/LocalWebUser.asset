@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fecb8db573626b48990da57d4eb0d11, type: 3}
   m_Name: LocalWebUser
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Web.WebConnectionConfig
-  _Url: ws://127.0.0.1:27231
+  _Url: ws://127.0.0.1:27233

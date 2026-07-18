@@ -22,6 +22,7 @@ MonoBehaviour:
   Segments:
   - LocalOffset: {x: 0, y: 0}
     Duration: 2.7
+  HitSegments: []
   Clip: {fileID: 3094330708855449807, guid: 0f69fd4f4ad106447896fb775199ed37, type: 3}
   BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
   SimplifyTolerance: 0.05

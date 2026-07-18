@@ -198,6 +198,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 823e270d024300242bb64d672a623140, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Standalone.Connector
+  Lag: 0
 --- !u!1 &485852051
 GameObject:
   m_ObjectHideFlags: 0
@@ -276,6 +277,8 @@ GameObject:
   - component: {fileID: 633939016}
   - component: {fileID: 633939018}
   - component: {fileID: 633939019}
+  - component: {fileID: 633939021}
+  - component: {fileID: 633939020}
   m_Layer: 0
   m_Name: GatewayService
   m_TagString: Untagged
@@ -360,6 +363,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 823e270d024300242bb64d672a623140, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Standalone.Connector
+  Lag: 0
 --- !u!114 &633939016
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -411,6 +415,32 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Kits.TcpStartToBind
   Listener: {fileID: 633939018}
+--- !u!114 &633939020
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 633939010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47dce1cbfe7374c4a80cc255b0701ba1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Kits.WebStartToBind
+  Listener: {fileID: 633939021}
+--- !u!114 &633939021
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 633939010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30d4ca1725feaf2428661c0bc338cfa6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Web.WebListener
+  Config: {fileID: 11400000, guid: e7132b6286091664dac2f0815eb800be, type: 2}
 --- !u!1 &1715423958
 GameObject:
   m_ObjectHideFlags: 0
