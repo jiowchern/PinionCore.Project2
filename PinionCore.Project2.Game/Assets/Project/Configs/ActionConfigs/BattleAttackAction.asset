@@ -35,15 +35,15 @@ MonoBehaviour:
   - LocalOffset: {x: -0.15808704, y: 0.045413017}
     Duration: 0.15000027
   HitSegments:
-  - StartTime: 0.6
-    Duration: 0.35
-    Shape: 2
-    LocalOffset: {x: 0, y: 0}
-    Radius: 1.2
-    HalfExtents: {x: 0, y: 0}
+  - StartTime: 0.7
+    Duration: 0.2
+    Shape: 1
+    LocalOffset: {x: 0, y: 0.15}
+    Radius: 0.2
+    HalfExtents: {x: 0.15, y: 0.3}
     Rotation: 0
-    AngleFrom: -60
-    AngleTo: 60
+    AngleFrom: 0
+    AngleTo: 0
     Sweep: 0
   Clip: {fileID: 7400000, guid: 7c1e94d02a5b4f6a8b3d60c218e5fa42, type: 2}
   BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
