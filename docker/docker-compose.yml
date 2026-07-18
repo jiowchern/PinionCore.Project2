@@ -3,27 +3,41 @@
 #   docker compose -f docker/docker-compose.yml up --build -d
 # 連線端點外部化在 publish/webgl-client/StreamingAssets/connection.json,
 # 部署換環境改 json 即可,不需重新建置。
+# 併入 Publishs 的 compose 群組(Docker Desktop 顯示在同一組)
+name: publishs
+
 services:
   game-server:
     build:
       context: ../publish/linux-server
       dockerfile: ../../docker/Dockerfile.gameserver
     image: projectgame2-server:latest
+    container_name: pinioncore-project2-server
     ports:
       - "27232:27232" # TCP client(LocalTcpUser)
       - "27233:27233" # WebSocket client(LocalWebUser)
     stop_grace_period: 10s
     restart: unless-stopped
+    networks:
+      default:
+      # 加入 Publishs 共用網,由 wss-proxy 以 wss://ws-direct.../project2 轉入
+      pinioncore-net:
+        aliases: [project2-server]
 
   webgl-client:
     image: nginx:alpine
+    container_name: pinioncore-project2-client
     volumes:
       - ../publish/webgl-client:/usr/share/nginx/html:ro
       - ./nginx-webgl.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
-      # 8080 被本機 WSL 舊服務(wslrelay 於 ::1)佔用,避開
-      - "8081:80"
+      - "27234:80"
     restart: unless-stopped
+    networks:
+      default:
+      # 由 pinioncore-proxy 以 https://proxy.pinioncore.dpdns.org/project2/ 轉入
+      pinioncore-net:
+        aliases: [project2-webgl]
 
   # 診斷用 development build(符號+完整例外堆疊),問題排除後可移除
   webgl-client-dev:
@@ -34,3 +48,9 @@ services:
     ports:
       - "8082:80"
     restart: unless-stopped
+
+networks:
+  # Publishs(PinionCore.NetSync)的共用網;cloudflared/nginx-proxy/wss-proxy 都在上面
+  pinioncore-net:
+    external: true
+    name: publishs_pinioncore-net
