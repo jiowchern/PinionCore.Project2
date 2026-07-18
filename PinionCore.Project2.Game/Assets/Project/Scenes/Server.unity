@@ -152,7 +152,7 @@ MonoBehaviour:
   - World
   - User
   - Bot
-  TargetFrameRate: 240
+  TargetFrameRate: 60
 --- !u!4 &414759184
 Transform:
   m_ObjectHideFlags: 0
