@@ -2,6 +2,10 @@ using UnityEngine;
 
 namespace PinionCore.Project2.Shared
 {
+}
+
+namespace PinionCore.Project2.Shared
+{
     // 一個「自帶位移的動作」的伺服器權威資料:root motion 由 editor 烘焙成
     // 分段等速直線(MotionSegment),伺服器依絕對 tick 排程逐段發出 MoveInfo,
     // 既有的去穿透 / TOI 撞牆對每段直線天然成立。

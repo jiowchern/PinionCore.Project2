@@ -177,7 +177,7 @@ namespace PinionCore.Project2.Client
         }
 
         /// <summary>
-        /// 強制下一幀重評估輸入:動作(攻擊等)結束時由 PlayerAttackHandler 呼叫。
+        /// 強制下一幀重評估輸入:動作(攻擊等)結束時由 PlayerActionMenuHandler 呼叫。
         /// 動作期間伺服器拒收 Move,而本層是邊緣觸發 —— 按住方向鍵出招,結束後
         /// _moving 仍為 true 且方向未變,永遠不會補送;重置後按住的鍵自然重新起步。
         /// 動作結束也是權威訊號:攻擊期間打在舊 soul 的在途指令不會再有回應,一併解鎖。

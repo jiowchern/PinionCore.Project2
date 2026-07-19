@@ -15,7 +15,7 @@ namespace PinionCore.Project2.Client
     /// 切換成功 = 走路被 idle 取代:通知 PlayerInputHandler 補送按住中的移動,
     /// 讓角色在新姿態下重新起步(邊緣觸發不會自己補)。
     ///
-    /// 在途鎖與逾時:與 PlayerAttackHandler 相同,回應遺失由逾時解鎖。
+    /// 在途鎖與逾時:回應遺失由逾時解鎖。
     /// </summary>
     public class PlayerStanceHandler : MonoBehaviour
     {

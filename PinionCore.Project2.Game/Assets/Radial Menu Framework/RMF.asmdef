@@ -1,17 +1,10 @@
 {
-    "name": "PinionCore.Project2.Client.Editor",
+    "name": "RMF",
     "rootNamespace": "",
     "references": [
-        "PinionCore.Project2.Client",
-        "PinionCore.Project2.Shared",
-        "PinionCore.NetSync",
-        "UnityEngine.UI",
-        "Unity.InputSystem",
-        "RMF"
+        "UnityEngine.UI"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

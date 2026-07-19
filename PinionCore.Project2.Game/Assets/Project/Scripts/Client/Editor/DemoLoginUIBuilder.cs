@@ -75,7 +75,7 @@ namespace PinionCore.Project2.Client.Editor
             controlsTitle.color = Color.white;
             controlsTitle.fontStyle = FontStyle.Bold;
             var controlsBody = _Text(font, controls.transform, "Body",
-                "W A S D  移動\n\nR  切換姿態(冒險 ⇄ 戰鬥)\n\n滑鼠左鍵  攻擊(戰鬥姿態)",
+                "W A S D  移動\n\nR  切換姿態(冒險 ⇄ 戰鬥)\n\n右下圓盤  點擊執行動作",
                 22, TextAnchor.UpperLeft, new Vector2(10, -40), new Vector2(300, 170));
             controlsBody.color = new Color(0.92f, 0.94f, 1f, 1f);
 

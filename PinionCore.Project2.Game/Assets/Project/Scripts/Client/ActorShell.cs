@@ -58,7 +58,7 @@ namespace PinionCore.Project2.Client
         // client 據此以 ActionType 查表取得表現資訊(HoldRotation/Stance/Loop 等),不過線
         ActionConfig[] _actionConfigs;
 
-        // 供輸入層(PlayerAttackHandler)觀察動作進行狀態;
+        // 供輸入層(PlayerActionMenuHandler/PlayerStanceHandler)觀察動作進行狀態;
         // 循環動作(下一狀態的 idle/走路)抵達 = 前一個一次性動作已結束(解鎖補送 Move 的訊號)
         public event Action<ActionInfo> ActionEvent;
 

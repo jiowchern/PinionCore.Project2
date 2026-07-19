@@ -11,7 +11,8 @@
         "Unity.ResourceManager",
         "Unity.Cinemachine",
         "Unity.InputSystem",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "RMF"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

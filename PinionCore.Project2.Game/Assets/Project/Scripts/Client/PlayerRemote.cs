@@ -12,11 +12,11 @@ namespace PinionCore.Project2.Client
 
 
         readonly UniRx.CompositeDisposable _Disposable;
-        // 攻擊用獨立容器:與 Move/Stop 共用 Clear 會取消在途移動回應,
+        // 姿態切換用獨立容器:與 Move/Stop 共用 Clear 會取消在途移動回應,
         // 害 PlayerInputHandler 的在途鎖永久卡死
-        readonly UniRx.CompositeDisposable _AttackDisposable;
-        // 姿態切換同理,獨立容器不與攻擊互相取消
         readonly UniRx.CompositeDisposable _StanceDisposable;
+        // 行動選單直接指定動作同理,獨立容器不與其他指令互相取消
+        readonly UniRx.CompositeDisposable _MenuPlayDisposable;
 
         // 最新 Transition 快取:IControllable 與角色同生命週期(soul 恆存),
         // 首次指令時常駐訂閱一次 TransitionEvent(soul 端 add 即回放當前值,之後每次轉移推播),
@@ -27,8 +27,8 @@ namespace PinionCore.Project2.Client
         public PlayerRemote()
         {
             _Disposable = new UniRx.CompositeDisposable();
-            _AttackDisposable = new UniRx.CompositeDisposable();
             _StanceDisposable = new UniRx.CompositeDisposable();
+            _MenuPlayDisposable = new UniRx.CompositeDisposable();
             _TransitionCache = new UniRx.ReplaySubject<Shared.Transition>(1);
         }
 
@@ -113,16 +113,24 @@ namespace PinionCore.Project2.Client
             _StanceDisposable.Add(disp);
         }
 
-        // 出招:BattleAttack 只在戰鬥系狀態的 Playables 白名單內,冒險態下伺服器回 false
-        public void Attack(Action<bool> responded)
+        // 表現層訂閱最新 Transition:訂閱即發射快取(晚訂閱安全),之後每次轉移推播;
+        // 回傳訂閱供呼叫端自行管理生命週期
+        public IDisposable SubscribeTransition(Action<Shared.Transition> handler)
         {
-            _AttackDisposable.Clear();
+            return _Transitions().Subscribe(handler);
+        }
+
+        // 行動選單直接指定動作:不做白名單前置過濾,由伺服器以當下 Transition 驗證
+        //(不在 Playables 且非重定向一律回 false);direction 只有走路類動作使用
+        public void Play(Shared.ActionType action, Vector2 direction, Action<bool> responded)
+        {
+            _MenuPlayDisposable.Clear();
 
             var obs = from controllable in _Controllables().Take(1)
-                      from result in controllable.Play(Shared.ActionType.BattleAttack, Vector2.zero).RemoteValue().DoOnError(_Error)
+                      from result in controllable.Play(action, direction).RemoteValue().DoOnError(_Error)
                       select result;
             var disp = obs.Subscribe(result => responded?.Invoke(result));
-            _AttackDisposable.Add(disp);
+            _MenuPlayDisposable.Add(disp);
         }
 
         // 統一入口:只 query IUserEntry,IControllable 沿合約鏈(entry.Games → game.Player → player.Controllable)取得;
@@ -192,8 +200,8 @@ namespace PinionCore.Project2.Client
         void OnDestroy()
         {
             _Disposable.Dispose();
-            _AttackDisposable.Dispose();
             _StanceDisposable.Dispose();
+            _MenuPlayDisposable.Dispose();
             _TransitionFeed?.Dispose();
             _TransitionCache.Dispose();
         }
