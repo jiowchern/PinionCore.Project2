@@ -11,7 +11,8 @@ namespace PinionCore.Project2.Client.Editor
 {
     /// <summary>
     /// 一鍵在 Client 場景建出演示用 uGUI:登入面板+操作說明框+EventSystem,
-    /// 並自動接好 DemoLoginUI 參照;可重複執行(先清掉舊的 DemoUI/EventSystem 再重建)。
+    /// 並自動接好 DemoLoginUI 參照(含 ConnectionSettingsLoader 端點解析器);
+    /// 可重複執行(先清掉舊的 DemoUI/EventSystem 再重建)。
     /// </summary>
     public static class DemoLoginUIBuilder
     {
@@ -108,6 +109,17 @@ namespace PinionCore.Project2.Client.Editor
 
             if (ui.QueryerHost == null)
                 Debug.LogWarning("DemoLoginUIBuilder: 找不到 QueryerHost(wrapper),請手動指定 DemoLoginUI.QueryerHost");
+
+            // 端點解析器與 UI 同物件一起重建,重跑選單不會遺失(2026-07 事故根因)
+            var loader = canvasGo.AddComponent<ConnectionSettingsLoader>();
+            loader.WebConfig = AssetDatabase.LoadAssetAtPath<PinionCore.NetSync.Web.WebConnectionConfig>(
+                "Assets/Project/Configs/Connections/LocalWebUser.asset");
+            loader.TcpConfig = AssetDatabase.LoadAssetAtPath<PinionCore.NetSync.Tcp.TcpConnectionConfig>(
+                "Assets/Project/Configs/Connections/LocalTcpUser.asset");
+            loader.LoginButton = button;
+            ui.Loader = loader;
+            if (loader.WebConfig == null || loader.TcpConfig == null)
+                Debug.LogWarning("DemoLoginUIBuilder: 找不到 LocalWebUser/LocalTcpUser 設定資產,請手動指定 ConnectionSettingsLoader 的 Config");
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);

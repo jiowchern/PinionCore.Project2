@@ -921,6 +921,7 @@ GameObject:
   - component: {fileID: 281420398}
   - component: {fileID: 281420397}
   - component: {fileID: 281420396}
+  - component: {fileID: 361323311}
   m_Layer: 0
   m_Name: DemoUI
   m_TagString: Untagged
@@ -941,7 +942,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.DemoLoginUI
   QueryerHost: {fileID: 213339232}
-  Loader: {fileID: 0}
+  Loader: {fileID: 361323311}
   Connection: 0
   LoginPanel: {fileID: 2045066735}
   ControlsPanel: {fileID: 22523419}
@@ -950,6 +951,21 @@ MonoBehaviour:
   LoginButton: {fileID: 825202139}
   StatusText: {fileID: 1281019229}
   ModeText: {fileID: 198685970}
+--- !u!114 &361323311
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 281420395}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f0a881ed1ea56e41a9d31ba847ace5e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.ConnectionSettingsLoader
+  WebConfig: {fileID: 11400000, guid: e7132b6286091664dac2f0815eb800be, type: 2}
+  TcpConfig: {fileID: 11400000, guid: 76ee06021ed8c4a45a7a18e7029a1f19, type: 2}
+  LoginButton: {fileID: 825202139}
 --- !u!114 &281420397
 MonoBehaviour:
   m_ObjectHideFlags: 0
