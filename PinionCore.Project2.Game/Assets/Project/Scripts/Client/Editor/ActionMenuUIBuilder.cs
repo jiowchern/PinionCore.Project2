@@ -35,7 +35,14 @@ namespace PinionCore.Project2.Client.Editor
             }
 
             var res = _BuiltinResources();
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            // WebGL 無 OS 字型回退,內建 LegacyRuntime 不含 CJK,中文會無聲消失;
+            // 必須用打進 build 的 Noto Sans TC(找不到就中止,不能默默退回內建字型)
+            var font = AssetDatabase.LoadAssetAtPath<Font>("Assets/Project/Fonts/NotoSansTC-Regular.otf");
+            if (font == null)
+            {
+                Debug.LogError("ActionMenuUIBuilder: 找不到 Assets/Project/Fonts/NotoSansTC-Regular.otf,中止(內建字型在 WebGL 顯示不了中文)");
+                return;
+            }
 
             var canvasGo = new GameObject("ActionMenuUI", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             SceneManager.MoveGameObjectToScene(canvasGo, scene);

@@ -25,11 +25,12 @@ $Project = Join-Path $Root 'PinionCore.Project2.Game'
 $Compose = Join-Path $Root 'docker\docker-compose.yml'
 
 if (-not $SkipBuild) {
-    # 從 ProjectVersion.txt 取版本,對應 Unity Hub 安裝目錄(D:\Unity\IDEs)
+    # 從 ProjectVersion.txt 取版本;安裝根目錄依機器而異,逐一探測
     $version = (Select-String -Path (Join-Path $Project 'ProjectSettings\ProjectVersion.txt') `
         -Pattern 'm_EditorVersion: (.+)').Matches[0].Groups[1].Value.Trim()
-    $Unity = "D:\Unity\IDEs\$version\Editor\Unity.exe"
-    if (-not (Test-Path $Unity)) { throw "找不到 Unity $version : $Unity" }
+    $Unity = @("D:\Unity\IDEs\$version\Editor\Unity.exe", "D:\unity\editors\$version\Editor\Unity.exe") |
+        Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $Unity) { throw "找不到 Unity $version(已探測 D:\Unity\IDEs 與 D:\unity\editors)" }
 
     # 專案已被 Editor 開啟時 batch mode 會直接失敗,先擋下來給明確訊息
     $open = Get-CimInstance Win32_Process -Filter "Name = 'Unity.exe'" |
