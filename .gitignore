@@ -12,3 +12,5 @@ $RECYCLE.BIN/
 *.lnk
 # build output
 publish/
+# 維護模式旗標檔(deploy-webgl.ps1 掛/卸,只存在於部署機)
+docker/maintenance/on

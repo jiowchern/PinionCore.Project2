@@ -30,6 +30,8 @@ services:
     volumes:
       - ../publish/webgl-client:/usr/share/nginx/html:ro
       - ./nginx-webgl.conf:/etc/nginx/conf.d/default.conf:ro
+      # 維護頁+旗標檔(docker/maintenance/on),由 deploy-webgl.ps1 掛/卸
+      - ./maintenance:/usr/share/nginx/maintenance:ro
     ports:
       - "27234:80"
     restart: unless-stopped
