@@ -113,6 +113,8 @@ namespace PinionCore.Project2.Worlds
         long _ActionInstance;
         internal long ActionInstance => _ActionInstance;
         internal ActionConfig CurrentActionConfig => _CurrentAction;
+        // 供 ControllerStatus 的接招窗(ChainWindow)到期判斷取當下世界時間
+        internal long NowTicks => _World.ElapsedTicks;
         internal long ActionStartTicks => _ActionInfo.StartTicks;   // 僅 CurrentActionConfig != null 時有意義
         internal Vector2 ActionForward => _ActionForward;
         internal Vector2 ActionRight => _ActionRight;
@@ -226,15 +228,7 @@ namespace PinionCore.Project2.Worlds
             if (action == ActionType.None)
                 return false;
 
-            ActionConfig config = null;
-            foreach (var c in _Actions)
-            {
-                if (c != null && c.Action == action)
-                {
-                    config = c;
-                    break;
-                }
-            }
+            var config = FindConfig(action);
             if (config == null || config.Segments == null || config.Segments.Length == 0)
                 return false;
 
@@ -267,6 +261,17 @@ namespace PinionCore.Project2.Worlds
             _SetActionInfo(new ActionInfo { Action = action, StartTicks = now });
             _StartSegment(0, position, now);
             return true;
+        }
+
+        /// <summary>以 ActionType 查此角色的 ActionConfig;查無回 null。</summary>
+        internal ActionConfig FindConfig(ActionType action)
+        {
+            foreach (var c in _Actions)
+            {
+                if (c != null && c.Action == action)
+                    return c;
+            }
+            return null;
         }
 
         /// <summary>一次算定所有段邊界的絕對 tick(now + 累計段時長),並重置段游標。</summary>

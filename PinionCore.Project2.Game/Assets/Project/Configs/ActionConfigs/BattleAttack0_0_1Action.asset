@@ -16,12 +16,21 @@ MonoBehaviour:
   Loop: 0
   Redirectable: 0
   Interruptible: 0
+  ChainWindow: 0
   HoldRotation: 1
   Stance: 1
   Duration: 1.5
   Segments:
-  - LocalOffset: {x: 0, y: 0}
-    Duration: 1.5
+  - LocalOffset: {x: 0.042338636, y: 0.050002575}
+    Duration: 0.36666676
+  - LocalOffset: {x: 0.06638445, y: 0.4377096}
+    Duration: 0.26666662
+  - LocalOffset: {x: -0.029160686, y: 0.32547984}
+    Duration: 0.33333302
+  - LocalOffset: {x: -0.031629287, y: 0.5506458}
+    Duration: 0.28333312
+  - LocalOffset: {x: -0.047933135, y: 0.3676231}
+    Duration: 0.25000048
   HitSegments: []
   Clip: {fileID: 7400000, guid: f815bf5f17129f44496a622430c06cc1, type: 2}
   BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}

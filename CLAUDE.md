@@ -4,7 +4,7 @@
 
 ### Status vs Stance
 - `Status` 保留給**狀態機**:`PinionCore.Utility.IStatus`/`StatusMachine` 與 world 端的 `-Status` 狀態類(`ControllerStatus`…)。
-- **表現狀態**一律 `Stance`:`StanceType` 與 client 殼 `ActorShell.Stance`。Stance 不再獨立過線(`IActor.StanceEvent`/`Player.SetStance` 已拆除),一律由 `ActionConfig.Stance` 查表(資產與伺服器同一份;`ActionTypeExtensions.StanceOf` 硬編碼推導已拆除)。動作的能力/權限(`Loop`/`Redirectable`/`Interruptible`/`HoldRotation`)同樣是 ActionConfig 欄位,不從 ActionType 或已刪除的 `ActionCategory` 推導。
+- **表現狀態**一律 `Stance`:`StanceType` 與 client 殼 `ActorShell.Stance`。Stance 不再獨立過線(`IActor.StanceEvent`/`Player.SetStance` 已拆除),一律由 `ActionConfig.Stance` 查表(資產與伺服器同一份;`ActionTypeExtensions.StanceOf` 硬編碼推導已拆除)。動作的能力/權限(`Loop`/`Redirectable`/`Interruptible`/`HoldRotation`/`ChainWindow`)同樣是 ActionConfig 欄位,不從 ActionType 或已刪除的 `ActionCategory` 推導。
 - Animator 參數名仍是字串 `"status"`(asset 側,勿在 C# 端混用)。
 
 ### Notifier / Depot 屬性單複數 = 供應數量

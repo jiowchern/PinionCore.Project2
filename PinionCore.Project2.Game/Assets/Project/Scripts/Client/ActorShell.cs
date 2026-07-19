@@ -239,8 +239,10 @@ namespace PinionCore.Project2.Client
                     {
                         _animator.CrossFadeInFixedTime(_StateName(transition.Next.Action), 0.1f, 0, (float)(actionElapsed - config.Duration));
                         _appliedAction = transition.Next.Action;
-                        // 預測起點 = 排程邊界(StartTicks + Duration),權威事件抵達時據此收養
-                        _appliedActionTicks = _actionInfo.StartTicks + (long)(config.Duration * TimeSpan.TicksPerSecond);
+                        // 預測起點 = 排程邊界(StartTicks + Duration)+ 接招窗:
+                        // 伺服器窗內續留原狀態,無人接招時 Next 的權威 ActionInfo 於窗到期才發,
+                        // 收養時戳須含窗才對得上(窗內接招是不同動作,不走收養、照常 CrossFade)
+                        _appliedActionTicks = _actionInfo.StartTicks + (long)((config.Duration + config.ChainWindow) * TimeSpan.TicksPerSecond);
                         _predictedFromAction = _actionInfo.Action;
                         _predictedFromTicks = _actionInfo.StartTicks;
                     }

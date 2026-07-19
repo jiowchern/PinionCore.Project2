@@ -38,6 +38,8 @@ namespace PinionCore.Project2.Shared
         public bool Loop;            // 段播完 wrap 重排循環;false = 段播完 _EndAction 結束
         public bool Redirectable;    // 進行中可被 Move 換向;也是 Move 直接起走與 Stop 的選型條件
         public bool Interruptible;   // 進行中可被非 force 的新動作取代
+        [Min(0f)]
+        public float ChainWindow;    // 接招窗(秒):播完後 Playables 白名單仍開放、延遲轉移 Next;0 = 播完立即轉移
 
         [Header("表現(client 讀取)")]
         public bool HoldRotation;    // 動作期間 client 凍結旋轉(段 Facing 是速度方向非視覺朝向)
@@ -81,6 +83,8 @@ namespace PinionCore.Project2.Shared
                 Debug.LogError($"ActionConfig {name}: Redirectable 依賴循環邊界相位保持,非 Loop 動作的重定向語意未定義", this);
             if (Redirectable && HoldRotation)
                 Debug.LogWarning($"ActionConfig {name}: Redirectable(重定向改朝向)與 HoldRotation(凍結旋轉)語意矛盾", this);
+            if (ChainWindow > 0f && Loop)
+                Debug.LogWarning($"ActionConfig {name}: Loop 動作不會自然播完(EndEvent 只有守門結束),ChainWindow 無意義", this);
             if (Loop && Segments != null && Segments.Length > 0)
             {
                 var total = 0.0;

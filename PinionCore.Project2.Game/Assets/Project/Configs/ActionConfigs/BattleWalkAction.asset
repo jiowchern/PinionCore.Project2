@@ -16,6 +16,7 @@ MonoBehaviour:
   Loop: 1
   Redirectable: 1
   Interruptible: 1
+  ChainWindow: 0
   HoldRotation: 0
   Stance: 1
   Duration: 0.6
