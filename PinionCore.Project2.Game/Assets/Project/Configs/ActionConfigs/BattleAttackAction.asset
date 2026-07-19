@@ -46,8 +46,10 @@ MonoBehaviour:
     AngleFrom: 0
     AngleTo: 0
     Sweep: 0
+  HitEffect: 0
   Clip: {fileID: 7400000, guid: 7c1e94d02a5b4f6a8b3d60c218e5fa42, type: 2}
   BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
+  BakeStationary: 0
   SimplifyTolerance: 0.02
   MaxSegments: 8
   TrailProbe: 

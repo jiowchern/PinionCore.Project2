@@ -51,6 +51,7 @@ namespace PinionCore.Project2.Shared
                 {
                     _Play(ActionType.BattleAttack),
                     _Play(ActionType.BattleAttack0),
+                    _Play(ActionType.GrabStart),
                     _Play(ActionType.BattleWalk),
                     _Play(ActionType.AdventureIdle),
                 },
@@ -67,6 +68,7 @@ namespace PinionCore.Project2.Shared
                     _Play(ActionType.BattleIdle),
                     _Play(ActionType.BattleAttack),
                     _Play(ActionType.BattleAttack0),
+                    _Play(ActionType.GrabStart),
                 },
                 Next = _Play(ActionType.BattleIdle),
                 Damage = _Play(ActionType.BattleDamage),
@@ -135,6 +137,113 @@ namespace PinionCore.Project2.Shared
                 Damage = _Play(ActionType.BattleDamage),
             };
 
+            // 抓取家族:A 側(抓取者)/B 側(被抓者)成對節點;配對建立/鏡射/解體由
+            // Worlds.GrabResolver 驅動(A 側離開 grab 家族即解體 → 第三方打抓取者自動釋放被抓者)。
+            var grabStart = new Transition
+            {
+                Current = _Play(ActionType.GrabStart),
+                Playables = System.Array.Empty<PlayInfo>(),   // 起手中不可動;未命中自然播完回 idle
+                Next = _Play(ActionType.BattleIdle),
+                Damage = _Play(ActionType.BattleDamage),
+            };
+
+            var grabIdleA = new Transition
+            {
+                Current = _Play(ActionType.GrabIdleA),
+                Playables = new[]
+                {
+                    _Play(ActionType.GrabWalkA),
+                    _Play(ActionType.GrabAtk1A),
+                    _Play(ActionType.GrabThrowA),
+                },
+                Next = _Play(ActionType.GrabIdleA),
+                Damage = _Play(ActionType.BattleDamage),   // 被打→硬直;GrabResolver 見離開家族即解體
+            };
+
+            var grabWalkA = new Transition
+            {
+                Current = _Play(ActionType.GrabWalkA),
+                Playables = new[]
+                {
+                    _Play(ActionType.GrabWalkA),   // 自身 = 重定向
+                    _Play(ActionType.GrabIdleA),   // client Stop = Play(Next) 的放行入口
+                    _Play(ActionType.GrabAtk1A),
+                    _Play(ActionType.GrabThrowA),
+                },
+                Next = _Play(ActionType.GrabIdleA),
+                Damage = _Play(ActionType.BattleDamage),
+            };
+
+            var grabAtk1A = new Transition
+            {
+                Current = _Play(ActionType.GrabAtk1A),
+                Playables = System.Array.Empty<PlayInfo>(),   // 補打中不可動
+                Next = _Play(ActionType.GrabIdleA),
+                Damage = _Play(ActionType.BattleDamage),
+            };
+
+            var grabThrowA = new Transition
+            {
+                Current = _Play(ActionType.GrabThrowA),
+                Playables = System.Array.Empty<PlayInfo>(),   // 丟投起手即解除配對
+                Next = _Play(ActionType.BattleIdle),
+                Damage = _Play(ActionType.BattleDamage),
+            };
+
+            var grabBreakA = new Transition
+            {
+                Current = _Play(ActionType.GrabBreakA),
+                Playables = System.Array.Empty<PlayInfo>(),   // 被掙脫後搖;只由 GrabResolver force 進入
+                Next = _Play(ActionType.BattleIdle),
+                Damage = _Play(ActionType.BattleDamage),
+            };
+
+            var grabIdleB = new Transition
+            {
+                Current = _Play(ActionType.GrabIdleB),
+                Playables = new[]
+                {
+                    _Play(ActionType.GrabBreakB),   // 被抓者唯一可用動作:掙脫
+                },
+                Next = _Play(ActionType.GrabIdleB),
+                Damage = _Play(ActionType.GrabAtk1B),   // 被抓中挨打(含抓取者補打)→受創反應,仍被抓
+            };
+
+            var grabWalkB = new Transition
+            {
+                Current = _Play(ActionType.GrabWalkB),
+                Playables = new[]
+                {
+                    _Play(ActionType.GrabBreakB),   // 被拖行中仍可掙脫
+                },
+                Next = _Play(ActionType.GrabIdleB),
+                Damage = _Play(ActionType.GrabAtk1B),
+            };
+
+            var grabAtk1B = new Transition
+            {
+                Current = _Play(ActionType.GrabAtk1B),
+                Playables = System.Array.Empty<PlayInfo>(),
+                Next = _Play(ActionType.GrabIdleB),
+                Damage = _Play(ActionType.GrabAtk1B),   // 連續挨打:重進反應(刷新)
+            };
+
+            var grabThrowB = new Transition
+            {
+                Current = _Play(ActionType.GrabThrowB),
+                Playables = System.Array.Empty<PlayInfo>(),   // 飛行中不可動
+                Next = _Play(ActionType.BattleIdle),
+                Damage = _Play(ActionType.BattleDamage),   // 配對已解除,照常受創
+            };
+
+            var grabBreakB = new Transition
+            {
+                Current = _Play(ActionType.GrabBreakB),
+                Playables = System.Array.Empty<PlayInfo>(),
+                Next = _Play(ActionType.BattleIdle),
+                Damage = _Play(ActionType.BattleDamage),
+            };
+
             _Transitions = new System.Collections.Generic.Dictionary<ActionType, Transition>
             {
                 { ActionType.AdventureIdle, adventureIdle },
@@ -148,6 +257,17 @@ namespace PinionCore.Project2.Shared
                 { ActionType.BattleAttack0_0, battleAttack0_0 },
                 { ActionType.BattleAttack0_0_0, battleAttack0_0_0 },
                 { ActionType.BattleAttack0_0_1, battleAttack0_0_1 },
+                { ActionType.GrabStart, grabStart },
+                { ActionType.GrabIdleA, grabIdleA },
+                { ActionType.GrabWalkA, grabWalkA },
+                { ActionType.GrabAtk1A, grabAtk1A },
+                { ActionType.GrabThrowA, grabThrowA },
+                { ActionType.GrabBreakA, grabBreakA },
+                { ActionType.GrabIdleB, grabIdleB },
+                { ActionType.GrabWalkB, grabWalkB },
+                { ActionType.GrabAtk1B, grabAtk1B },
+                { ActionType.GrabThrowB, grabThrowB },
+                { ActionType.GrabBreakB, grabBreakB },
             };
             Transitions = _Transitions;
         }

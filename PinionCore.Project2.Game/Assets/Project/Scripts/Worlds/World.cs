@@ -78,8 +78,11 @@ namespace PinionCore.Project2.Worlds
         readonly Sight _Sight;
         readonly System.Diagnostics.Stopwatch _SightWatch;
 
-        // 攻擊命中判定:每幀對「動作進行中且帶 HitSegments」的角色掃描目標,命中即 Damage
+        // 攻擊命中判定:每幀對「動作進行中且帶 HitSegments」的角色掃描目標,依 HitEffect 分派
         readonly HitResolver _HitResolver;
+
+        // 抓取配對:HitResolver enqueue 的抓取命中在此結算;配對存續期間轉發 MoveInfo 與鏡射節點
+        readonly GrabResolver _GrabResolver;
 
         // 控制轉移表:不可變資料,全部 PlayerController 共用單一實例
         readonly StandardTransitionProvider _TransitionProvider;
@@ -90,7 +93,8 @@ namespace PinionCore.Project2.Worlds
             _UpdateWatch = Stopwatch.StartNew();
             _Sight = new Sight();
             _SightWatch = Stopwatch.StartNew();
-            _HitResolver = new HitResolver();
+            _GrabResolver = new GrabResolver();
+            _HitResolver = new HitResolver(_GrabResolver);
             _TransitionProvider = new StandardTransitionProvider();
             _Controllers = new Depot<PlayerController>();
             _PlayersNotifier = _Controllers.ToNotifier<ICharacter>();
@@ -124,7 +128,9 @@ namespace PinionCore.Project2.Worlds
 
         public void Dispose()
         {
-            // 先清掉殘留玩家讓 Unsupply 通知送出(能力 → 視野 → 根解綁);entity 隨 _dots.Dispose() 一併銷毀。
+            // 先退訂全部抓取配對(不再驅動轉移),再清掉殘留玩家讓 Unsupply 通知送出
+            //(能力 → 視野 → 根解綁);entity 隨 _dots.Dispose() 一併銷毀。
+            _GrabResolver.Clear();
             foreach (var controller in _Controllers.Items)
                 controller.Shutdown();
             foreach (var controller in _Controllers.Items)
@@ -260,6 +266,8 @@ namespace PinionCore.Project2.Worlds
             controller.VisibleActors.Items.Clear();
             _Sight.Forget(actorId);
             _HitResolver.Forget(actorId);
+            // 配對拆解要在 Shutdown 之前:倖存方的 ForceTransition 要打在活著的狀態機上
+            _GrabResolver.Forget(actorId);
 
             // 結束狀態機:當前狀態 Leave 收回能力供應,Unsupply 先於根解綁送達
             controller.Shutdown();
@@ -284,6 +292,10 @@ namespace PinionCore.Project2.Worlds
 
             // 攻擊命中判定:redirect 已結清、transform 已投影,取樣位置不含穿牆外推
             _HitResolver.Tick(_Controllers.Items, ElapsedTicks);
+
+            // 抓取結算:緊接命中掃描之後(建立配對會 snap 位置,不能在掃描中做);
+            // 也在此排空被抓者的外來 emission 校正(每幀至多一次蓋回錨點)
+            _GrabResolver.Tick(ElapsedTicks);
 
             // 視野判定節流:transform 投影完才評估,結果增刪 VisibleActors → Supply/Unsupply
             if (_SightWatch.Elapsed.TotalSeconds >= Sight.UpdateIntervalSeconds)

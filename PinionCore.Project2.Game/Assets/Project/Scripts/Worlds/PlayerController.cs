@@ -89,12 +89,23 @@ namespace PinionCore.Project2.Worlds
             _Controllers.Items.Add(this);
         }
 
+        /// <summary>
+        /// world 內部的轉移通知(無 replay、不過線):每次 _ToController 同步 raise。
+        /// GrabResolver 據此觀察配對雙方的節點變化;不可改用 IControllable.TransitionEvent ——
+        /// 其 add 即回放當前 Transition,訂閱當下會誤觸「離開 grab 家族」判定。
+        /// </summary>
+        internal event Action<Transition> TransitionChangedEvent;
+
+        // 當前控制節點(_ToController 同步 swap,讀到的恆為最新意圖;該狀態的 Enter 可能尚未執行)
+        internal Transition CurrentTransition => _ControllerStatus.Transition;
+
         void _ToController(Transition transition, UnityEngine.Vector2 direction)
         {
             var status = new Statuses.ControllerStatus(Player, transition, direction);
             status.NextEvent += _OnNext;
             _ControllerStatus = status;
             _StatusMachine.Push(status);
+            TransitionChangedEvent?.Invoke(transition);
             _TransitionEvent?.Invoke(transition);
         }
 
@@ -107,6 +118,15 @@ namespace PinionCore.Project2.Worlds
         internal void ToConscious(ActionType type)
         {
             _ToController(_TransitionProvider.Transitions[type], UnityEngine.Vector2.zero);
+        }
+
+        /// <summary>
+        /// 伺服器內部強制轉移到指定節點(GrabResolver 的配對建立/鏡射/釋放等跨角色編排用);
+        /// direction 傳入該節點動作的朝向基底(零向量 = 沿用既有規則)。
+        /// </summary>
+        internal void ForceTransition(ActionType type, UnityEngine.Vector2 direction)
+        {
+            _ToController(_TransitionProvider.Transitions[type], direction);
         }
 
 

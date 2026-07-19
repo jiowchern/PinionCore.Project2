@@ -22,6 +22,13 @@ namespace PinionCore.Project2.Shared
         Sweep = 1,    // 角度邊緣隨時間從 AngleFrom 線性掃到 AngleTo
     }
 
+    // HitSegments 命中目標時施加的效果種類(HitResolver 分派)
+    public enum HitEffectType
+    {
+        Damage = 0,   // ICharacter.Damage():推進目標的受創節點(Transition.Damage)
+        Grab = 1,     // 抓取成立:GrabResolver 配對(單目標,同一次揮擊首中即止)
+    }
+
     [CreateAssetMenu(fileName = "ActionConfig", menuName = "PinionCore/ActionConfig", order = 5)]
     public class ActionConfig : ScriptableObject
     {
@@ -70,10 +77,16 @@ namespace PinionCore.Project2.Shared
 
         public HitSegment[] HitSegments = System.Array.Empty<HitSegment>();
 
+        // 命中效果:HitSegments 命中時對目標施加什麼(伺服器權威讀取);
+        // 預設 Damage,既有攻擊資產零遷移。
+        public HitEffectType HitEffect = HitEffectType.Damage;
+
 #if UNITY_EDITOR
         [Header("烘焙設定(僅 Editor,player build 不含)")]
         public AnimationClip Clip;               // 烘焙來源;root motion 取樣自此 clip
         public GameObject BakeRig;               // 選填:模型 prefab 的 Animator 無 Avatar 時,指定有 Avatar 的 rig 烘焙
+        public bool BakeStationary;              // 不取樣 root motion:Duration=clip 長、Segments=單一零位移段
+                                                 // (被抓者的配對動作用;位置權威在 GrabResolver 轉發,自身排程必須零位移)
         public float SimplifyTolerance = 0.02f;  // 分段化最大偏差(公尺):折點到弦線垂距超過即切段
         public int MaxSegments = 8;              // 超過即警告(通常表示 clip 位移過於曲折或容差過小)
 
@@ -83,6 +96,10 @@ namespace PinionCore.Project2.Shared
 
         void OnValidate()
         {
+            if (BakeStationary && Redirectable)
+                Debug.LogError($"ActionConfig {name}: BakeStationary(位置由轉發驅動)與 Redirectable(Move 換向)語意矛盾", this);
+            if (HitEffect == HitEffectType.Grab && (HitSegments == null || HitSegments.Length == 0))
+                Debug.LogWarning($"ActionConfig {name}: HitEffect=Grab 但沒有 HitSegments,抓取永遠不會成立", this);
             if (Redirectable && !Loop)
                 Debug.LogError($"ActionConfig {name}: Redirectable 依賴循環邊界相位保持,非 Loop 動作的重定向語意未定義", this);
             if (Redirectable && HoldRotation)

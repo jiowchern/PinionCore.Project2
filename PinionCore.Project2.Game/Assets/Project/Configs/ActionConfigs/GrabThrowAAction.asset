@@ -10,25 +10,33 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 95baacef3b7e1fe4da53c68b82764757, type: 3}
-  m_Name: BattleDamageAction
-  m_EditorClassIdentifier: 
-  Action: 7
+  m_Name: GrabThrowAAction
+  m_EditorClassIdentifier: PinionCore.Project2.Shared::PinionCore.Project2.Shared.ActionConfig
+  Action: 19
   Loop: 0
   Redirectable: 0
   Interruptible: 0
   ChainWindow: 0
   HoldRotation: 1
   Stance: 1
-  Duration: 1
+  Duration: 1.6333334
   Segments:
-  - LocalOffset: {x: 0, y: 0}
-    Duration: 1
+  - LocalOffset: {x: 0.026300292, y: -0.021199424}
+    Duration: 0.21666667
+  - LocalOffset: {x: -0.17256671, y: 0.14057863}
+    Duration: 0.2333335
+  - LocalOffset: {x: 0.08414931, y: 0.0072032213}
+    Duration: 0.14999992
+  - LocalOffset: {x: -0.009261176, y: -0.22545674}
+    Duration: 0.41666633
+  - LocalOffset: {x: -0.0010235235, y: 0.18460426}
+    Duration: 0.61666703
   HitSegments: []
   HitEffect: 0
-  Clip: {fileID: 3094330708855449807, guid: 33ead5f6ecd30db40bc9209ff361f049, type: 3}
+  Clip: {fileID: -9201828364495813443, guid: 2bfc133adbf0beb4983f200a3edf77a9, type: 3}
   BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
   BakeStationary: 0
-  SimplifyTolerance: 0.05
+  SimplifyTolerance: 0.02
   MaxSegments: 8
   TrailProbe: 
   TrailProbeB: 

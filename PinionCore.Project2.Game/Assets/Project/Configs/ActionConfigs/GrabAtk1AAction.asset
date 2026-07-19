@@ -10,40 +10,34 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 95baacef3b7e1fe4da53c68b82764757, type: 3}
-  m_Name: BattleAttack0_0Action
-  m_EditorClassIdentifier: 
-  Action: 9
+  m_Name: GrabAtk1AAction
+  m_EditorClassIdentifier: PinionCore.Project2.Shared::PinionCore.Project2.Shared.ActionConfig
+  Action: 17
   Loop: 0
   Redirectable: 0
   Interruptible: 0
-  ChainWindow: 0.5
+  ChainWindow: 0
   HoldRotation: 1
   Stance: 1
-  Duration: 1.6666666
+  Duration: 0.8333334
   Segments:
-  - LocalOffset: {x: -0.18614513, y: 0.2285497}
-    Duration: 0.36666676
-  - LocalOffset: {x: -0.0131715685, y: -0.016842052}
-    Duration: 0.18333337
-  - LocalOffset: {x: 0.07521063, y: -0.041644886}
-    Duration: 0.18333316
-  - LocalOffset: {x: 0.06332968, y: 0.08083032}
-    Duration: 0.46666628
-  - LocalOffset: {x: 0.06077635, y: -0.25089318}
-    Duration: 0.46666706
+  - LocalOffset: {x: -0.026112823, y: 0.059407398}
+    Duration: 0.38333344
+  - LocalOffset: {x: 0.026112814, y: -0.0594074}
+    Duration: 0.44999993
   HitSegments:
-  - StartTime: 0.48
-    Duration: 0.4
-    Shape: 1
-    LocalOffset: {x: 0, y: 0.52}
-    Radius: 0
-    HalfExtents: {x: 0.2, y: 0.3}
+  - StartTime: 0.3
+    Duration: 0.2
+    Shape: 0
+    LocalOffset: {x: 0, y: 0.8}
+    Radius: 0.6
+    HalfExtents: {x: 0, y: 0}
     Rotation: 0
     AngleFrom: 0
     AngleTo: 0
     Sweep: 0
   HitEffect: 0
-  Clip: {fileID: 7400000, guid: 026b2e9b45206004ebf8b32338975214, type: 2}
+  Clip: {fileID: 4930656767807149202, guid: 96af4a739d19ae047be3f828e499176e, type: 3}
   BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
   BakeStationary: 0
   SimplifyTolerance: 0.02

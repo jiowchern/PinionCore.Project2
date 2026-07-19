@@ -51,6 +51,20 @@ namespace PinionCore.Project2.Shared.Editor
 
         static bool BakeAction(ActionConfig action, ActorConfig owner)
         {
+            // BakeStationary:不取樣 root motion,只對齊時長 —— 單一零位移段撐滿 clip 長度。
+            // 被抓者的配對動作用(位置權威在 GrabResolver 轉發,自身排程必須零位移);
+            // Duration 仍必須 = clip 長:client 預測與伺服器 EndEvent 都靠它。
+            if (action.BakeStationary)
+            {
+                action.Duration = action.Clip.length;
+                action.Segments = new[]
+                {
+                    new ActionConfig.MotionSegment { LocalOffset = Vector2.zero, Duration = action.Clip.length },
+                };
+                Debug.Log($"[ActionMotionBaker] {action.name}: BakeStationary → 單一零位移段,時長 {action.Clip.length:F3}s");
+                return true;
+            }
+
             var rigSource = action.BakeRig != null ? action.BakeRig
                           : owner.ModelPrefab != null ? owner.ModelPrefab.editorAsset
                           : null;

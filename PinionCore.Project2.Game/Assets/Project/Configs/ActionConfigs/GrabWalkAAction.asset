@@ -10,25 +10,25 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 95baacef3b7e1fe4da53c68b82764757, type: 3}
-  m_Name: BattleIdleAction
-  m_EditorClassIdentifier: 
-  Action: 4
+  m_Name: GrabWalkAAction
+  m_EditorClassIdentifier: PinionCore.Project2.Shared::PinionCore.Project2.Shared.ActionConfig
+  Action: 15
   Loop: 1
-  Redirectable: 0
-  Interruptible: 1
+  Redirectable: 1
+  Interruptible: 0
   ChainWindow: 0
   HoldRotation: 0
   Stance: 1
-  Duration: 1.3333334
+  Duration: 1.0666667
   Segments:
-  - LocalOffset: {x: 0, y: 0}
-    Duration: 1.3333334
+  - LocalOffset: {x: 1.3522576e-14, y: 1.1211764}
+    Duration: 1.0666667
   HitSegments: []
   HitEffect: 0
-  Clip: {fileID: 3094330708855449807, guid: 6abe61edacb78c74489739f89ec126bc, type: 3}
+  Clip: {fileID: -1114125292390415714, guid: ef5e4766a900c6b4db00c7cc2ef47751, type: 3}
   BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
   BakeStationary: 0
-  SimplifyTolerance: 0.05
+  SimplifyTolerance: 0.02
   MaxSegments: 8
   TrailProbe: 
   TrailProbeB: 

@@ -23,6 +23,14 @@ namespace PinionCore.Project2.Worlds
 
         readonly Dictionary<Guid, Track> _Tracks = new Dictionary<Guid, Track>();
 
+        // 命中效果分派:HitEffect=Grab 的命中交給 GrabResolver(enqueue,不在掃描中結算)
+        readonly GrabResolver _GrabResolver;
+
+        public HitResolver(GrabResolver grabResolver)
+        {
+            _GrabResolver = grabResolver;
+        }
+
         public void Tick(IEnumerable<PlayerController> controllers, long now)
         {
             foreach (var attacker in controllers)
@@ -68,8 +76,17 @@ namespace PinionCore.Project2.Worlds
                             continue;
 
                         track.Victims.Add(victimId);
-                        // Damage 只 push 狀態機、下一次 Update 生效,不動 controllers 集合,迭代中呼叫安全
-                        ((ICharacter)victim).Damage();
+                        if (config.HitEffect == HitEffectType.Grab)
+                        {
+                            // 抓取成立要 snap 位置,不在掃描中結算(會污染同幀後續命中判定):
+                            // enqueue 給 GrabResolver.Tick(同幀、緊接本掃描之後)驗證與建立配對
+                            _GrabResolver.EnqueueGrab(attacker, victim);
+                        }
+                        else
+                        {
+                            // Damage 只 push 狀態機、下一次 Update 生效,不動 controllers 集合,迭代中呼叫安全
+                            ((ICharacter)victim).Damage();
+                        }
                     }
                 }
                 track.LastEvalTicks = now;

@@ -417,6 +417,18 @@ namespace PinionCore.Project2.Worlds
             return true;
         }
 
+        /// <summary>
+        /// 由 world 內部系統(GrabResolver 轉發)直接提交權威 MoveInfo:
+        /// 走 _SetMoveInfo 完整管線(去穿透/貼牆即滑/TOI 重算),不經 Move 節流。
+        /// 不改動作排程與朝向基底 —— 動作狀態的一致性由呼叫端負責。
+        /// 允許 Speed 為負(沿 -Facing 位移):被拖行者面向抓取者倒退走的表達方式;
+        /// 負速下 _RecomputeImpact/貼牆即滑不作用(被拖行者不做自身 TOI,錨點由轉發蓋回)。
+        /// </summary>
+        internal void ApplyExternalMoveInfo(MoveInfo info)
+        {
+            _SetMoveInfo(info, emit: true);
+        }
+
         public Value<bool> Stop()
         {
             _ProcessDueRedirects(_World.ElapsedTicks);

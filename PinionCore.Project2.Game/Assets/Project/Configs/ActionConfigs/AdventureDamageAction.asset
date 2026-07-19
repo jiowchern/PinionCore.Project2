@@ -24,8 +24,10 @@ MonoBehaviour:
   - LocalOffset: {x: 0, y: 0}
     Duration: 1
   HitSegments: []
+  HitEffect: 0
   Clip: {fileID: 3094330708855449807, guid: e191b1e6013333f4f8fcf7db4018a4d2, type: 3}
   BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
+  BakeStationary: 0
   SimplifyTolerance: 0.05
   MaxSegments: 8
   TrailProbe: 
