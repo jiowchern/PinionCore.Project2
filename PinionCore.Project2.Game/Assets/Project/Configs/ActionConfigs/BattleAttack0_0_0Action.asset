@@ -27,8 +27,6 @@ MonoBehaviour:
     Duration: 2.3499982
   - LocalOffset: {x: 0.17603903, y: -0.17410997}
     Duration: 0.18333507
-  - LocalOffset: {x: 0.17603903, y: -0.17410997}
-    Duration: 0.18333507
   HitSegments:
   - StartTime: 0.23
     Duration: 0.04
