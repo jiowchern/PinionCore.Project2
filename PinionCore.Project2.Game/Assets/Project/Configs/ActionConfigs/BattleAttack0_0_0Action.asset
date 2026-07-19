@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95baacef3b7e1fe4da53c68b82764757, type: 3}
+  m_Name: BattleAttack0_0_0Action
+  m_EditorClassIdentifier: 
+  Action: 10
+  Loop: 0
+  Redirectable: 0
+  Interruptible: 0
+  HoldRotation: 1
+  Stance: 1
+  Duration: 2.8333333
+  Segments:
+  - LocalOffset: {x: 0, y: 0}
+    Duration: 2.8333333
+  HitSegments: []
+  Clip: {fileID: 7400000, guid: fc50ffb74bcf05e42ba163aa03ce9e60, type: 2}
+  BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
+  SimplifyTolerance: 0.02
+  MaxSegments: 8

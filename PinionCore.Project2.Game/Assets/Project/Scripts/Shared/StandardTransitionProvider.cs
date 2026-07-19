@@ -50,6 +50,7 @@ namespace PinionCore.Project2.Shared
                 Playables = new[]
                 {
                     _Play(ActionType.BattleAttack),
+                    _Play(ActionType.BattleAttack0),
                     _Play(ActionType.BattleWalk),
                     _Play(ActionType.AdventureIdle),
                 },
@@ -94,6 +95,45 @@ namespace PinionCore.Project2.Shared
                 Damage = _Play(ActionType.BattleDamage),      // 連續挨打:重進硬直(刷新)
             };
 
+            var battleAttack0 = new Transition
+            {
+                Current = _Play(ActionType.BattleAttack0),
+                Playables = new[]
+                {
+                    _Play(ActionType.BattleAttack0_0),                    
+                },
+                Next = _Play(ActionType.BattleIdle),
+                Damage = _Play(ActionType.BattleDamage),
+            };
+
+            var battleAttack0_0 = new Transition
+            {
+                Current = _Play(ActionType.BattleAttack0_0),
+                Playables = new[]
+                {
+                    _Play(ActionType.BattleAttack0_0_0),
+                    _Play(ActionType.BattleAttack0_0_1),
+                },
+                Next = _Play(ActionType.BattleIdle),
+                Damage = _Play(ActionType.BattleDamage),
+            };
+
+            var battleAttack0_0_0 = new Transition
+            {
+                Current = _Play(ActionType.BattleAttack0_0_0),
+                Playables = System.Array.Empty<PlayInfo>(),   // 攻擊中無法移動/再出招
+                Next = _Play(ActionType.BattleIdle),
+                Damage = _Play(ActionType.BattleDamage),
+            };
+
+            var battleAttack0_0_1 = new Transition
+            {
+                Current = _Play(ActionType.BattleAttack0_0_1),
+                Playables = System.Array.Empty<PlayInfo>(),   // 攻擊中無法移動/再出招
+                Next = _Play(ActionType.BattleIdle),
+                Damage = _Play(ActionType.BattleDamage),
+            };
+
             _Transitions = new System.Collections.Generic.Dictionary<ActionType, Transition>
             {
                 { ActionType.AdventureIdle, adventureIdle },
@@ -103,6 +143,10 @@ namespace PinionCore.Project2.Shared
                 { ActionType.BattleAttack, battleAttack },
                 { ActionType.AdventureDamage, adventureDamage },
                 { ActionType.BattleDamage, battleDamage },
+                { ActionType.BattleAttack0, battleAttack0 },
+                { ActionType.BattleAttack0_0, battleAttack0_0 },
+                { ActionType.BattleAttack0_0_0, battleAttack0_0_0 },
+                { ActionType.BattleAttack0_0_1, battleAttack0_0_1 },
             };
             Transitions = _Transitions;
         }

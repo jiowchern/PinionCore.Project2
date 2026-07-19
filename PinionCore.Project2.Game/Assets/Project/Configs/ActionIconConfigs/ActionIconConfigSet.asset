@@ -14,3 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PinionCore.Project2.Shared::PinionCore.Project2.Shared.ActionIconConfigSet
   Configs:
   - {fileID: 11400000, guid: e64d2592f8a497a4cbcd74e9207fd500, type: 2}
+  - {fileID: 11400000, guid: bd511e6913f12a842be7334351a805e0, type: 2}
+  - {fileID: 11400000, guid: ad1800e38c4917447aa41b63e4768daa, type: 2}
+  - {fileID: 11400000, guid: f1a51d78f9ec33f4bb8a7cf3f34a3bcb, type: 2}
+  - {fileID: 11400000, guid: 84a7567916f56f446bafbbe479275a17, type: 2}

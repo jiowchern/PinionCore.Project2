@@ -28,5 +28,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 4bcb22d1a7cadfa4c9a24370ba39dfb1, type: 2}
   - {fileID: 11400000, guid: 71f9ff55dbd7a274d8bd28a4470f4302, type: 2}
   - {fileID: 11400000, guid: 20d9a84c30ca2e64bbc37aca08a82c94, type: 2}
+  - {fileID: 11400000, guid: c71be9b299a60e3469f525d33325cf73, type: 2}
+  - {fileID: 11400000, guid: 57220d3c56bce5e4fbfa05b9250441c7, type: 2}
+  - {fileID: 11400000, guid: 4bb4e1367a597a84e8977eb1df749f2c, type: 2}
+  - {fileID: 11400000, guid: 7a4471685111b99408c76e64826e67f0, type: 2}
   _Radius: 0.3
   _SightRadius: 5

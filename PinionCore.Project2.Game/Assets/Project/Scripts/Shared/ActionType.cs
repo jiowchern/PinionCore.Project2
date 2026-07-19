@@ -14,5 +14,9 @@ namespace PinionCore.Project2.Shared
         BattleWalk = 5,
         AdventureDamage = 6,        // 受傷中無法移動/攻擊
         BattleDamage = 7,           // 受傷中無法移動/攻擊
+        BattleAttack0 = 8,          // 連擊:可以接續攻擊/攻擊中無法移動
+        BattleAttack0_0 = 9,          // 連擊:攻擊中無法移動/攻擊
+        BattleAttack0_0_0 = 10,          // 連擊:攻擊中無法移動/攻擊
+        BattleAttack0_0_1 = 11,          // 連擊:攻擊中無法移動/攻擊
     }
 }
