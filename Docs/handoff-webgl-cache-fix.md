@@ -108,3 +108,10 @@ done
 2. catalog 引用的 bundle 全部 200。
 3. 瀏覽器實際載入遊戲無 404。
 4. (此後)每次重新部署 WebGL 後,玩家重新整理頁面即拿到新 catalog,不再有 4 小時的 404 窗口。
+
+## 執行結果(2026-07-19,stack 主機)
+
+- 步驟 1–2 完成:conf 已是新版(bind mount 同一檔),重啟 `pinioncore-project2-client` 後 origin 與 `pinioncore-proxy` 層均正確回 `no-cache` / `immutable`。
+- 步驟 3 未執行:本機僅有 certbot 用的 DNS-only token(`ssl-certs/cloudflare.ini`),無 cache purge 權限。實測邊緣現存的 `catalog.bin` ETag 與 origin 一致(快取的就是最新版),不 purge 也無舊內容在線上;該筆快取當日 14:45 UTC 前自然過期。
+- 步驟 4 完成:catalog 實際引用的 4 顆 bundle 全部 200;瀏覽器載入遊戲無 `RemoteProviderException`。(4c 指令的 grep 會把完整檔名的 hash 後綴誤抽成獨立檔名而報 404,對照完整檔名皆 200 即可忽略。)
+- **文件假設修正**:origin 給明確 Cache-Control 後,CF **edge 端**確實遵循(`catalog.bin` 每次 `REVALIDATED`),但 zone 的 **Browser Cache TTL 設定為 4 小時**,會把 origin 的 `no-cache` 蓋成瀏覽器端 `max-age=14400`(僅在設定值大於 origin max-age 時覆蓋,故 bundle 的一年 `immutable` 不受影響)。已於同日在 dashboard 將 Browser Cache TTL 改為 **Respect Existing Headers**,實測 `catalog.bin` 過 CF 後正確回 `no-cache`,全部完成標準達成。

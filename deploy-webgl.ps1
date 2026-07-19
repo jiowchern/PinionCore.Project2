@@ -55,14 +55,18 @@ if (-not $SkipBuild) {
     $log = Join-Path $Root 'publish\webgl-client-build.log'
     New-Item -ItemType Directory -Force (Split-Path $log) | Out-Null
     Write-Host "[1/2] Unity WebGL 建置中(log: $log)..."
+    # -buildTarget 讓 Editor 啟動即在 WebGL:deploy-server 會把 Library 的
+    # active target 留在 Linux64,executeMethod 中切換平台不等重編譯完成,
+    # Addressables build 會以 SBP ErrorException 失敗(同 deploy-server.ps1 註記)
     $p = Start-Process -FilePath $Unity -ArgumentList @(
         '-batchmode', '-quit',
         '-projectPath', "`"$Project`"",
+        '-buildTarget', 'WebGL',
         '-executeMethod', 'PinionCore.Project2.Build.PublishBuilder.BuildWebGLClient',
         '-logFile', "`"$log`""
     ) -Wait -PassThru -NoNewWindow
     if ($p.ExitCode -ne 0) {
-        Get-Content $log -Tail 40
+        Get-Content $log -Tail 40 -Encoding UTF8
         throw "Unity 建置失敗(exit $($p.ExitCode)),完整 log:$log;維護頁保持掛上,修復後以 -Maintenance off 卸下"
     }
     Write-Host "[1/2] 建置完成 → publish\webgl-client"
