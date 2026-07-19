@@ -77,6 +77,10 @@ namespace PinionCore.Project2.Shared
         public float SimplifyTolerance = 0.02f;  // 分段化最大偏差(公尺):折點到弦線垂距超過即切段
         public int MaxSegments = 8;              // 超過即警告(通常表示 clip 位移過於曲折或容差過小)
 
+        [Header("軌跡預覽(僅 Editor,player build 不含)")]
+        public string TrailProbe;    // 預覽模型階層內的 Transform 名稱(骨骼名或武器尖端名);空 = 不畫軌跡
+        public string TrailProbeB;   // 選填:第二探測點,與 TrailProbe 間連線成揮擊帶(如 手骨→刀尖 的刀刃掃過面)
+
         void OnValidate()
         {
             if (Redirectable && !Loop)

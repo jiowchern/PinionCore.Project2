@@ -66,6 +66,7 @@ namespace PinionCore.Project2.Shared
                     _Play(ActionType.BattleWalk),      // 自身 = 重定向
                     _Play(ActionType.BattleIdle),
                     _Play(ActionType.BattleAttack),
+                    _Play(ActionType.BattleAttack0),
                 },
                 Next = _Play(ActionType.BattleIdle),
                 Damage = _Play(ActionType.BattleDamage),

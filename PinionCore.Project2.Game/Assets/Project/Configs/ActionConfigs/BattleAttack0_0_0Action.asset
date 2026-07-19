@@ -27,8 +27,102 @@ MonoBehaviour:
     Duration: 2.3499982
   - LocalOffset: {x: 0.17603903, y: -0.17410997}
     Duration: 0.18333507
-  HitSegments: []
+  - LocalOffset: {x: 0.17603903, y: -0.17410997}
+    Duration: 0.18333507
+  HitSegments:
+  - StartTime: 0.23
+    Duration: 0.04
+    Shape: 0
+    LocalOffset: {x: 0.12, y: 0.38}
+    Radius: 0.11
+    HalfExtents: {x: 0, y: 0}
+    Rotation: 0
+    AngleFrom: 0
+    AngleTo: 0
+    Sweep: 0
+  - StartTime: 0.47
+    Duration: 0.05
+    Shape: 0
+    LocalOffset: {x: 0.03, y: 0.48}
+    Radius: 0.11
+    HalfExtents: {x: 0, y: 0}
+    Rotation: 0
+    AngleFrom: 0
+    AngleTo: 0
+    Sweep: 0
+  - StartTime: 0.73
+    Duration: 0.04
+    Shape: 0
+    LocalOffset: {x: 0.12, y: 0.38}
+    Radius: 0.11
+    HalfExtents: {x: 0, y: 0}
+    Rotation: 0
+    AngleFrom: 0
+    AngleTo: 0
+    Sweep: 0
+  - StartTime: 0.99
+    Duration: 0.04
+    Shape: 0
+    LocalOffset: {x: 0.16, y: 0.41}
+    Radius: 0.11
+    HalfExtents: {x: 0, y: 0}
+    Rotation: 0
+    AngleFrom: 0
+    AngleTo: 0
+    Sweep: 0
+  - StartTime: 1.27
+    Duration: 0.04
+    Shape: 0
+    LocalOffset: {x: -0.02, y: 0.41}
+    Radius: 0.11
+    HalfExtents: {x: 0, y: 0}
+    Rotation: 0
+    AngleFrom: 0
+    AngleTo: 0
+    Sweep: 0
+  - StartTime: 1.48
+    Duration: 0.04
+    Shape: 0
+    LocalOffset: {x: 0.08, y: 0.51}
+    Radius: 0.11
+    HalfExtents: {x: 0, y: 0}
+    Rotation: 0
+    AngleFrom: 0
+    AngleTo: 0
+    Sweep: 0
+  - StartTime: 1.73
+    Duration: 0.04
+    Shape: 0
+    LocalOffset: {x: 0.14, y: 0.32}
+    Radius: 0.11
+    HalfExtents: {x: 0, y: 0}
+    Rotation: 0
+    AngleFrom: 0
+    AngleTo: 0
+    Sweep: 0
+  - StartTime: 1.99
+    Duration: 0.04
+    Shape: 0
+    LocalOffset: {x: 0.18, y: 0.48}
+    Radius: 0.11
+    HalfExtents: {x: 0, y: 0}
+    Rotation: 0
+    AngleFrom: 0
+    AngleTo: 0
+    Sweep: 0
+  - StartTime: 2.45
+    Duration: 0.04
+    Shape: 1
+    LocalOffset: {x: 0.18, y: 0.48}
+    Radius: 0.11
+    HalfExtents: {x: 0.2, y: 0.42}
+    Rotation: 0
+    AngleFrom: 0
+    AngleTo: 0
+    Sweep: 0
   Clip: {fileID: 7400000, guid: fc50ffb74bcf05e42ba163aa03ce9e60, type: 2}
   BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
   SimplifyTolerance: 0.02
   MaxSegments: 8
+  TrailProbe: 
+  TrailProbeB: 

@@ -33,8 +33,20 @@ MonoBehaviour:
     Duration: 0.25000015
   - LocalOffset: {x: -0.032733355, y: -0.08695686}
     Duration: 0.21666652
-  HitSegments: []
+  HitSegments:
+  - StartTime: 0.2
+    Duration: 0.2
+    Shape: 2
+    LocalOffset: {x: 0, y: 0}
+    Radius: 0.5
+    HalfExtents: {x: 0, y: 0}
+    Rotation: 0
+    AngleFrom: -35.6
+    AngleTo: 32.5
+    Sweep: 0
   Clip: {fileID: 7400000, guid: 04b993802f656f545a392780d4e95f2c, type: 3}
   BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
   SimplifyTolerance: 0.02
   MaxSegments: 8
+  TrailProbe: Character1_RightFoot
+  TrailProbeB: 
