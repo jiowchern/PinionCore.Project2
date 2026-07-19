@@ -19,7 +19,8 @@
         "PinionCore.Project2.Users",
         "PinionCore.Project2.Client",
         "Unity.TextMeshPro",
-        "Unity.Cinemachine"
+        "Unity.Cinemachine",
+        "RMF"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
