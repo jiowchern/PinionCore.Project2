@@ -149,7 +149,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0551d55c991a96d41ba9fabd2a91b361, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.QueryerHost
-  Host: {fileID: 914587125}
+  Host: {fileID: 914587128}
 --- !u!4 &213339233
 Transform:
   m_ObjectHideFlags: 0
@@ -180,7 +180,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.Bots.Bot
   QueryerHost: {fileID: 213339232}
-  Connection: 1
+  Connection: 2
   ModelType: 0
   OnBotCreated:
     m_PersistentCalls:
@@ -317,6 +317,9 @@ GameObject:
   - component: {fileID: 914587123}
   - component: {fileID: 914587122}
   - component: {fileID: 914587127}
+  - component: {fileID: 914587128}
+  - component: {fileID: 914587130}
+  - component: {fileID: 914587129}
   m_Layer: 0
   m_Name: Client
   m_TagString: Untagged
@@ -418,6 +421,45 @@ MonoBehaviour:
   Listener: {fileID: 0}
   SceneName: User
   ObjectName: GatewayService
+--- !u!114 &914587128
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 914587121}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1790c591aafb57a4daec60b791a340d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Direct.DirectClient
+--- !u!114 &914587129
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 914587121}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b0280b7e69bb10b44a1702fa734ed98c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Direct.DirectServerLocator
+  Server: {fileID: 0}
+  SceneName: User
+  ObjectName: GatewayService
+--- !u!114 &914587130
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 914587121}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 489c543117520db429f778eb80b4c91a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Direct.DirectConnector
 --- !u!1 &939979890
 GameObject:
   m_ObjectHideFlags: 0

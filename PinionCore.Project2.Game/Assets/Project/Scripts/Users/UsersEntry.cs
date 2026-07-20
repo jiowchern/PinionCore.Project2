@@ -10,7 +10,8 @@ namespace PinionCore.Project2.Users
     {
         // 以 binder 為 key:User 不實作 ISessionBinder,session 關閉時只能靠 binder 找回對應的 User 做清理
         readonly System.Collections.Generic.Dictionary<ISessionBinder, User> _Users;
-        public NetSync.Client WorldAgent;
+        // 基底 QueryerHost 型別:場景可指派 Client(序列化)或 DirectClient/wrapper(直通),拓撲切換不動此欄位型別
+        public NetSync.QueryerHost WorldAgent;
         public NetSync.Server User;
 
         public UsersEntry()

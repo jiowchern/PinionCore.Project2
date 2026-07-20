@@ -21,6 +21,7 @@ namespace PinionCore.Project2.Client.Bots
         {
             Tcp,
             Standalone,
+            Direct,
         }
 
         public QueryerHost QueryerHost;
@@ -90,6 +91,25 @@ namespace PinionCore.Project2.Client.Bots
                     yield return new WaitForSeconds(1.0f);
                 }
                 Debug.Log($"Bot: tcp 已連線 ({host.name})");
+            }
+            else if (Connection == ConnectionMode.Direct)
+            {
+                var connector = host.GetComponent<PinionCore.NetSync.Direct.DirectConnector>();
+                var locator = host.GetComponent<PinionCore.NetSync.Direct.DirectServerLocator>();
+                if (connector == null || locator == null)
+                {
+                    Debug.LogError($"Bot: {host.name} 上找不到 DirectConnector/DirectServerLocator,無法連線", this);
+                    yield break;
+                }
+                while (!connector.IsConnect())
+                {
+                    var server = locator.Find();
+                    if (server != null)
+                        connector.Connect(server);
+                    if (!connector.IsConnect())
+                        yield return new WaitForSeconds(1.0f);
+                }
+                Debug.Log($"Bot: direct 已連線 ({host.name})");
             }
             else
             {

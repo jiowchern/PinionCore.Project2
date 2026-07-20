@@ -131,6 +131,9 @@ GameObject:
   - component: {fileID: 393411253}
   - component: {fileID: 393411252}
   - component: {fileID: 393411255}
+  - component: {fileID: 393411258}
+  - component: {fileID: 393411257}
+  - component: {fileID: 393411256}
   m_Layer: 0
   m_Name: WorldAgent
   m_TagString: Untagged
@@ -199,6 +202,43 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Standalone.Connector
   Lag: 0
+--- !u!114 &393411256
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 393411251}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0551d55c991a96d41ba9fabd2a91b361, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.QueryerHost
+  Host: {fileID: 393411258}
+--- !u!114 &393411257
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 393411251}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 489c543117520db429f778eb80b4c91a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Direct.DirectConnector
+--- !u!114 &393411258
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 393411251}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1790c591aafb57a4daec60b791a340d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PinionCore.NetSync::PinionCore.NetSync.Direct.DirectClient
 --- !u!1 &485852051
 GameObject:
   m_ObjectHideFlags: 0
@@ -249,6 +289,10 @@ MonoBehaviour:
   StandaloneListener: {fileID: 0}
   StandaloneSceneName: Gateway
   StandaloneObjectName: RegistryEndpoint
+  DirectConnector: {fileID: 0}
+  DirectServer: {fileID: 0}
+  DirectSceneName: World
+  DirectObjectName: 
   ConnectBreakEvent:
     m_PersistentCalls:
       m_Calls: []
@@ -564,7 +608,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e6f44882f0946d4ab687b55fe2d88bf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PinionCore.Project2.Users::PinionCore.Project2.Users.UsersEntry
-  WorldAgent: {fileID: 393411253}
+  WorldAgent: {fileID: 393411256}
   User: {fileID: 633939013}
 --- !u!1 &1934086487
 GameObject:
@@ -616,6 +660,10 @@ MonoBehaviour:
   StandaloneListener: {fileID: 0}
   StandaloneSceneName: World
   StandaloneObjectName: 
+  DirectConnector: {fileID: 393411257}
+  DirectServer: {fileID: 0}
+  DirectSceneName: World
+  DirectObjectName: 
   ConnectBreakEvent:
     m_PersistentCalls:
       m_Calls: []
@@ -626,7 +674,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   ReconnectInterval: 5
-  Type: 2
+  Type: 4
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

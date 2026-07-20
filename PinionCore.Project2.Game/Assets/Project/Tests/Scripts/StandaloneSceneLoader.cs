@@ -91,6 +91,17 @@ namespace PinionCore.Project2.Tests
                 {
                     connector.Type = AutoConnector.ConnectorType.Standalone;
                 }
+                // 場景以 Direct 直通為預設拓撲時,wrapper 的 Host 指向 DirectClient;
+                // 測試全程走 Standalone 序列化管線,把 Host 指回同物件上的 Client
+                foreach (var wrapper in root.GetComponentsInChildren<PinionCore.Project2.Client.QueryerHost>(true))
+                {
+                    if (wrapper.Host is PinionCore.NetSync.Direct.DirectClient)
+                    {
+                        var client = wrapper.Host.GetComponent<PinionCore.NetSync.Client>();
+                        if (client != null)
+                            wrapper.Host = client;
+                    }
+                }
             }
         }
     }
