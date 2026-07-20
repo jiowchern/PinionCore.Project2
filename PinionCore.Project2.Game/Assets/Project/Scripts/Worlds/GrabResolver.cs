@@ -8,6 +8,8 @@ namespace PinionCore.Project2.Worlds
     /// <summary>
     /// 抓取配對系統:HitEffect=Grab 的命中在 HitResolver 掃描中 enqueue(不動位置,
     /// 避免污染同幀後續命中判定),Tick(World.Update 於 HitResolver 之後)結算成 pair。
+    /// 節點對映由 _Families 家族描述表驅動(每套成對抓取動畫一筆),以下行為描述以
+    /// 第一套(Grab*)的節點名為例,對其他家族同構成立。
     ///
     /// 配對存續期間:
     /// - grabber 的每次 MoveInfo emission 加錨點偏移「轉發」為 victim 的 MoveInfo
@@ -33,12 +35,41 @@ namespace PinionCore.Project2.Worlds
     /// </summary>
     internal class GrabResolver
     {
-        // 錨點距離(公尺):victim 吸附在 grabber 錨軸(ActionForward)前方此距離、面向 grabber。
-        // v1 常數,editor 目測調參;todo: 移入 config(不同動作組不同距離)。
-        const float AnchorDistance = 0.9f;
+        /// <summary>
+        /// 抓取動作家族描述:一套成對抓取動畫的全部節點對映與參數。
+        /// 配對生命週期邏輯(鏡射/轉發/解體規則)全家族共通,只認欄位不認 enum 值 ——
+        /// 擴充新一套抓取動作 = 在 _Families 加一筆,不要在本類別寫死任何 ActionType 比對
+        /// (詳見 docs/grab-action-set-extension.md)。
+        /// </summary>
+        class GrabFamily
+        {
+            public ActionType Start;             // 起手(HitEffect=Grab 的命中窗動作;配對唯一驗證點)
+            public ActionType IdleA, IdleB;      // 抓住循環(A→B 鏡射)
+            public ActionType WalkA, WalkB;      // 拖行(A→B 鏡射;B 位置由轉發驅動)
+            public ActionType Atk1A, Atk1B;      // 補打/受創反應(不鏡射,B 側經 Damage 路由進入)
+            public ActionType ThrowA, ThrowB;    // 丟投(A 起手即解體,B 自驅烘焙飛行)
+            public ActionType BreakA, BreakB;    // 掙脫(B 白名單唯一入口;成立後 A 進後搖)
+            // 錨點距離(公尺):victim 吸附在 grabber 錨軸(ActionForward)前方此距離、面向 grabber。
+            public float AnchorDistance;
+        }
+
+        static readonly GrabFamily[] _Families =
+        {
+            new GrabFamily
+            {
+                Start = ActionType.GrabStart,
+                IdleA = ActionType.GrabIdleA,   IdleB = ActionType.GrabIdleB,
+                WalkA = ActionType.GrabWalkA,   WalkB = ActionType.GrabWalkB,
+                Atk1A = ActionType.GrabAtk1A,   Atk1B = ActionType.GrabAtk1B,
+                ThrowA = ActionType.GrabThrowA, ThrowB = ActionType.GrabThrowB,
+                BreakA = ActionType.GrabBreakA, BreakB = ActionType.GrabBreakB,
+                AnchorDistance = 0.9f,   // editor 目測調參
+            },
+        };
 
         class Pair
         {
+            public GrabFamily Family;
             public PlayerController Grabber;
             public PlayerController Victim;
             public Action<Transition> GrabberTransitionHandler;
@@ -111,21 +142,22 @@ namespace PinionCore.Project2.Worlds
         {
             // 唯一驗證點:同幀 grabber 可能已被 Damage force 走(照 whiff 流程收尾)、
             // 任一方可能已在配對中(含同幀先到的抓取 —— 先到先贏;同幀互抓時後到方
-            // 的節點已被換成 GrabIdleB,自動失敗)。
-            if (grabber.CurrentTransition.Current.Action != ActionType.GrabStart)
+            // 的節點已被換成 IdleB,自動失敗)。
+            var family = Array.Find(_Families, f => f.Start == grabber.CurrentTransition.Current.Action);
+            if (family == null)
                 return;
             Guid grabberId = grabber.ActorId;
             Guid victimId = victim.ActorId;
             if (_PairsByActor.ContainsKey(grabberId) || _PairsByActor.ContainsKey(victimId))
                 return;
 
-            var pair = new Pair { Grabber = grabber, Victim = victim };
+            var pair = new Pair { Family = family, Grabber = grabber, Victim = victim };
 
             // 先換節點再訂閱:初始 Idle 對不需鏡射(此處顯式建立),訂閱後只處理後續變化。
             // 錨軸 = grabber 的動作朝向基底(命中判定同座標系);victim 面向其反方向進場。
             var anchorAxis = grabber.Player.ActionForward;
-            grabber.ForceTransition(ActionType.GrabIdleA, Vector2.zero);   // zero = 沿用 GrabStart 的朝向基底
-            victim.ForceTransition(ActionType.GrabIdleB, -anchorAxis);
+            grabber.ForceTransition(family.IdleA, Vector2.zero);   // zero = 沿用起手動作的朝向基底
+            victim.ForceTransition(family.IdleB, -anchorAxis);
 
             pair.GrabberTransitionHandler = t => _OnGrabberTransition(pair, t);
             pair.VictimTransitionHandler = t => _OnVictimTransition(pair, t);
@@ -168,7 +200,7 @@ namespace PinionCore.Project2.Worlds
             var anchorAxis = grabberPlayer.ActionForward;
             var forwarded = new MoveInfo
             {
-                Position = info.Position + anchorAxis * AnchorDistance,
+                Position = info.Position + anchorAxis * pair.Family.AnchorDistance,
                 Facing = -anchorAxis,
                 Speed = -Vector2.Dot(info.Facing, anchorAxis) * info.Speed,
                 StartTicks = info.StartTicks
@@ -180,79 +212,78 @@ namespace PinionCore.Project2.Worlds
 
         void _OnGrabberTransition(Pair pair, Transition transition)
         {
-            switch (transition.Current.Action)
+            var family = pair.Family;
+            var action = transition.Current.Action;
+            if (action == family.IdleA)
             {
-                case ActionType.GrabIdleA:
-                    _Mirror(pair, ActionType.GrabIdleB);
-                    break;
-                case ActionType.GrabWalkA:
-                    _Mirror(pair, ActionType.GrabWalkB);
-                    break;
-                case ActionType.GrabAtk1A:
-                    // 不鏡射:B 側受創反應由 Damage 路由(見類註解),避免 double-trigger
-                    break;
-                case ActionType.GrabThrowA:
-                {
-                    // 丟投:起手即解體,victim 以自身朝向(-錨軸)為基底自驅 ThrowB 的烘焙飛行
-                    //(B clip 位移在被抓者局部空間 —— 作者視角面向 grabber,不能傳 grabber 朝向)
-                    var victim = pair.Victim;
-                    var launchBasis = -pair.Grabber.Player.ActionForward;
-                    _Dissolve(pair);
-                    victim.ForceTransition(ActionType.GrabThrowB, launchBasis);
-                    break;
-                }
-                default:
-                {
-                    // 離開 grab 家族(第三方打進 BattleDamage 等):解體釋放 victim
-                    var freed = pair.Victim;
-                    _Dissolve(pair);
-                    freed.ForceTransition(ActionType.BattleIdle, Vector2.zero);
-                    break;
-                }
+                _Mirror(pair, family.IdleB);
+            }
+            else if (action == family.WalkA)
+            {
+                _Mirror(pair, family.WalkB);
+            }
+            else if (action == family.Atk1A)
+            {
+                // 不鏡射:B 側受創反應由 Damage 路由(見類註解),避免 double-trigger
+            }
+            else if (action == family.ThrowA)
+            {
+                // 丟投:起手即解體,victim 以自身朝向(-錨軸)為基底自驅 ThrowB 的烘焙飛行
+                //(B clip 位移在被抓者局部空間 —— 作者視角面向 grabber,不能傳 grabber 朝向)
+                var victim = pair.Victim;
+                var launchBasis = -pair.Grabber.Player.ActionForward;
+                _Dissolve(pair);
+                victim.ForceTransition(family.ThrowB, launchBasis);
+            }
+            else
+            {
+                // 離開所屬家族(第三方打進 BattleDamage 等):解體釋放 victim
+                var freed = pair.Victim;
+                _Dissolve(pair);
+                freed.ForceTransition(ActionType.BattleIdle, Vector2.zero);
             }
         }
 
         void _OnVictimTransition(Pair pair, Transition transition)
         {
-            switch (transition.Current.Action)
+            var family = pair.Family;
+            var action = transition.Current.Action;
+            if (action == family.IdleB)
             {
-                case ActionType.GrabIdleB:
-                    // GrabAtk1B 播完自然回 IdleB 時,若 grabber 正在拖行,補鏡射回 WalkB
-                    //(A 側早已在 WalkA,不會再有轉移事件觸發鏡射)
-                    if (pair.Grabber.CurrentTransition.Current.Action == ActionType.GrabWalkA)
-                        _Mirror(pair, ActionType.GrabWalkB);
-                    break;
-                case ActionType.GrabWalkB:
-                case ActionType.GrabAtk1B:
-                    break;   // 配對內正常節點(鏡射結果/受創反應)
-                case ActionType.GrabBreakB:
-                {
-                    // 掙脫(唯一由 victim 玩家輸入放行的路徑):解體,grabber 進被掙脫後搖
-                    var grabber = pair.Grabber;
-                    _Dissolve(pair);
-                    grabber.ForceTransition(ActionType.GrabBreakA, Vector2.zero);
-                    break;
-                }
-                default:
-                {
-                    // 不預期的節點(防禦):解體,雙方各自收尾
-                    Debug.LogWarning($"[GrabResolver] 被抓者離開配對節點({transition.Current.Action}),防禦性解體");
-                    var grabber = pair.Grabber;
-                    _Dissolve(pair);
-                    grabber.ForceTransition(ActionType.BattleIdle, Vector2.zero);
-                    break;
-                }
+                // Atk1B 播完自然回 IdleB 時,若 grabber 正在拖行,補鏡射回 WalkB
+                //(A 側早已在 WalkA,不會再有轉移事件觸發鏡射)
+                if (pair.Grabber.CurrentTransition.Current.Action == family.WalkA)
+                    _Mirror(pair, family.WalkB);
+            }
+            else if (action == family.WalkB || action == family.Atk1B)
+            {
+                // 配對內正常節點(鏡射結果/受創反應)
+            }
+            else if (action == family.BreakB)
+            {
+                // 掙脫(唯一由 victim 玩家輸入放行的路徑):解體,grabber 進被掙脫後搖
+                var grabber = pair.Grabber;
+                _Dissolve(pair);
+                grabber.ForceTransition(family.BreakA, Vector2.zero);
+            }
+            else
+            {
+                // 不預期的節點(防禦):解體,雙方各自收尾
+                Debug.LogWarning($"[GrabResolver] 被抓者離開配對節點({action}),防禦性解體");
+                var grabber = pair.Grabber;
+                _Dissolve(pair);
+                grabber.ForceTransition(ActionType.BattleIdle, Vector2.zero);
             }
         }
 
         /// <summary>
         /// 鏡射 grabber 的節點變化到 victim。冪等(同節點不重 force,吸收先後抖動);
-        /// victim 受創反應(GrabAtk1B)中不打斷 —— 播完自然回 IdleB 時由 victim 側 handler 補鏡射。
+        /// victim 受創反應(Atk1B)中不打斷 —— 播完自然回 IdleB 時由 victim 側 handler 補鏡射。
         /// </summary>
         void _Mirror(Pair pair, ActionType victimNode)
         {
             var current = pair.Victim.CurrentTransition.Current.Action;
-            if (current == victimNode || current == ActionType.GrabAtk1B)
+            if (current == victimNode || current == pair.Family.Atk1B)
                 return;
             pair.Victim.ForceTransition(victimNode, -pair.Grabber.Player.ActionForward);
         }
