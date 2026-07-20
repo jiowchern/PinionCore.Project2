@@ -14,6 +14,10 @@ namespace PinionCore.Project2.Shared
     /// Standalone → 使用 StandaloneListener 指定的目標連線;未指派時從 StandaloneSceneName
     ///              場景查找(StandaloneObjectName 可指定物件名稱,留空取第一個),
     ///              失敗後每隔 ReconnectInterval 秒重試(相容場景載入順序不定)。
+    /// Direct     → 零序列化直通:同物件需掛 DirectClient+DirectConnector,
+    ///              使用 DirectServer 指定的目標連線;未指派時從 DirectSceneName
+    ///              場景查找 Server(DirectObjectName 可指定物件名稱),
+    ///              失敗後每隔 ReconnectInterval 秒重試。
     /// </summary>
     public class AutoConnector : MonoBehaviour
     {
@@ -30,6 +34,17 @@ namespace PinionCore.Project2.Shared
         [Tooltip("查找時比對掛載 Listener 的物件名稱;留空取場景中第一個。同場景有多個 Listener 時(如 RegistryEndpoint / SessionEndpoint)必須指定。")]
         public string StandaloneObjectName = "";
 
+        public PinionCore.NetSync.Direct.DirectConnector DirectConnector;
+
+        [Tooltip("Direct 連線目標;有指派時優先使用(僅限同場景參照)。")]
+        public PinionCore.NetSync.Server DirectServer;
+
+        [Tooltip("DirectServer 未指派時,從此場景查找 Server。")]
+        public string DirectSceneName = "World";
+
+        [Tooltip("查找時比對掛載 Server 的物件名稱;留空取場景中第一個。")]
+        public string DirectObjectName = "";
+
         public UnityEngine.Events.UnityEvent ConnectBreakEvent = new UnityEngine.Events.UnityEvent();
         public UnityEngine.Events.UnityEvent ConnectSuccessEvent = new UnityEngine.Events.UnityEvent();
         public UnityEngine.Events.UnityEvent ConnectFailedEvent = new UnityEngine.Events.UnityEvent();
@@ -40,7 +55,8 @@ namespace PinionCore.Project2.Shared
             None,
             Tcp,
             Standalone,
-            Web
+            Web,
+            Direct
         }
         public ConnectorType Type;
 
@@ -53,6 +69,7 @@ namespace PinionCore.Project2.Shared
                 ConnectorType.Tcp => _StartTcp,
                 ConnectorType.Web => _StartWeb,
                 ConnectorType.Standalone => _StartStandalone,
+                ConnectorType.Direct => _StartDirect,
                 _ => _Noop,
             };
             connect();
@@ -164,6 +181,38 @@ namespace PinionCore.Project2.Shared
             {
                 Invoke(nameof(_ConnectStandalone), ReconnectInterval);
             }
+        }
+
+        void _StartDirect()
+        {
+            _Shutdown = CancelInvoke;
+            _ConnectDirect();
+        }
+
+        void _ConnectDirect()
+        {
+            var server = DirectServer != null ? DirectServer : _FindDirectServer();
+            Action connect = server != null ? () => DirectConnector.Connect(server) : (Action)_Noop;
+            connect();
+
+            var resultEvent = DirectConnector.IsConnect() ? ConnectSuccessEvent : ConnectFailedEvent;
+            resultEvent.Invoke();
+            Debug.Log($"AutoConnector: Direct connect {(DirectConnector.IsConnect() ? "success" : "failed")}", this);
+
+            if (!DirectConnector.IsConnect())
+            {
+                Invoke(nameof(_ConnectDirect), ReconnectInterval);
+            }
+        }
+
+        PinionCore.NetSync.Server _FindDirectServer()
+        {
+            var scene = SceneManager.GetSceneByName(DirectSceneName);
+            var roots = scene.isLoaded ? scene.GetRootGameObjects() : Array.Empty<GameObject>();
+            var servers = roots.SelectMany(root => root.GetComponentsInChildren<PinionCore.NetSync.Server>(true));
+            return string.IsNullOrEmpty(DirectObjectName)
+                ? servers.FirstOrDefault()
+                : servers.FirstOrDefault(server => server.gameObject.name == DirectObjectName);
         }
 
         PinionCore.NetSync.Standalone.Listener _FindStandaloneListener()
