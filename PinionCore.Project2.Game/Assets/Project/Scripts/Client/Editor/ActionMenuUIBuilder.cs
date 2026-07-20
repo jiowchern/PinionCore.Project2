@@ -72,11 +72,13 @@ namespace PinionCore.Project2.Client.Editor
             menuRt.sizeDelta = new Vector2(420, 420);
 
             var menu = menuGo.AddComponent<RMF_RadialMenu>();
-            // 元件本體不啟用:其 Update 走舊版 Input 會丟例外;lazy selection 也必須關閉,
-            // 元素才會保留射線讓一般 Button 點擊可用
+            // 元件本體不啟用:其 Update 走舊版 Input 會丟例外;方向選擇由
+            // PlayerActionMenuHandler.Update 以 Input System 重實作。
+            // useLazySelection = true 讓元素關閉射線,點擊只走 handler 單一路徑
+            //(handler.Start 也會強制此值,這裡同步序列化值避免誤導)
             menu.enabled = false;
             menu.useGamepad = false;
-            menu.useLazySelection = false;
+            menu.useLazySelection = true;
             menu.useSelectionFollower = false;
 
             // ---- 中心標籤:hover 顯示元素 label,平時由 handler 填 Current 動作名 ----

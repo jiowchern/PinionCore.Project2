@@ -20,8 +20,11 @@ namespace PinionCore.Project2.Client
     /// 通知 PlayerInputHandler 補送按住中的移動(邊緣觸發不會自己補)。
     ///
     /// RMF_RadialMenu 元件保持 disabled:其 Update 走舊版 Input(專案為 Input System only,
-    /// 執行會丟例外),佈局改由 Rebuild() 顯式驅動,點擊走一般 uGUI Button 射線
-    ///(useLazySelection 必須為 false,否則元素會關閉射線)。
+    /// 執行會丟例外),佈局改由 Rebuild() 顯式驅動。方向選擇(lazy selection)不用 RMF
+    /// 內建版,在本類 Update 以 Input System 的 Pointer 重實作(角度→索引與 RMF 同式):
+    /// 游標離開中心死區即依方位鎖定元素(放大+染色+中心標籤提示),按下即觸發,
+    /// 不必精準移到按鈕上;useLazySelection 設 true 讓元素關閉射線,
+    /// 點擊只走本類單一路徑,避免與 uGUI Button 射線雙重觸發。
     /// </summary>
     public class PlayerActionMenuHandler : MonoBehaviour
     {
@@ -36,16 +39,32 @@ namespace PinionCore.Project2.Client
         // 動作圖示配置:查到含 Button 的圖示 prefab 就取代預設按鈕,查無沿用預設文字按鈕
         public ActionIconConfigSet IconConfigs;
 
+        [Header("方向選擇(lazy selection)")]
+        [Tooltip("死區半徑(canvas 單位):游標距圓心小於此值不選任何動作")]
+        public float DeadZoneRadius = 40f;
+        [Tooltip("有效半徑(canvas 單位):游標距圓心超過此值視為不在選單上")]
+        public float ActivationRadius = 300f;
+        [Tooltip("被指向元素的放大倍率")]
+        public float HighlightScale = 1.2f;
+        [Tooltip("被指向元素的染色")]
+        public Color HighlightColor = new Color(1f, 0.85f, 0.35f);
+
         ActorShell _shell;
         readonly UniRx.CompositeDisposable _shellSubscriptions = new UniRx.CompositeDisposable();
         readonly List<RMF_RadialMenuElement> _elements = new List<RMF_RadialMenuElement>();
         Transition? _transition;
         bool _actionActive;
         IDisposable _transitionSubscription;
+        int _aimedIndex = -1;
+        Vector3 _aimedOriginalScale;
+        Color _aimedOriginalColor;
 
         void Start()
         {
             Menu.gameObject.SetActive(false);
+            // 元素在 Start 依此旗標關閉射線(CanvasGroup.blocksRaycasts=false),
+            // 點擊改由本類 Update 的方向選擇單一路徑觸發;場景序列化值不可信,這裡強制
+            Menu.useLazySelection = true;
 
             // 與 PlayerInputHandler 相同的解析模式:每次 IPlayer supply 都重新解析本地殼
             var games = from entry in Client.Queryer.QueryNotifier<Shared.IUserEntry>().SupplyEvent()
@@ -125,6 +144,8 @@ namespace PinionCore.Project2.Client
         // 兩訊號任一更新都重算;殼未綁定時藏起(查不了 ActionConfig)
         void _Render()
         {
+            // 元素整批重建,指向狀態直接歸零(舊元素即將銷毀,不必還原外觀)
+            _aimedIndex = -1;
             foreach (var element in _elements)
                 Destroy(element.gameObject);
             _elements.Clear();
@@ -183,6 +204,73 @@ namespace PinionCore.Project2.Client
             Menu.gameObject.SetActive(_elements.Count > 0);
             if (_elements.Count > 0)
                 Menu.Rebuild();
+        }
+
+        // 方向選擇:游標相對圓心的方位即選擇,毋須移到按鈕上;
+        // 角度→索引換算與 RMF_RadialMenu.Update 同式(該元件因走舊版 Input 停用)
+        void Update()
+        {
+            if (_elements.Count == 0 || !Menu.gameObject.activeInHierarchy)
+                return;
+
+            var pointer = UnityEngine.InputSystem.Pointer.current;
+            if (pointer == null)
+                return;
+
+            var menuRt = (RectTransform)Menu.transform;
+            // ScreenSpaceOverlay:rt.position 即螢幕像素;除以 lossyScale 還原 canvas 單位
+            var offset = (pointer.position.ReadValue() - (Vector2)menuRt.position) / menuRt.lossyScale.x;
+            var distance = offset.magnitude;
+            if (distance < DeadZoneRadius || distance > ActivationRadius)
+            {
+                _Aim(-1);
+                return;
+            }
+
+            var slice = 360f / _elements.Count;
+            var rawAngle = Mathf.Atan2(offset.y, offset.x) * Mathf.Rad2Deg;
+            var clockwiseFromTop = Mathf.Repeat(-rawAngle + 90f - Menu.globalOffset + slice / 2f, 360f);
+            var index = Mathf.Clamp((int)(clockwiseFromTop / slice), 0, _elements.Count - 1);
+            _Aim(index);
+
+            if (pointer.press.wasPressedThisFrame)
+                _elements[index].button.onClick.Invoke();
+        }
+
+        // 指向提示:被指向元素放大+染色、中心標籤顯示動作名;離開範圍還原並顯示 Current
+        void _Aim(int index)
+        {
+            if (index == _aimedIndex)
+                return;
+
+            if (_aimedIndex >= 0 && _aimedIndex < _elements.Count &&
+                _elements[_aimedIndex] != null && _elements[_aimedIndex].button != null)
+            {
+                var previous = _elements[_aimedIndex].button;
+                previous.transform.localScale = _aimedOriginalScale;
+                if (previous.targetGraphic != null)
+                    previous.targetGraphic.color = _aimedOriginalColor;
+            }
+
+            _aimedIndex = index;
+
+            if (index < 0)
+            {
+                if (Menu.textLabel != null && _transition != null)
+                    Menu.textLabel.text = _transition.Value.Current.Action.ToString();
+                return;
+            }
+
+            var button = _elements[index].button;
+            _aimedOriginalScale = button.transform.localScale;
+            button.transform.localScale = _aimedOriginalScale * HighlightScale;
+            if (button.targetGraphic != null)
+            {
+                _aimedOriginalColor = button.targetGraphic.color;
+                button.targetGraphic.color = HighlightColor;
+            }
+            if (Menu.textLabel != null)
+                Menu.textLabel.text = _elements[index].label;
         }
 
         // 可用的圖示 prefab:配置存在且 prefab 上有 Button(點擊接線的必要條件)才算,
