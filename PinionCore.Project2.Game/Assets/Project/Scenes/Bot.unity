@@ -481,7 +481,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PinionCore.Project2.Client::PinionCore.Project2.Client.Bots.Bot
   QueryerHost: {fileID: 213339232}
   Connection: 1
-  ModelType: 1
+  ModelType: 2
   OnBotCreated:
     m_PersistentCalls:
       m_Calls:

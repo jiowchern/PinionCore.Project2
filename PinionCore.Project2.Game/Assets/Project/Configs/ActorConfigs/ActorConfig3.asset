@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 49384ed7cb21da644b4630a9b38a16df, type: 3}
+  m_Name: ActorConfig3
+  m_EditorClassIdentifier: 
+  Name: humanm
+  ModelPrefab:
+    m_AssetGUID: 3fb4a7d8d5241614ea1d0c0d9f9a1768
+    m_SubObjectName: 
+    m_SubObjectType: 
+    m_SubObjectGUID: 
+    m_EditorAssetChanged: 0
+  MoveAcceptInterval: 0.1
+  Actions:
+  - {fileID: 11400000, guid: 3f8a2c47b1d94e08a6c5d21e97f4ab30, type: 2}
+  - {fileID: 11400000, guid: b4e7f0c2a9d14c58b6a3e8d5f1720c94, type: 2}
+  - {fileID: 11400000, guid: 884b9f659d4f5144caa4208be044df03, type: 2}
+  - {fileID: 11400000, guid: 5da317c1a89e52b4b8e2f26a01a0028a, type: 2}
+  - {fileID: 11400000, guid: 4bcb22d1a7cadfa4c9a24370ba39dfb1, type: 2}
+  - {fileID: 11400000, guid: 71f9ff55dbd7a274d8bd28a4470f4302, type: 2}
+  - {fileID: 11400000, guid: 20d9a84c30ca2e64bbc37aca08a82c94, type: 2}
+  - {fileID: 11400000, guid: c71be9b299a60e3469f525d33325cf73, type: 2}
+  - {fileID: 11400000, guid: 57220d3c56bce5e4fbfa05b9250441c7, type: 2}
+  - {fileID: 11400000, guid: 4bb4e1367a597a84e8977eb1df749f2c, type: 2}
+  - {fileID: 11400000, guid: 7a4471685111b99408c76e64826e67f0, type: 2}
+  - {fileID: 11400000, guid: b0cdec366c0aa774ebf85d90cdadc301, type: 2}
+  - {fileID: 11400000, guid: f2688a8a4529bf240b2e990fea607529, type: 2}
+  - {fileID: 11400000, guid: cc0f794b70964ef44ab1c681c45fb0f8, type: 2}
+  - {fileID: 11400000, guid: 9c4adeaafe0719744a3a3055b50fc0c2, type: 2}
+  - {fileID: 11400000, guid: a4890b22937988b4bb0b9ce5d2383dfb, type: 2}
+  - {fileID: 11400000, guid: 9eccc8cc65142184992ce3d1c8cd0ca8, type: 2}
+  - {fileID: 11400000, guid: 2914bdb654d00ed41ba4d14f515e8626, type: 2}
+  - {fileID: 11400000, guid: fce926ea62278414b8008aea588ea819, type: 2}
+  - {fileID: 11400000, guid: d1ab3b3aebc4aea4592977dfe18e876e, type: 2}
+  - {fileID: 11400000, guid: 22af26971e3eb3945bb8b6cf56711031, type: 2}
+  - {fileID: 11400000, guid: 1f2e8a056084f554a9d5848404f999e4, type: 2}
+  _Radius: 0.3
+  _SightRadius: 5

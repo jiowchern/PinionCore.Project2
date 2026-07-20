@@ -71,7 +71,7 @@ namespace PinionCore.Project2.Client.Editor
 
             var nameInput = _InputField(res, font, loginPanel.transform, new Vector2(0, 52), new Vector2(340, 46), "輸入角色名稱");
             var dropdown = _Dropdown(res, font, loginPanel.transform, new Vector2(0, -8), new Vector2(340, 46),
-                new List<string> { "Cube", "Unitychan" }, 1); // 選項順序 = ModelType enum 值
+                new List<string> { "HumanM", "Cube", "Unitychan" }, 0); // 選項順序 = ModelType enum 值,預設 HumanM
             var button = _Button(res, font, loginPanel.transform, new Vector2(0, -74), new Vector2(220, 52), "登入");
             var status = _Text(font, loginPanel.transform, "Status", string.Empty, 20, TextAnchor.MiddleCenter, new Vector2(0, -134), new Vector2(420, 36));
             status.color = new Color(1f, 0.75f, 0.35f, 1f);

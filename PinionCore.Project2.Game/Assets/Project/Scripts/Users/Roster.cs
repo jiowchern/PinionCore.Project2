@@ -11,6 +11,7 @@ namespace PinionCore.Project2.Users
         {
             _ModelTypeToName = new System.Collections.Generic.Dictionary<ModelType, string>
             {
+                { ModelType.HumanM, "humanm" },
                 { ModelType.Cube, "Test1" },
                 { ModelType.Unitychan, "unitychan" }
             };
