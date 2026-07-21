@@ -58,7 +58,7 @@ namespace PinionCore.Project2.Tests
             };
 
             var attack = ScriptableObject.CreateInstance<ActionConfig>();
-            attack.Action = ActionType.BattleAttack;
+            attack.Action = ActionType.UnarmedAttack;
             attack.Loop = false;
             attack.Duration = DashDuration + RecoverDuration;
             attack.Segments = new[]
@@ -305,9 +305,9 @@ namespace PinionCore.Project2.Tests
 
             // 一次性動作直接取代走路:取代不觸發 EndEvent(換排程不走 _EndAction)、無中間事件
             var interruptPos = _SamplePosition(player.CurrentMoveInfo, _world.ElapsedTicks);
-            Assert.IsTrue(player.StartAction(ActionType.BattleAttack, force: false), "走路中出招應被接受");
+            Assert.IsTrue(player.StartAction(ActionType.UnarmedAttack, force: false), "走路中出招應被接受");
             Assert.AreEqual(2, actionEvents.Count, "取代只該有 Walk、Attack 兩發 ActionInfo");
-            Assert.AreEqual(ActionType.BattleAttack, actionEvents[1].Action);
+            Assert.AreEqual(ActionType.UnarmedAttack, actionEvents[1].Action);
             Assert.AreEqual(0, endEvents.Count, "取代不得觸發 EndEvent(走路排程直接作廢)");
             var attackStart = actionEvents[1].StartTicks;
 
@@ -318,7 +318,7 @@ namespace PinionCore.Project2.Tests
             yield return _PumpUntil(() => endEvents.Count > 0, timeoutSeconds: 5f);
 
             // 攻擊基底沿用走路方向(+X):前衝終點 = 打斷點 + (DashDistance, 0)
-            Assert.AreEqual(ActionType.BattleAttack, endEvents[0].Action, "結束的應是攻擊");
+            Assert.AreEqual(ActionType.UnarmedAttack, endEvents[0].Action, "結束的應是攻擊");
             Assert.AreEqual(attackStart + AttackTotalTicks, endEvents[0].Ticks, "攻擊結束時刻應以取代時刻起算");
             var finalPos = player.CurrentMoveInfo.Position;
             Assert.AreEqual(interruptPos.x + DashDistance, finalPos.x, 0.01f, "攻擊應沿走路方向前衝");

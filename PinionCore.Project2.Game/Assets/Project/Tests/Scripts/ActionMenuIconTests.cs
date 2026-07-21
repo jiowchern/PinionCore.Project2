@@ -15,7 +15,7 @@ namespace PinionCore.Project2.Tests
     /// 進戰鬥態後選單元素應以 ActionIconConfig 的圖示 prefab 呈現(元素 button 上有 ActionIcon),
     /// 而非預設文字按鈕後備。抓住中/被抓的 Transition 只由 GrabResolver 配對觸發
     ///(單一 client 無法自然抵達),改以合成 Transition 直驅 handler 的渲染路徑,
-    /// 驗證同一條 _Render→_IconOf 流程對 GrabAtk1A/GrabThrowA/GrabBreakB 的圖示解析與 Loop 過濾。
+    /// 驗證同一條 _Render→_IconOf 流程對 UnarmedGrabAtk1A/UnarmedGrabThrowA/UnarmedGrabBreakB 的圖示解析與 Loop 過濾。
     /// </summary>
     public class ActionMenuIconTests
     {
@@ -93,8 +93,8 @@ namespace PinionCore.Project2.Tests
             //(與 _IconOf 同一判定;缺 Button 會靜默退回文字按鈕)
             var grabActions = new[]
             {
-                ActionType.GrabStart, ActionType.GrabAtk1A,
-                ActionType.GrabThrowA, ActionType.GrabBreakB,
+                ActionType.UnarmedGrabStart, ActionType.UnarmedGrabAtk1A,
+                ActionType.UnarmedGrabThrowA, ActionType.UnarmedGrabBreakB,
             };
             foreach (var action in grabActions)
             {
@@ -115,39 +115,39 @@ namespace PinionCore.Project2.Tests
             // 切戰鬥(RPC 掉失保護:逾時重訂閱+重送)
             var battleTransition = TestWait.FirstWithRetry(
                 () => TestWait.TransitionEvents(controllable)
-                    .Where(t => t.Current.Action == ActionType.BattleIdle),
-                onAttempt: () => controllable.Play(ActionType.BattleIdle, Vector2.zero).RemoteValue().Subscribe(),
+                    .Where(t => t.Current.Action == ActionType.UnarmedIdle),
+                onAttempt: () => controllable.Play(ActionType.UnarmedIdle, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return battleTransition;
-            TestWait.AssertDone(battleTransition, "Play(BattleIdle) 後控制狀態應切到 Current==BattleIdle");
+            TestWait.AssertDone(battleTransition, "Play(UnarmedIdle) 後控制狀態應切到 Current==UnarmedIdle");
 
-            // 戰鬥態選單:GrabStart 與 BattleAttack 都應以圖示元素呈現(button 上有 ActionIcon)
+            // 戰鬥態選單:UnarmedGrabStart 與 UnarmedAttack 都應以圖示元素呈現(button 上有 ActionIcon)
             var battleMenu = TestWait.Until(
                 () => handler.Menu.gameObject.activeSelf &&
-                      _IconElement(handler, ActionType.GrabStart) != null,
+                      _IconElement(handler, ActionType.UnarmedGrabStart) != null,
                 System.TimeSpan.FromSeconds(10));
             yield return battleMenu;
-            TestWait.AssertDone(battleMenu, "戰鬥態選單應出現 GrabStart 圖示元素");
-            Assert.NotNull(_IconElement(handler, ActionType.BattleAttack),
-                "戰鬥態選單的 BattleAttack 應維持圖示呈現");
+            TestWait.AssertDone(battleMenu, "戰鬥態選單應出現 UnarmedGrabStart 圖示元素");
+            Assert.NotNull(_IconElement(handler, ActionType.UnarmedAttack),
+                "戰鬥態選單的 UnarmedAttack 應維持圖示呈現");
 
-            // 抓住中選單(合成 GrabIdleA Transition 直驅渲染):
-            // GrabWalkA 是循環動作應被過濾,補打/丟投以圖示呈現
-            _InjectTransition(handler, ActionType.GrabIdleA,
-                new[] { ActionType.GrabWalkA, ActionType.GrabAtk1A, ActionType.GrabThrowA },
-                next: ActionType.GrabIdleA, damage: ActionType.BattleDamage);
+            // 抓住中選單(合成 UnarmedGrabIdleA Transition 直驅渲染):
+            // UnarmedGrabWalkA 是循環動作應被過濾,補打/丟投以圖示呈現
+            _InjectTransition(handler, ActionType.UnarmedGrabIdleA,
+                new[] { ActionType.UnarmedGrabWalkA, ActionType.UnarmedGrabAtk1A, ActionType.UnarmedGrabThrowA },
+                next: ActionType.UnarmedGrabIdleA, damage: ActionType.UnarmedDamage);
             Assert.AreEqual(2, handler.Menu.elements.Count,
                 "抓住中選單應只剩補打/丟投兩個一次性動作(拖行循環動作被過濾)");
-            Assert.NotNull(_IconElement(handler, ActionType.GrabAtk1A), "GrabAtk1A 應以圖示呈現");
-            Assert.NotNull(_IconElement(handler, ActionType.GrabThrowA), "GrabThrowA 應以圖示呈現");
+            Assert.NotNull(_IconElement(handler, ActionType.UnarmedGrabAtk1A), "UnarmedGrabAtk1A 應以圖示呈現");
+            Assert.NotNull(_IconElement(handler, ActionType.UnarmedGrabThrowA), "UnarmedGrabThrowA 應以圖示呈現");
 
-            // 被抓選單(合成 GrabIdleB Transition):唯一元素 = 掙脫,且以圖示呈現
-            _InjectTransition(handler, ActionType.GrabIdleB,
-                new[] { ActionType.GrabBreakB },
-                next: ActionType.GrabIdleB, damage: ActionType.GrabAtk1B);
+            // 被抓選單(合成 UnarmedGrabIdleB Transition):唯一元素 = 掙脫,且以圖示呈現
+            _InjectTransition(handler, ActionType.UnarmedGrabIdleB,
+                new[] { ActionType.UnarmedGrabBreakB },
+                next: ActionType.UnarmedGrabIdleB, damage: ActionType.UnarmedGrabAtk1B);
             Assert.AreEqual(1, handler.Menu.elements.Count, "被抓選單應只剩掙脫一個元素");
-            Assert.NotNull(_IconElement(handler, ActionType.GrabBreakB), "GrabBreakB 應以圖示呈現");
+            Assert.NotNull(_IconElement(handler, ActionType.UnarmedGrabBreakB), "UnarmedGrabBreakB 應以圖示呈現");
         }
 
         IPlayer _PlayerGhost;
@@ -217,7 +217,7 @@ namespace PinionCore.Project2.Tests
             return null;
         }
 
-        // 合成 Transition 直驅 handler 的私有 _OnTransition(GrabIdleA/B 只由 GrabResolver
+        // 合成 Transition 直驅 handler 的私有 _OnTransition(UnarmedGrabIdleA/B 只由 GrabResolver
         // 配對觸發,單一 client 的 E2E 無法自然抵達):走的是與正式事件完全相同的
         // _OnTransition→_Render→_IconOf 路徑,只繞過網路來源
         static void _InjectTransition(

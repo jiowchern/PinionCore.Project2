@@ -11,10 +11,10 @@ namespace PinionCore.Project2.Tests
 {
     /// <summary>
     /// 自帶位移攻擊動作端到端測試(比照 ActorStanceTests 的四場景 Standalone 流程):
-    /// Play(BattleIdle) 進戰鬥 → Play(BattleAttack) → IActor.ActionEvent 廣播 BattleAttack
+    /// Play(UnarmedIdle) 進戰鬥 → Play(UnarmedAttack) → IActor.ActionEvent 廣播 UnarmedAttack
     /// → 攻擊中 Transition.Playables 為空(無法移動)→ 殼跟著分段 MoveInfo 位移
-    /// → ActionEvent None(結束)→ 自動回 BattleIdle → 殼停在位移後位置、Play(BattleWalk) 恢復可用。
-    /// 攻擊位移來自 Configs/ActionConfigs/BattleAttackAction.asset(烘焙自 AttackDash clip),
+    /// → ActionEvent None(結束)→ 自動回 UnarmedIdle → 殼停在位移後位置、Play(UnarmedWalk) 恢復可用。
+    /// 攻擊位移來自 Configs/ActionConfigs/UnarmedAttackAction.asset(烘焙自 AttackDash clip),
     /// 期望值由資產推導,烘焙改寫段資料不需改測試。
     /// </summary>
     public class ActorAttackTests
@@ -25,22 +25,22 @@ namespace PinionCore.Project2.Tests
         GameObject _BotObject;   // 命中測試的靶:headless bot client(不掛 BotsMove,站在原地)
         bool _PreviousRunInBackground;
 
-        // 攻擊總位移從 BattleAttackAction.asset 推導(烘焙會改寫段資料,測試不寫死數值);
+        // 攻擊總位移從 UnarmedAttackAction.asset 推導(烘焙會改寫段資料,測試不寫死數值);
         // 基底旋轉不改長度,總位移 = Σ LocalOffset 的模長
         static float _DashDistance()
         {
 #if UNITY_EDITOR
             var config = UnityEditor.AssetDatabase.LoadAssetAtPath<ActionConfig>(
-                "Assets/Project/Configs/ActionConfigs/BattleAttackAction.asset");
-            Assert.NotNull(config, "應存在 BattleAttackAction.asset");
-            Assert.Greater(config.Segments.Length, 0, "BattleAttackAction 應有分段資料(先跑 PinionCore/Bake Action Motions)");
+                "Assets/Project/Configs/ActionConfigs/UnarmedAttackAction.asset");
+            Assert.NotNull(config, "應存在 UnarmedAttackAction.asset");
+            Assert.Greater(config.Segments.Length, 0, "UnarmedAttackAction 應有分段資料(先跑 PinionCore/Bake Action Motions)");
             var sum = Vector2.zero;
             foreach (var segment in config.Segments)
                 sum += segment.LocalOffset;
-            Assert.Greater(sum.magnitude, 0.1f, "BattleAttackAction 總位移過小,位移斷言無意義");
+            Assert.Greater(sum.magnitude, 0.1f, "UnarmedAttackAction 總位移過小,位移斷言無意義");
             return sum.magnitude;
 #else
-            Assert.Fail("此測試僅支援編輯器(需讀取 BattleAttackAction.asset)");
+            Assert.Fail("此測試僅支援編輯器(需讀取 UnarmedAttackAction.asset)");
             return 0f;
 #endif
         }
@@ -134,39 +134,39 @@ namespace PinionCore.Project2.Tests
             yield return actionReplay;
             TestWait.AssertDone(actionReplay, "進場後 ActionEvent 應廣播 AdventureIdle(idle 即動作)");
 
-            // 進戰鬥(冒險系狀態白名單沒有 BattleAttack,攻擊無從觸發)
-            var battleIdle = _PlayAndWait(_ControllableGhost, ActionType.BattleIdle, ActionType.BattleIdle);
+            // 進戰鬥(冒險系狀態白名單沒有 UnarmedAttack,攻擊無從觸發)
+            var battleIdle = _PlayAndWait(_ControllableGhost, ActionType.UnarmedIdle, ActionType.UnarmedIdle);
             yield return battleIdle;
-            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後控制狀態應切到 Current==BattleIdle");
+            TestWait.AssertDone(battleIdle, "Play(UnarmedIdle) 後控制狀態應切到 Current==UnarmedIdle");
 
             // 出招前記下殼的位置(攻擊位移的比較基準)
             var startPosition = _Shell.Target.position;
             var dashDistance = _DashDistance();
 
-            // 攻擊:等 ActionEvent 廣播 BattleAttack = 伺服器已受理
+            // 攻擊:等 ActionEvent 廣播 UnarmedAttack = 伺服器已受理
             var attackEvent = TestWait.FirstWithRetry(
-                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleAttack),
-                onAttempt: () => _ControllableGhost.Play(ActionType.BattleAttack, Vector2.zero).RemoteValue().Subscribe(),
+                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.UnarmedAttack),
+                onAttempt: () => _ControllableGhost.Play(ActionType.UnarmedAttack, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return attackEvent;
-            TestWait.AssertDone(attackEvent, "Play(BattleAttack) 後 ActionEvent 應廣播 BattleAttack");
+            TestWait.AssertDone(attackEvent, "Play(UnarmedAttack) 後 ActionEvent 應廣播 UnarmedAttack");
             var attackStartTicks = attackEvent.Result.StartTicks;
 
-            // 攻擊中無法移動(核心不變量):攻擊態 Transition 的白名單為空、自然結束去向為 BattleIdle
+            // 攻擊中無法移動(核心不變量):攻擊態 Transition 的白名單為空、自然結束去向為 UnarmedIdle
             var attackTransition = TestWait.First(
                 TestWait.TransitionEvents(_ControllableGhost),
-                t => t.Current.Action == ActionType.BattleAttack,
+                t => t.Current.Action == ActionType.UnarmedAttack,
                 System.TimeSpan.FromSeconds(10));
             yield return attackTransition;
-            TestWait.AssertDone(attackTransition, "攻擊中控制狀態應為 Current==BattleAttack");
+            TestWait.AssertDone(attackTransition, "攻擊中控制狀態應為 Current==UnarmedAttack");
             Assert.AreEqual(0, attackTransition.Result.Playables.Length, "攻擊中 Playables 應為空(無法移動/再出招)");
-            Assert.AreEqual(ActionType.BattleIdle, attackTransition.Result.Next.Action, "攻擊自然結束應回 BattleIdle");
+            Assert.AreEqual(ActionType.UnarmedIdle, attackTransition.Result.Next.Action, "攻擊自然結束應回 UnarmedIdle");
 
-            // 行為驗證:攻擊中送出的 Play(BattleWalk) 回應必為 false
+            // 行為驗證:攻擊中送出的 Play(UnarmedWalk) 回應必為 false
             //(回應時機與攻擊結束存在競態,不等待、改事後斷言)
             bool? walkDuringAttack = null;
-            _ControllableGhost.Play(ActionType.BattleWalk, new Vector2(1f, 0f)).RemoteValue()
+            _ControllableGhost.Play(ActionType.UnarmedWalk, new Vector2(1f, 0f)).RemoteValue()
                 .Subscribe(result => walkDuringAttack = result);
 
             // 殼跟著分段 MoveInfo 位移:超過半個前衝距離即算開始位移
@@ -176,16 +176,16 @@ namespace PinionCore.Project2.Tests
             yield return displaced;
             TestWait.AssertDone(displaced, "攻擊期間殼應跟著伺服器分段 MoveInfo 位移");
 
-            // 動作結束:不再廣播 None,攻擊播完直接接下一狀態的 BattleIdle
+            // 動作結束:不再廣播 None,攻擊播完直接接下一狀態的 UnarmedIdle
             //(StartTicks 晚於攻擊開始 = 不是訂閱 replay 撿到的舊事件)
             var idleEvent = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost),
-                a => a.Action == ActionType.BattleIdle && a.StartTicks > attackStartTicks,
+                a => a.Action == ActionType.UnarmedIdle && a.StartTicks > attackStartTicks,
                 System.TimeSpan.FromSeconds(10));
             yield return idleEvent;
-            TestWait.AssertDone(idleEvent, "攻擊播完應直接廣播下一狀態的 BattleIdle");
+            TestWait.AssertDone(idleEvent, "攻擊播完應直接廣播下一狀態的 UnarmedIdle");
 
-            Assert.AreNotEqual(true, walkDuringAttack, "攻擊中 Play(BattleWalk) 不得被接受");
+            Assert.AreNotEqual(true, walkDuringAttack, "攻擊中 Play(UnarmedWalk) 不得被接受");
 
             // 終點:殼收斂到「起點 + 總位移」附近(等殼把終停 MoveInfo 取樣完);
             // 位移折線的向量和模長 ≤ 直線距離和,容差抓總位移的 15% 起跳
@@ -196,22 +196,22 @@ namespace PinionCore.Project2.Tests
             yield return settled;
             TestWait.AssertDone(settled, "動作結束後殼應停在前衝距離附近");
 
-            // 攻擊播完自動回 BattleIdle:轉移抵達後移動恢復可用,
-            // Play(BattleWalk) 被接受會廣播 Speed > 0 的 MoveEvent
+            // 攻擊播完自動回 UnarmedIdle:轉移抵達後移動恢復可用,
+            // Play(UnarmedWalk) 被接受會廣播 Speed > 0 的 MoveEvent
             var idleTransition = TestWait.First(
                 TestWait.TransitionEvents(_ControllableGhost),
-                t => t.Current.Action == ActionType.BattleIdle,
+                t => t.Current.Action == ActionType.UnarmedIdle,
                 System.TimeSpan.FromSeconds(10));
             yield return idleTransition;
-            TestWait.AssertDone(idleTransition, "攻擊結束後控制狀態應自動回 Current==BattleIdle");
+            TestWait.AssertDone(idleTransition, "攻擊結束後控制狀態應自動回 Current==UnarmedIdle");
 
             var moveResumed = TestWait.FirstWithRetry(
                 () => TestWait.MoveEvents(_ActorGhost).Where(m => m.Speed > 0f && m.StartTicks > attackStartTicks),
-                onAttempt: () => _ControllableGhost.Play(ActionType.BattleWalk, new Vector2(1f, 0f)).RemoteValue().Subscribe(),
+                onAttempt: () => _ControllableGhost.Play(ActionType.UnarmedWalk, new Vector2(1f, 0f)).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return moveResumed;
-            TestWait.AssertDone(moveResumed, "動作結束後 Play(BattleWalk) 應恢復可用並廣播移動");
+            TestWait.AssertDone(moveResumed, "動作結束後 Play(UnarmedWalk) 應恢復可用並廣播移動");
         }
 
         /// <summary>
@@ -235,24 +235,24 @@ namespace PinionCore.Project2.Tests
             Assert.IsFalse(animator.applyRootMotion, "client 模型不得啟用 root motion(位置權威在伺服器)");
 
             // 進戰鬥 → 出招 → 等動作結束
-            var battleIdle = _PlayAndWait(_ControllableGhost, ActionType.BattleIdle, ActionType.BattleIdle);
+            var battleIdle = _PlayAndWait(_ControllableGhost, ActionType.UnarmedIdle, ActionType.UnarmedIdle);
             yield return battleIdle;
-            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後控制狀態應切到 Current==BattleIdle");
+            TestWait.AssertDone(battleIdle, "Play(UnarmedIdle) 後控制狀態應切到 Current==UnarmedIdle");
 
             var attackEvent = TestWait.FirstWithRetry(
-                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleAttack),
-                onAttempt: () => _ControllableGhost.Play(ActionType.BattleAttack, Vector2.zero).RemoteValue().Subscribe(),
+                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.UnarmedAttack),
+                onAttempt: () => _ControllableGhost.Play(ActionType.UnarmedAttack, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return attackEvent;
-            TestWait.AssertDone(attackEvent, "unitychan 出招應被受理(ActorConfig2 需掛 BattleAttackAction)");
+            TestWait.AssertDone(attackEvent, "unitychan 出招應被受理(ActorConfig2 需掛 UnarmedAttackAction)");
 
             var idleEvent = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost),
-                a => a.Action == ActionType.BattleIdle && a.StartTicks > attackEvent.Result.StartTicks,
+                a => a.Action == ActionType.UnarmedIdle && a.StartTicks > attackEvent.Result.StartTicks,
                 System.TimeSpan.FromSeconds(10));
             yield return idleEvent;
-            TestWait.AssertDone(idleEvent, "攻擊播完應直接廣播下一狀態的 BattleIdle");
+            TestWait.AssertDone(idleEvent, "攻擊播完應直接廣播下一狀態的 UnarmedIdle");
 
             // 模型子物件必須貼著殼:root motion 不得疊進 localPosition(XZ)
             var local = animator.transform.localPosition;
@@ -261,7 +261,7 @@ namespace PinionCore.Project2.Tests
         }
 
         /// <summary>
-        /// 命中端到端(全鏈路):A 出招 → 伺服器 HitResolver 以 BattleAttackAction 的
+        /// 命中端到端(全鏈路):A 出招 → 伺服器 HitResolver 以 UnarmedAttackAction 的
         /// HitSegments 判定命中站在原地的 bot → 對 bot 呼叫 ICharacter.Damage() →
         /// 硬直動作 StartAction → ActionInfo 廣播 → A 的 client 從 bot 的 IActor ghost
         /// 收到 AdventureDamage(client 端零新碼)。
@@ -298,18 +298,18 @@ namespace PinionCore.Project2.Tests
 
             // 攻擊是前衝突進、命中窗在前衝段:同點出招時目標會落在攻擊者正後方(扇形不中)。
             // 比照實戰:先走開拉出距離,再以 Play 的 direction 指定攻擊朝向回身衝向 bot。
-            var battleIdle = _PlayAndWait(_ControllableGhost, ActionType.BattleIdle, ActionType.BattleIdle);
+            var battleIdle = _PlayAndWait(_ControllableGhost, ActionType.UnarmedIdle, ActionType.UnarmedIdle);
             yield return battleIdle;
-            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後控制狀態應切到 Current==BattleIdle");
+            TestWait.AssertDone(battleIdle, "Play(UnarmedIdle) 後控制狀態應切到 Current==UnarmedIdle");
 
             var standPosition = _Shell.Target.position;
             var walked = TestWait.FirstWithRetry(
-                () => TestWait.TransitionEvents(_ControllableGhost).Where(t => t.Current.Action == ActionType.BattleWalk),
-                onAttempt: () => _ControllableGhost.Play(ActionType.BattleWalk, new Vector2(0f, 1f)).RemoteValue().Subscribe(),
+                () => TestWait.TransitionEvents(_ControllableGhost).Where(t => t.Current.Action == ActionType.UnarmedWalk),
+                onAttempt: () => _ControllableGhost.Play(ActionType.UnarmedWalk, new Vector2(0f, 1f)).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return walked;
-            TestWait.AssertDone(walked, "Play(BattleWalk) 應被接受(拉開與 bot 的距離)");
+            TestWait.AssertDone(walked, "Play(UnarmedWalk) 應被接受(拉開與 bot 的距離)");
 
             var separated = TestWait.Until(
                 () => Vector3.Distance(_Shell.Target.position, standPosition) > 1.0f,
@@ -317,18 +317,18 @@ namespace PinionCore.Project2.Tests
             yield return separated;
             TestWait.AssertDone(separated, "攻擊者應走離出生點 1m 以上");
 
-            var stopped = _PlayAndWait(_ControllableGhost, ActionType.BattleIdle, ActionType.BattleIdle);
+            var stopped = _PlayAndWait(_ControllableGhost, ActionType.UnarmedIdle, ActionType.UnarmedIdle);
             yield return stopped;
-            TestWait.AssertDone(stopped, "走開後 Play(BattleIdle) 應停下");
+            TestWait.AssertDone(stopped, "走開後 Play(UnarmedIdle) 應停下");
 
             // 回身出招:direction 是動作朝向基底,前衝與扇形都朝 -Z(bot 方向)
             var attackEvent = TestWait.FirstWithRetry(
-                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleAttack),
-                onAttempt: () => _ControllableGhost.Play(ActionType.BattleAttack, new Vector2(0f, -1f)).RemoteValue().Subscribe(),
+                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.UnarmedAttack),
+                onAttempt: () => _ControllableGhost.Play(ActionType.UnarmedAttack, new Vector2(0f, -1f)).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return attackEvent;
-            TestWait.AssertDone(attackEvent, "Play(BattleAttack) 後 ActionEvent 應廣播 BattleAttack");
+            TestWait.AssertDone(attackEvent, "Play(UnarmedAttack) 後 ActionEvent 應廣播 UnarmedAttack");
             var attackStartTicks = attackEvent.Result.StartTicks;
 
             // 全鏈路驗證:bot ghost 廣播 AdventureDamage(StartTicks 晚於攻擊開始 = 非訂閱 replay)

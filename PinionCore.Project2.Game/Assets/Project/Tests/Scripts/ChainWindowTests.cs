@@ -25,16 +25,16 @@ namespace PinionCore.Project2.Tests
             worldInfo.Name = "ChainWindowTestWorld";
             worldInfo.TerrainPrefab = new UnityEngine.AddressableAssets.AssetReferenceGameObject("84e3641b69ee6b2419379df04933bb0d");
 
-            _attack0 = _Config(ActionType.BattleAttack0, loop: false, duration: 0.3f);
+            _attack0 = _Config(ActionType.UnarmedAttack0, loop: false, duration: 0.3f);
 
             var actorConfig = ScriptableObject.CreateInstance<ActorConfig>();
             actorConfig.Name = "TestActor";
             actorConfig.Actions = new[]
             {
                 _Config(ActionType.AdventureIdle, loop: true, duration: 0.5f),
-                _Config(ActionType.BattleIdle, loop: true, duration: 0.5f),
+                _Config(ActionType.UnarmedIdle, loop: true, duration: 0.5f),
                 _attack0,
-                _Config(ActionType.BattleAttack0_0, loop: false, duration: 0.3f),
+                _Config(ActionType.UnarmedAttack0_0, loop: false, duration: 0.3f),
             };
             _world = new PinionCore.Project2.Worlds.World(System.Guid.NewGuid(), worldInfo, new[] { actorConfig });
         }
@@ -112,24 +112,24 @@ namespace PinionCore.Project2.Tests
             return count;
         }
 
-        // 進場並打出 BattleAttack0,等它自然播完(窗開啟中);回傳播完前的 BattleIdle 轉移次數
+        // 進場並打出 UnarmedAttack0,等它自然播完(窗開啟中);回傳播完前的 UnarmedIdle 轉移次數
         IEnumerator _EnterAndFinishAttack0(PinionCore.Project2.Worlds.PlayerController controller, List<ActionType> transitions, System.Action<int> idleCountOut)
         {
             yield return _Drive(2);   // 先讓初始狀態 Enter
-            Assert.IsTrue(_Play(controller, ActionType.BattleIdle), "進戰鬥應被接受");
-            Assert.IsTrue(_Play(controller, ActionType.BattleAttack0), "出招應被接受");
+            Assert.IsTrue(_Play(controller, ActionType.UnarmedIdle), "進戰鬥應被接受");
+            Assert.IsTrue(_Play(controller, ActionType.UnarmedAttack0), "出招應被接受");
 
             var started = false;
             yield return _DriveUntil(
-                () => controller.Player.CurrentActionConfig != null && controller.Player.CurrentActionConfig.Action == ActionType.BattleAttack0,
+                () => controller.Player.CurrentActionConfig != null && controller.Player.CurrentActionConfig.Action == ActionType.UnarmedAttack0,
                 5f, d => started = d);
-            Assert.IsTrue(started, "BattleAttack0 應開始播放");
+            Assert.IsTrue(started, "UnarmedAttack0 應開始播放");
 
-            var idleCount = _Count(transitions, ActionType.BattleIdle);
+            var idleCount = _Count(transitions, ActionType.UnarmedIdle);
 
             var finished = false;
             yield return _DriveUntil(() => controller.Player.CurrentActionConfig == null, 5f, d => finished = d);
-            Assert.IsTrue(finished, "BattleAttack0 應自然播完");
+            Assert.IsTrue(finished, "UnarmedAttack0 應自然播完");
             idleCountOut(idleCount);
         }
 
@@ -144,14 +144,14 @@ namespace PinionCore.Project2.Tests
             var idleBefore = 0;
             yield return _EnterAndFinishAttack0(controller, transitions, c => idleBefore = c);
 
-            // 播完但窗未到期:狀態仍是 BattleAttack0(未轉移 BattleIdle),白名單照常生效
-            Assert.AreEqual(idleBefore, _Count(transitions, ActionType.BattleIdle),
-                "接招窗內不得先轉移到 Next(BattleIdle)");
-            Assert.IsFalse(_Play(controller, ActionType.BattleWalk), "窗內非白名單動作仍應拒收");
-            Assert.IsTrue(_Play(controller, ActionType.BattleAttack0_0), "窗內接招 BattleAttack0_0 應被接受");
-            Assert.AreEqual(1, _Count(transitions, ActionType.BattleAttack0_0), "接招應轉移到 BattleAttack0_0");
-            Assert.AreEqual(idleBefore, _Count(transitions, ActionType.BattleIdle),
-                "接招不得中途彈回 BattleIdle");
+            // 播完但窗未到期:狀態仍是 UnarmedAttack0(未轉移 UnarmedIdle),白名單照常生效
+            Assert.AreEqual(idleBefore, _Count(transitions, ActionType.UnarmedIdle),
+                "接招窗內不得先轉移到 Next(UnarmedIdle)");
+            Assert.IsFalse(_Play(controller, ActionType.UnarmedWalk), "窗內非白名單動作仍應拒收");
+            Assert.IsTrue(_Play(controller, ActionType.UnarmedAttack0_0), "窗內接招 UnarmedAttack0_0 應被接受");
+            Assert.AreEqual(1, _Count(transitions, ActionType.UnarmedAttack0_0), "接招應轉移到 UnarmedAttack0_0");
+            Assert.AreEqual(idleBefore, _Count(transitions, ActionType.UnarmedIdle),
+                "接招不得中途彈回 UnarmedIdle");
         }
 
         [UnityTest]
@@ -165,13 +165,13 @@ namespace PinionCore.Project2.Tests
             var idleBefore = 0;
             yield return _EnterAndFinishAttack0(controller, transitions, c => idleBefore = c);
 
-            // 無人接招:窗到期應補發 Next 轉移回 BattleIdle
+            // 無人接招:窗到期應補發 Next 轉移回 UnarmedIdle
             var expired = false;
-            yield return _DriveUntil(() => _Count(transitions, ActionType.BattleIdle) > idleBefore, 5f, d => expired = d);
-            Assert.IsTrue(expired, "接招窗到期應轉移到 Next(BattleIdle)");
+            yield return _DriveUntil(() => _Count(transitions, ActionType.UnarmedIdle) > idleBefore, 5f, d => expired = d);
+            Assert.IsTrue(expired, "接招窗到期應轉移到 Next(UnarmedIdle)");
 
-            // 回到 BattleIdle 後 combo 分支失效(BattleIdle 白名單無 BattleAttack0_0)
-            Assert.IsFalse(_Play(controller, ActionType.BattleAttack0_0), "窗到期後接招應被拒收");
+            // 回到 UnarmedIdle 後 combo 分支失效(UnarmedIdle 白名單無 UnarmedAttack0_0)
+            Assert.IsFalse(_Play(controller, ActionType.UnarmedAttack0_0), "窗到期後接招應被拒收");
         }
     }
 }

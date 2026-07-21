@@ -15,7 +15,7 @@ namespace PinionCore.Project2.Tests
     /// Play(AdventureWalk) → IActor.ActionEvent 廣播 AdventureWalk(循環動作,不發 None)
     /// → 殼跟分段 MoveInfo 位移且旋轉不凍結(面向移動方向)
     /// → Play(AdventureIdle) 停走 → ActionEvent 廣播 AdventureIdle + 駐留(取代制,無中間 None);
-    /// 走路中攻擊直接取代(BattleWalk→BattleAttack)、攻擊完自動回 BattleIdle 後可重新起走。
+    /// 走路中攻擊直接取代(UnarmedWalk→UnarmedAttack)、攻擊完自動回 UnarmedIdle 後可重新起走。
     /// </summary>
     public class ActorWalkTests
     {
@@ -168,8 +168,8 @@ namespace PinionCore.Project2.Tests
         }
 
         /// <summary>
-        /// 走路中攻擊:Play(BattleAttack) 直接取代 BattleWalk(無中間 None),
-        /// 攻擊結束(None)後自動回 BattleIdle,重新 Play(BattleWalk) 可再起走。
+        /// 走路中攻擊:Play(UnarmedAttack) 直接取代 UnarmedWalk(無中間 None),
+        /// 攻擊結束(None)後自動回 UnarmedIdle,重新 Play(UnarmedWalk) 可再起走。
         /// </summary>
         [UnityTest]
         [Timeout(120000)]
@@ -182,35 +182,35 @@ namespace PinionCore.Project2.Tests
             var actionSub = TestWait.ActionEvents(_ActorGhost).Subscribe(actionLog.Add);
 
             // 進戰鬥(攻擊只在戰鬥系狀態的白名單內;先切戰鬥態再起走)
-            var battleIdle = _WaitTransition(ActionType.BattleIdle, ActionType.BattleIdle, Vector2.zero);
+            var battleIdle = _WaitTransition(ActionType.UnarmedIdle, ActionType.UnarmedIdle, Vector2.zero);
             yield return battleIdle;
-            TestWait.AssertDone(battleIdle, "Play(BattleIdle) 後控制狀態應轉移到 Current==BattleIdle");
+            TestWait.AssertDone(battleIdle, "Play(UnarmedIdle) 後控制狀態應轉移到 Current==UnarmedIdle");
 
             // 起走(戰鬥走路)
             var walkEvent = TestWait.FirstWithRetry(
-                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleWalk),
-                onAttempt: () => _ControllableGhost.Play(ActionType.BattleWalk, new Vector2(1f, 0f)).RemoteValue().Subscribe(),
+                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.UnarmedWalk),
+                onAttempt: () => _ControllableGhost.Play(ActionType.UnarmedWalk, new Vector2(1f, 0f)).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return walkEvent;
-            TestWait.AssertDone(walkEvent, "Play(BattleWalk) 後 ActionEvent 應廣播 BattleWalk");
+            TestWait.AssertDone(walkEvent, "Play(UnarmedWalk) 後 ActionEvent 應廣播 UnarmedWalk");
             var walkStartTicks = walkEvent.Result.StartTicks;
 
-            // 走路中攻擊:等控制狀態轉移到走路,Play(BattleAttack) 直接取代走路
+            // 走路中攻擊:等控制狀態轉移到走路,Play(UnarmedAttack) 直接取代走路
             var walkTransition = TestWait.First(
                 TestWait.TransitionEvents(_ControllableGhost),
-                t => t.Current.Action == ActionType.BattleWalk,
+                t => t.Current.Action == ActionType.UnarmedWalk,
                 System.TimeSpan.FromSeconds(10));
             yield return walkTransition;
-            TestWait.AssertDone(walkTransition, "走路中控制狀態應為 Current==BattleWalk");
+            TestWait.AssertDone(walkTransition, "走路中控制狀態應為 Current==UnarmedWalk");
 
             var attackEvent = TestWait.FirstWithRetry(
-                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.BattleAttack),
-                onAttempt: () => _ControllableGhost.Play(ActionType.BattleAttack, Vector2.zero).RemoteValue().Subscribe(),
+                () => TestWait.ActionEvents(_ActorGhost).Where(a => a.Action == ActionType.UnarmedAttack),
+                onAttempt: () => _ControllableGhost.Play(ActionType.UnarmedAttack, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return attackEvent;
-            TestWait.AssertDone(attackEvent, "走路中 Play(BattleAttack) 應被受理並廣播");
+            TestWait.AssertDone(attackEvent, "走路中 Play(UnarmedAttack) 應被受理並廣播");
             var attackStartTicks = attackEvent.Result.StartTicks;
 
             // None 已不再廣播:進場後的整段事件流(走路→攻擊→接續)不得出現 None
@@ -220,31 +220,31 @@ namespace PinionCore.Project2.Tests
                     Assert.AreNotEqual(ActionType.None, info.Action, "動作事件流全程不得廣播 None");
             }
 
-            // 攻擊播完直接接下一狀態的 BattleIdle 廣播(無 None 空窗)
+            // 攻擊播完直接接下一狀態的 UnarmedIdle 廣播(無 None 空窗)
             var idleEvent = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost),
-                a => a.Action == ActionType.BattleIdle && a.StartTicks > attackStartTicks,
+                a => a.Action == ActionType.UnarmedIdle && a.StartTicks > attackStartTicks,
                 System.TimeSpan.FromSeconds(10));
             yield return idleEvent;
-            TestWait.AssertDone(idleEvent, "攻擊播完應直接廣播下一狀態的 BattleIdle");
+            TestWait.AssertDone(idleEvent, "攻擊播完應直接廣播下一狀態的 UnarmedIdle");
 
-            // 攻擊播完自動轉移回 BattleIdle(TransitionEvent 重訂閱即回放,晚訂閱安全)
+            // 攻擊播完自動轉移回 UnarmedIdle(TransitionEvent 重訂閱即回放,晚訂閱安全)
             var idleTransition = TestWait.First(
                 TestWait.TransitionEvents(_ControllableGhost),
-                t => t.Current.Action == ActionType.BattleIdle,
+                t => t.Current.Action == ActionType.UnarmedIdle,
                 System.TimeSpan.FromSeconds(10));
             yield return idleTransition;
-            TestWait.AssertDone(idleTransition, "攻擊結束後控制狀態應自動回 Current==BattleIdle");
+            TestWait.AssertDone(idleTransition, "攻擊結束後控制狀態應自動回 Current==UnarmedIdle");
 
-            // 攻擊結束後可重新起走:重新廣播 BattleWalk(新 StartTicks)
+            // 攻擊結束後可重新起走:重新廣播 UnarmedWalk(新 StartTicks)
             var resumeWalk = TestWait.FirstWithRetry(
                 () => TestWait.ActionEvents(_ActorGhost)
-                    .Where(a => a.Action == ActionType.BattleWalk && a.StartTicks > attackStartTicks),
-                onAttempt: () => _ControllableGhost.Play(ActionType.BattleWalk, new Vector2(0f, 1f)).RemoteValue().Subscribe(),
+                    .Where(a => a.Action == ActionType.UnarmedWalk && a.StartTicks > attackStartTicks),
+                onAttempt: () => _ControllableGhost.Play(ActionType.UnarmedWalk, new Vector2(0f, 1f)).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return resumeWalk;
-            TestWait.AssertDone(resumeWalk, "攻擊結束後 Play(BattleWalk) 應恢復並重新廣播");
+            TestWait.AssertDone(resumeWalk, "攻擊結束後 Play(UnarmedWalk) 應恢復並重新廣播");
 
             actionSub.Dispose();
         }

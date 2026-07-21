@@ -13,7 +13,7 @@ namespace PinionCore.Project2.Tests
     /// 冒險/戰鬥表現狀態切換端到端測試:
     /// 比照 ActorMoveTests 的四場景 Standalone 流程。StanceEvent 已拆除,
     /// 表現狀態由 IActor.ActionEvent 廣播的 ActionType 查 ActionConfig.Stance:
-    /// 經 IControllable.Play(BattleIdle / AdventureIdle) 驅動 world 端控制狀態機轉移時,
+    /// 經 IControllable.Play(UnarmedIdle / AdventureIdle) 驅動 world 端控制狀態機轉移時,
     /// TransitionEvent 廣播新 Transition(Current 隨之切換;soul 恆存,不再換 soul),
     /// ActionEvent 廣播戰鬥/冒險系動作,殼(Client.ActorShell.Stance)推導跟著切換。
     /// </summary>
@@ -83,7 +83,7 @@ namespace PinionCore.Project2.Tests
         }
 
         /// <summary>
-        /// 初始 replay 冒險系 → Play(BattleIdle) 廣播戰鬥系動作 → Play(AdventureIdle) 廣播回冒險系,
+        /// 初始 replay 冒險系 → Play(UnarmedIdle) 廣播戰鬥系動作 → Play(AdventureIdle) 廣播回冒險系,
         /// 每段都驗證新供應 soul 的 Transition.Current、ActionEvent 的 ActionType 推導與殼的 Stance。
         /// </summary>
         [UnityTest]
@@ -120,22 +120,22 @@ namespace PinionCore.Project2.Tests
                 "進場初始控制狀態應為 AdventureIdle");
 
             // 切戰鬥:RPC 掉失保護,單次逾時重訂閱(replay)+重送;
-            // Current==BattleIdle 的 TransitionEvent 抵達 = 伺服器狀態機已切換
+            // Current==UnarmedIdle 的 TransitionEvent 抵達 = 伺服器狀態機已切換
             var battleTransition = TestWait.FirstWithRetry(
                 () => TestWait.TransitionEvents(controllable)
-                    .Where(t => t.Current.Action == ActionType.BattleIdle),
-                onAttempt: () => controllable.Play(ActionType.BattleIdle, Vector2.zero).RemoteValue().Subscribe(),
+                    .Where(t => t.Current.Action == ActionType.UnarmedIdle),
+                onAttempt: () => controllable.Play(ActionType.UnarmedIdle, Vector2.zero).RemoteValue().Subscribe(),
                 perAttempt: System.TimeSpan.FromSeconds(3),
                 attempts: 5);
             yield return battleTransition;
-            TestWait.AssertDone(battleTransition, "Play(BattleIdle) 後控制狀態應切到 Current==BattleIdle");
+            TestWait.AssertDone(battleTransition, "Play(UnarmedIdle) 後控制狀態應切到 Current==UnarmedIdle");
 
             // 戰鬥系動作廣播抵達 IActor ghost(晚訂閱安全:已切換則 replay 即滿足)與殼推導
             var battleAction = TestWait.First(
                 TestWait.ActionEvents(_ActorGhost),
-                a => a.Action == ActionType.BattleIdle, System.TimeSpan.FromSeconds(10));
+                a => a.Action == ActionType.UnarmedIdle, System.TimeSpan.FromSeconds(10));
             yield return battleAction;
-            TestWait.AssertDone(battleAction, "Play(BattleIdle) 後 ActionEvent 應廣播戰鬥系動作");
+            TestWait.AssertDone(battleAction, "Play(UnarmedIdle) 後 ActionEvent 應廣播戰鬥系動作");
 
             var shellBattle = TestWait.Until(() => _Shell.Stance == StanceType.Battle, System.TimeSpan.FromSeconds(10));
             yield return shellBattle;

@@ -46,7 +46,7 @@ namespace PinionCore.NetSync.Consoles
         {
             var name = $"controllable.battleidle-{_CommandSn++}";
             Console.GetCommand().Register(name, () => { 
-                controllable.Play(ActionType.BattleIdle , Vector2.zero);
+                controllable.Play(ActionType.UnarmedIdle , Vector2.zero);
             });
 
             _Unregisters.Add(controllable, () =>

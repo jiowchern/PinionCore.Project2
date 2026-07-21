@@ -94,7 +94,7 @@ namespace PinionCore.Project2.Client
         // 姿態切換:目標 = 當前 Transition.Playables 中「另一側的 idle」,由 ActionConfig
         // 能力欄位判定(idle = Loop 且非 Redirectable、側別 = Stance),不硬編碼 ActionType;
         // findAction 由呼叫端提供(handler 傳 ActorShell.FindAction,與伺服器同一份資產)。
-        // 白名單查無目標(如 BattleWalk 不含另一側 idle)不發 RPC,直接回 false
+        // 白名單查無目標(如 UnarmedWalk 不含另一側 idle)不發 RPC,直接回 false
         public void SwitchStance(Func<Shared.ActionType, Shared.ActionConfig> findAction, Action<bool> responded)
         {
             _StanceDisposable.Clear();

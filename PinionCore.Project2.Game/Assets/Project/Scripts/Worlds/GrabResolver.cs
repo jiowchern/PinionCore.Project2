@@ -21,11 +21,11 @@ namespace PinionCore.Project2.Worlds
     ///   以 reentrancy 旗標識別後標 dirty,Tick 同幀重新轉發一次蓋回錨點
     ///   (不同步重入 _SetMoveInfo,校正上界 = 每幀一次)。
     /// - grabber 節點轉移鏡射到 victim(IdleA→IdleB、WalkA→WalkB、ThrowA→ThrowB+解體);
-    ///   離開 grab 家族(如被第三方打進 BattleDamage)即解體釋放 victim ——
-    ///   「打抓取者解體」規則在此自動實現。GrabAtk1A 不鏡射:B 側受創反應由 Damage 路由
-    ///   (Atk1A 的 HitSegment 命中 → victim.Damage() → 節點 Damage=GrabAtk1B),
+    ///   離開 grab 家族(如被第三方打進 UnarmedDamage)即解體釋放 victim ——
+    ///   「打抓取者解體」規則在此自動實現。UnarmedGrabAtk1A 不鏡射:B 側受創反應由 Damage 路由
+    ///   (Atk1A 的 HitSegment 命中 → victim.Damage() → 節點 Damage=UnarmedGrabAtk1B),
     ///   第三方打 victim 與抓取者補打因此走同一條管線。
-    /// - victim 進 GrabBreakB(白名單放行的玩家輸入)→ 解體,grabber 進 GrabBreakA 後搖。
+    /// - victim 進 UnarmedGrabBreakB(白名單放行的玩家輸入)→ 解體,grabber 進 UnarmedGrabBreakA 後搖。
     ///
     /// 時序前提(stale-EndEvent 競態結構性不存在):ForceTransition 同步 swap _ControllerStatus
     /// 後,舊 ControllerStatus 雖仍訂閱 Player.EndEvent,但 EndEvent 只從 _ProcessDueRedirects
@@ -57,12 +57,12 @@ namespace PinionCore.Project2.Worlds
         {
             new GrabFamily
             {
-                Start = ActionType.GrabStart,
-                IdleA = ActionType.GrabIdleA,   IdleB = ActionType.GrabIdleB,
-                WalkA = ActionType.GrabWalkA,   WalkB = ActionType.GrabWalkB,
-                Atk1A = ActionType.GrabAtk1A,   Atk1B = ActionType.GrabAtk1B,
-                ThrowA = ActionType.GrabThrowA, ThrowB = ActionType.GrabThrowB,
-                BreakA = ActionType.GrabBreakA, BreakB = ActionType.GrabBreakB,
+                Start = ActionType.UnarmedGrabStart,
+                IdleA = ActionType.UnarmedGrabIdleA,   IdleB = ActionType.UnarmedGrabIdleB,
+                WalkA = ActionType.UnarmedGrabWalkA,   WalkB = ActionType.UnarmedGrabWalkB,
+                Atk1A = ActionType.UnarmedGrabAtk1A,   Atk1B = ActionType.UnarmedGrabAtk1B,
+                ThrowA = ActionType.UnarmedGrabThrowA, ThrowB = ActionType.UnarmedGrabThrowB,
+                BreakA = ActionType.UnarmedGrabBreakA, BreakB = ActionType.UnarmedGrabBreakB,
                 AnchorDistance = 0.9f,   // editor 目測調參
             },
         };
@@ -118,7 +118,7 @@ namespace PinionCore.Project2.Worlds
 
         /// <summary>
         /// 玩家離開世界(World.Leave 於 controller.Shutdown 之前呼叫)或世界關閉:
-        /// 清掉 pending 與所屬配對;在配對中則解體並讓倖存方回 BattleIdle。
+        /// 清掉 pending 與所屬配對;在配對中則解體並讓倖存方回 UnarmedIdle。
         /// </summary>
         public void Forget(Guid actorId)
         {
@@ -127,7 +127,7 @@ namespace PinionCore.Project2.Worlds
                 return;
             var survivor = (Guid)pair.Grabber.ActorId == actorId ? pair.Victim : pair.Grabber;
             _Dissolve(pair);
-            survivor.ForceTransition(ActionType.BattleIdle, Vector2.zero);
+            survivor.ForceTransition(ActionType.UnarmedIdle, Vector2.zero);
         }
 
         /// <summary>世界關閉:退訂全部事件,不再驅動任何轉移(controller 隨後由 Dispose 逐一 Shutdown)。</summary>
@@ -237,10 +237,10 @@ namespace PinionCore.Project2.Worlds
             }
             else
             {
-                // 離開所屬家族(第三方打進 BattleDamage 等):解體釋放 victim
+                // 離開所屬家族(第三方打進 UnarmedDamage 等):解體釋放 victim
                 var freed = pair.Victim;
                 _Dissolve(pair);
-                freed.ForceTransition(ActionType.BattleIdle, Vector2.zero);
+                freed.ForceTransition(ActionType.UnarmedIdle, Vector2.zero);
             }
         }
 
@@ -272,7 +272,7 @@ namespace PinionCore.Project2.Worlds
                 Debug.LogWarning($"[GrabResolver] 被抓者離開配對節點({action}),防禦性解體");
                 var grabber = pair.Grabber;
                 _Dissolve(pair);
-                grabber.ForceTransition(ActionType.BattleIdle, Vector2.zero);
+                grabber.ForceTransition(ActionType.UnarmedIdle, Vector2.zero);
             }
         }
 

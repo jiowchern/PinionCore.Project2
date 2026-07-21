@@ -39,7 +39,7 @@ namespace PinionCore.Project2.Shared
             public float Duration;       // 秒;段速度 = LocalOffset.magnitude / Duration
         }
 
-        public ActionType Action = ActionType.BattleAttack;
+        public ActionType Action = ActionType.UnarmedAttack;
 
         [Header("能力/權限(伺服器權威讀取)")]
         public bool Loop;            // 段播完 wrap 重排循環;false = 段播完 _EndAction 結束

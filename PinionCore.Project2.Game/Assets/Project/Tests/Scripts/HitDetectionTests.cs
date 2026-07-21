@@ -10,7 +10,7 @@ namespace PinionCore.Project2.Tests
     /// <summary>
     /// 攻擊命中判定的免場景權威管線測試(仿 WorldTestScript):
     /// 手作 ActionConfig(含 HitSegments)直接 new World,兩顆 actor 同 Entrance 出生(距離 0),
-    /// 攻擊者 Play(BattleIdle)→Play(BattleAttack),斷言目標被 HitResolver 命中後
+    /// 攻擊者 Play(UnarmedIdle)→Play(UnarmedAttack),斷言目標被 HitResolver 命中後
     /// 轉移到對應 Damage 硬直狀態。時鐘是真實 Stopwatch,斷言一律「輪詢直到條件成立 + 逾時」,
     /// 不比對精確幀。
     /// </summary>
@@ -26,17 +26,17 @@ namespace PinionCore.Project2.Tests
             worldInfo.Name = "HitTestWorld";
             worldInfo.TerrainPrefab = new UnityEngine.AddressableAssets.AssetReferenceGameObject("84e3641b69ee6b2419379df04933bb0d");
 
-            _attack = _Config(ActionType.BattleAttack, loop: false, duration: 0.6f);
+            _attack = _Config(ActionType.UnarmedAttack, loop: false, duration: 0.6f);
 
             var actorConfig = ScriptableObject.CreateInstance<ActorConfig>();
             actorConfig.Name = "TestActor";
             actorConfig.Actions = new[]
             {
                 _Config(ActionType.AdventureIdle, loop: true, duration: 0.5f),
-                _Config(ActionType.BattleIdle, loop: true, duration: 0.5f),
+                _Config(ActionType.UnarmedIdle, loop: true, duration: 0.5f),
                 _attack,
                 _Config(ActionType.AdventureDamage, loop: false, duration: 0.4f),
-                _Config(ActionType.BattleDamage, loop: false, duration: 0.4f),
+                _Config(ActionType.UnarmedDamage, loop: false, duration: 0.4f),
             };
             _world = new PinionCore.Project2.Worlds.World(System.Guid.NewGuid(), worldInfo, new[] { actorConfig });
         }
@@ -138,14 +138,14 @@ namespace PinionCore.Project2.Tests
             _Enter("Victim", victimLog);
 
             yield return _Drive(2);   // 先讓初始狀態 Enter
-            Assert.IsTrue(_Play(attacker, ActionType.BattleIdle), "進戰鬥應被接受");
-            Assert.IsTrue(_Play(attacker, ActionType.BattleAttack), "出招應被接受");
+            Assert.IsTrue(_Play(attacker, ActionType.UnarmedIdle), "進戰鬥應被接受");
+            Assert.IsTrue(_Play(attacker, ActionType.UnarmedAttack), "出招應被接受");
 
             var hit = false;
             yield return _DriveUntil(() => _Count(victimLog, ActionType.AdventureDamage) >= 1, 5f, d => hit = d);
             Assert.IsTrue(hit, "冒險態目標被命中應轉移到 AdventureDamage");
 
-            Assert.AreEqual(0, _Count(attackerLog, ActionType.AdventureDamage) + _Count(attackerLog, ActionType.BattleDamage),
+            Assert.AreEqual(0, _Count(attackerLog, ActionType.AdventureDamage) + _Count(attackerLog, ActionType.UnarmedDamage),
                 "攻擊者不得打中自己");
         }
 
@@ -160,13 +160,13 @@ namespace PinionCore.Project2.Tests
             var victim = _Enter("Victim", victimLog);
 
             yield return _Drive(2);
-            Assert.IsTrue(_Play(victim, ActionType.BattleIdle), "目標進戰鬥應被接受");
-            Assert.IsTrue(_Play(attacker, ActionType.BattleIdle), "進戰鬥應被接受");
-            Assert.IsTrue(_Play(attacker, ActionType.BattleAttack), "出招應被接受");
+            Assert.IsTrue(_Play(victim, ActionType.UnarmedIdle), "目標進戰鬥應被接受");
+            Assert.IsTrue(_Play(attacker, ActionType.UnarmedIdle), "進戰鬥應被接受");
+            Assert.IsTrue(_Play(attacker, ActionType.UnarmedAttack), "出招應被接受");
 
             var hit = false;
-            yield return _DriveUntil(() => _Count(victimLog, ActionType.BattleDamage) >= 1, 5f, d => hit = d);
-            Assert.IsTrue(hit, "戰鬥態目標被命中應轉移到 BattleDamage");
+            yield return _DriveUntil(() => _Count(victimLog, ActionType.UnarmedDamage) >= 1, 5f, d => hit = d);
+            Assert.IsTrue(hit, "戰鬥態目標被命中應轉移到 UnarmedDamage");
         }
 
         [UnityTest]
@@ -181,16 +181,16 @@ namespace PinionCore.Project2.Tests
             _Enter("Victim", victimLog);
 
             yield return _Drive(2);
-            Assert.IsTrue(_Play(attacker, ActionType.BattleIdle), "進戰鬥應被接受");
-            var idleBeforeAttack = _Count(attackerLog, ActionType.BattleIdle);
-            Assert.IsTrue(_Play(attacker, ActionType.BattleAttack), "出招應被接受");
+            Assert.IsTrue(_Play(attacker, ActionType.UnarmedIdle), "進戰鬥應被接受");
+            var idleBeforeAttack = _Count(attackerLog, ActionType.UnarmedIdle);
+            Assert.IsTrue(_Play(attacker, ActionType.UnarmedAttack), "出招應被接受");
 
-            // 等攻擊自然播完回 BattleIdle(= 命中窗已全數結清)
+            // 等攻擊自然播完回 UnarmedIdle(= 命中窗已全數結清)
             var finished = false;
-            yield return _DriveUntil(() => _Count(attackerLog, ActionType.BattleIdle) > idleBeforeAttack, 10f, d => finished = d);
-            Assert.IsTrue(finished, "攻擊應自然結束回 BattleIdle");
+            yield return _DriveUntil(() => _Count(attackerLog, ActionType.UnarmedIdle) > idleBeforeAttack, 10f, d => finished = d);
+            Assert.IsTrue(finished, "攻擊應自然結束回 UnarmedIdle");
 
-            Assert.AreEqual(0, _Count(victimLog, ActionType.AdventureDamage) + _Count(victimLog, ActionType.BattleDamage),
+            Assert.AreEqual(0, _Count(victimLog, ActionType.AdventureDamage) + _Count(victimLog, ActionType.UnarmedDamage),
                 "超出範圍的攻擊不得造成受擊");
         }
 
@@ -206,18 +206,18 @@ namespace PinionCore.Project2.Tests
             _Enter("Victim", victimLog);
 
             yield return _Drive(2);
-            Assert.IsTrue(_Play(attacker, ActionType.BattleIdle), "進戰鬥應被接受");
-            var idleBeforeAttack = _Count(attackerLog, ActionType.BattleIdle);
-            Assert.IsTrue(_Play(attacker, ActionType.BattleAttack), "出招應被接受");
+            Assert.IsTrue(_Play(attacker, ActionType.UnarmedIdle), "進戰鬥應被接受");
+            var idleBeforeAttack = _Count(attackerLog, ActionType.UnarmedIdle);
+            Assert.IsTrue(_Play(attacker, ActionType.UnarmedAttack), "出招應被接受");
 
             var finished = false;
-            yield return _DriveUntil(() => _Count(attackerLog, ActionType.BattleIdle) > idleBeforeAttack, 10f, d => finished = d);
-            Assert.IsTrue(finished, "第一次攻擊應自然結束回 BattleIdle");
+            yield return _DriveUntil(() => _Count(attackerLog, ActionType.UnarmedIdle) > idleBeforeAttack, 10f, d => finished = d);
+            Assert.IsTrue(finished, "第一次攻擊應自然結束回 UnarmedIdle");
             Assert.AreEqual(1, _Count(victimLog, ActionType.AdventureDamage),
                 "命中窗蓋滿整個動作時,一次揮擊同一目標只得命中一次");
 
             // 第二次揮擊是新的動作實例:去重集重置,目標應再次被命中
-            Assert.IsTrue(_Play(attacker, ActionType.BattleAttack), "第二次出招應被接受");
+            Assert.IsTrue(_Play(attacker, ActionType.UnarmedAttack), "第二次出招應被接受");
             var hitAgain = false;
             yield return _DriveUntil(() => _Count(victimLog, ActionType.AdventureDamage) >= 2, 5f, d => hitAgain = d);
             Assert.IsTrue(hitAgain, "新揮擊應能再次命中同一目標");
