@@ -19,110 +19,28 @@ MonoBehaviour:
   ChainWindow: 0
   HoldRotation: 1
   Stance: 1
-  Duration: 2.8333333
+  Duration: 0.8000001
   Segments:
-  - LocalOffset: {x: 0.008999405, y: 0.01739327}
-    Duration: 0.30000004
-  - LocalOffset: {x: -0.18503848, y: 0.15671672}
-    Duration: 2.3499982
-  - LocalOffset: {x: 0.17603903, y: -0.17410997}
-    Duration: 0.18333507
+  - LocalOffset: {x: 0, y: 0.16277565}
+    Duration: 0.48333353
+  - LocalOffset: {x: 0, y: -0.16277567}
+    Duration: 0.31666654
   HitSegments:
-  - StartTime: 0.23
-    Duration: 0.04
-    Shape: 0
-    LocalOffset: {x: 0.12, y: 0.38}
-    Radius: 0.11
+  - StartTime: 0.26
+    Duration: 0.14
+    Shape: 2
+    LocalOffset: {x: 0, y: 0}
+    Radius: 0.55
     HalfExtents: {x: 0, y: 0}
     Rotation: 0
-    AngleFrom: 0
-    AngleTo: 0
-    Sweep: 0
-  - StartTime: 0.47
-    Duration: 0.05
-    Shape: 0
-    LocalOffset: {x: 0.03, y: 0.48}
-    Radius: 0.11
-    HalfExtents: {x: 0, y: 0}
-    Rotation: 0
-    AngleFrom: 0
-    AngleTo: 0
-    Sweep: 0
-  - StartTime: 0.73
-    Duration: 0.04
-    Shape: 0
-    LocalOffset: {x: 0.12, y: 0.38}
-    Radius: 0.11
-    HalfExtents: {x: 0, y: 0}
-    Rotation: 0
-    AngleFrom: 0
-    AngleTo: 0
-    Sweep: 0
-  - StartTime: 0.99
-    Duration: 0.04
-    Shape: 0
-    LocalOffset: {x: 0.16, y: 0.41}
-    Radius: 0.11
-    HalfExtents: {x: 0, y: 0}
-    Rotation: 0
-    AngleFrom: 0
-    AngleTo: 0
-    Sweep: 0
-  - StartTime: 1.27
-    Duration: 0.04
-    Shape: 0
-    LocalOffset: {x: -0.02, y: 0.41}
-    Radius: 0.11
-    HalfExtents: {x: 0, y: 0}
-    Rotation: 0
-    AngleFrom: 0
-    AngleTo: 0
-    Sweep: 0
-  - StartTime: 1.48
-    Duration: 0.04
-    Shape: 0
-    LocalOffset: {x: 0.08, y: 0.51}
-    Radius: 0.11
-    HalfExtents: {x: 0, y: 0}
-    Rotation: 0
-    AngleFrom: 0
-    AngleTo: 0
-    Sweep: 0
-  - StartTime: 1.73
-    Duration: 0.04
-    Shape: 0
-    LocalOffset: {x: 0.14, y: 0.32}
-    Radius: 0.11
-    HalfExtents: {x: 0, y: 0}
-    Rotation: 0
-    AngleFrom: 0
-    AngleTo: 0
-    Sweep: 0
-  - StartTime: 1.99
-    Duration: 0.04
-    Shape: 0
-    LocalOffset: {x: 0.18, y: 0.48}
-    Radius: 0.11
-    HalfExtents: {x: 0, y: 0}
-    Rotation: 0
-    AngleFrom: 0
-    AngleTo: 0
-    Sweep: 0
-  - StartTime: 2.45
-    Duration: 0.04
-    Shape: 1
-    LocalOffset: {x: 0.18, y: 0.48}
-    Radius: 0.11
-    HalfExtents: {x: 0.2, y: 0.42}
-    Rotation: 0
-    AngleFrom: 0
-    AngleTo: 0
+    AngleFrom: -15
+    AngleTo: 45
     Sweep: 0
   HitEffect: 0
-  Clip: {fileID: 7400000, guid: fc50ffb74bcf05e42ba163aa03ce9e60, type: 2}
+  Clip: {fileID: 7400000, guid: 69f3b1b43eb337548a8633b7b82d6fc6, type: 3}
   BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
   BakeStationary: 0
   SimplifyTolerance: 0.02
   MaxSegments: 8
-  TrailProbe: 
+  TrailProbe: Character1_LeftHand
   TrailProbeB: 

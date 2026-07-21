@@ -19,34 +19,28 @@ MonoBehaviour:
   ChainWindow: 0.5
   HoldRotation: 1
   Stance: 1
-  Duration: 1.6666666
+  Duration: 0.8000001
   Segments:
-  - LocalOffset: {x: -0.18614513, y: 0.2285497}
-    Duration: 0.36666676
-  - LocalOffset: {x: -0.0131715685, y: -0.016842052}
-    Duration: 0.18333337
-  - LocalOffset: {x: 0.07521063, y: -0.041644886}
-    Duration: 0.18333316
-  - LocalOffset: {x: 0.06332968, y: 0.08083032}
-    Duration: 0.46666628
-  - LocalOffset: {x: 0.06077635, y: -0.25089318}
-    Duration: 0.46666706
+  - LocalOffset: {x: 0, y: 0.39446583}
+    Duration: 0.6000001
+  - LocalOffset: {x: 0, y: -0.3944658}
+    Duration: 0.19999999
   HitSegments:
-  - StartTime: 0.48
-    Duration: 0.4
-    Shape: 1
-    LocalOffset: {x: 0, y: 0.52}
-    Radius: 0
-    HalfExtents: {x: 0.2, y: 0.3}
+  - StartTime: 0.28
+    Duration: 0.15
+    Shape: 2
+    LocalOffset: {x: 0, y: 0}
+    Radius: 0.6
+    HalfExtents: {x: 0, y: 0}
     Rotation: 0
-    AngleFrom: 0
-    AngleTo: 0
+    AngleFrom: -55
+    AngleTo: 15
     Sweep: 0
   HitEffect: 0
-  Clip: {fileID: 7400000, guid: 026b2e9b45206004ebf8b32338975214, type: 2}
+  Clip: {fileID: 7400000, guid: ce17781955d25c647922801319f24e9e, type: 3}
   BakeRig: {fileID: 3858846924461491004, guid: d38eb2d0b5f08fb47a46e035404ac1be, type: 3}
   BakeStationary: 0
   SimplifyTolerance: 0.02
   MaxSegments: 8
-  TrailProbe: 
+  TrailProbe: Character1_RightHand
   TrailProbeB: 
