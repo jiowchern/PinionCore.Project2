@@ -43,5 +43,10 @@ MonoBehaviour:
   - {fileID: 11400000, guid: d1ab3b3aebc4aea4592977dfe18e876e, type: 2}
   - {fileID: 11400000, guid: 22af26971e3eb3945bb8b6cf56711031, type: 2}
   - {fileID: 11400000, guid: 1f2e8a056084f554a9d5848404f999e4, type: 2}
+  - {fileID: 11400000, guid: ab1106753bddb234c90fca7453075074, type: 2}
+  - {fileID: 11400000, guid: 76c7ec14915dded48825241a8ebfa8d5, type: 2}
+  - {fileID: 11400000, guid: ce2ad6dea0619e44ab9af7bc4918b1d3, type: 2}
+  - {fileID: 11400000, guid: c92edb09677561c46abdf928acb1f411, type: 2}
+  - {fileID: 11400000, guid: 2aac01fd080410f4ba016a97db7d6ca1, type: 2}
   _Radius: 0.3
   _SightRadius: 5

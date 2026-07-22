@@ -191,7 +191,12 @@ namespace PinionCore.Project2.Client
 
                 element.gameObject.SetActive(true);
                 element.label = action.ToString();
-                element.button.onClick.AddListener(() => ClientPlayer.Play(action, Vector2.zero, null));
+                // 方向在點擊當下讀取:按住 WASD 出招,帶位移動作(翻滾等)朝輸入方向執行;
+                // 零向量(未按方向鍵)= 伺服器 fallback 當前朝向
+                element.button.onClick.AddListener(() => ClientPlayer.Play(
+                    action,
+                    InputHandler != null ? InputHandler.HeldWorldDirection : Vector2.zero,
+                    null));
                 _elements.Add(element);
                 Menu.elements.Add(element);
             }

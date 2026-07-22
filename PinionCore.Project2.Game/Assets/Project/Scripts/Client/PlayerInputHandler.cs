@@ -189,6 +189,24 @@ namespace PinionCore.Project2.Client
             _awaitingResponse = false;
         }
 
+        /// <summary>
+        /// 當前按住的移動輸入之世界方向(相機相對);死區內(未按方向鍵)回零向量。
+        /// 供動作觸發層(PlayerActionMenuHandler)在 Play 帶上 WASD 方向,
+        /// 讓帶位移動作(翻滾等)朝輸入方向執行;零向量 = 伺服器 fallback 當前朝向。
+        /// </summary>
+        public Vector2 HeldWorldDirection
+        {
+            get
+            {
+                var input = InputSource != null ? InputSource()
+                          : MoveAction != null ? MoveAction.action.ReadValue<Vector2>()
+                          : Vector2.zero;
+                if (input.magnitude < DeadZone || CameraTransform == null)
+                    return Vector2.zero;
+                return _ToWorldDirection(input);
+            }
+        }
+
         Vector2 _ShellFacing()
         {
             var f = _shell.Target.forward;

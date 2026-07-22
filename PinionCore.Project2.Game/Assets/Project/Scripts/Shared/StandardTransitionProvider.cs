@@ -26,6 +26,7 @@ namespace PinionCore.Project2.Shared
                 {
                     _Play(ActionType.AdventureWalk),
                     _Play(ActionType.UnarmedIdle),
+                    _Play(ActionType.BowIdle),
                 },
                 Next = _Play(ActionType.AdventureIdle),
                 Damage = _Play(ActionType.AdventureDamage),
@@ -53,6 +54,8 @@ namespace PinionCore.Project2.Shared
                     _Play(ActionType.UnarmedAttack0),
                     _Play(ActionType.UnarmedGrabStart),
                     _Play(ActionType.UnarmedWalk),
+                    // SwitchStance 取白名單第一個異側 idle:BowIdle 在前 = R 循環 近戰→弓箭
+                    _Play(ActionType.BowIdle),
                     _Play(ActionType.AdventureIdle),
                 },
                 Next = _Play(ActionType.UnarmedIdle),
@@ -244,6 +247,56 @@ namespace PinionCore.Project2.Shared
                 Damage = _Play(ActionType.UnarmedDamage),
             };
 
+            var bowIdle = new Transition
+            {
+                Current = _Play(ActionType.BowIdle),
+                Playables = new[]
+                {
+                    _Play(ActionType.BowLoad),
+                    // R 循環 弓箭→冒險(SwitchStance 取白名單第一個異側 idle)
+                    _Play(ActionType.AdventureIdle),
+                     _Play(ActionType.BowRoll),
+                },
+                Next = _Play(ActionType.BowIdle),
+                Damage = _Play(ActionType.UnarmedDamage),
+            };
+
+            var bowLoad = new Transition
+            {
+                Current = _Play(ActionType.BowLoad),
+                Playables = System.Array.Empty<PlayInfo>(),
+                Next = _Play(ActionType.BowHold),
+                Damage = _Play(ActionType.UnarmedDamage),
+            };
+
+            var bowHold = new Transition
+            {
+                Current = _Play(ActionType.BowHold),
+                Playables = new[]
+                {
+                    _Play(ActionType.BowRelease),
+                    _Play(ActionType.BowRoll),
+                },
+                Next = _Play(ActionType.BowHold),
+                Damage = _Play(ActionType.UnarmedDamage),
+            };
+
+            var bowReleased = new Transition
+            {
+                Current = _Play(ActionType.BowRelease),
+                Playables = System.Array.Empty<PlayInfo>(),
+                Next = _Play(ActionType.BowHold),
+                Damage = _Play(ActionType.UnarmedDamage),
+            };
+
+            var bowRoll = new Transition
+            {
+                Current = _Play(ActionType.BowRoll),
+                Playables = System.Array.Empty<PlayInfo>(),
+                Next = _Play(ActionType.BowIdle),
+                Damage = _Play(ActionType.UnarmedDamage),
+            };
+
             _Transitions = new System.Collections.Generic.Dictionary<ActionType, Transition>
             {
                 { ActionType.AdventureIdle, adventureIdle },
@@ -268,6 +321,11 @@ namespace PinionCore.Project2.Shared
                 { ActionType.UnarmedGrabAtk1B, grabAtk1B },
                 { ActionType.UnarmedGrabThrowB, grabThrowB },
                 { ActionType.UnarmedGrabBreakB, grabBreakB },
+                { ActionType.BowIdle, bowIdle },
+                { ActionType.BowLoad, bowLoad },
+                { ActionType.BowHold, bowHold },
+                { ActionType.BowRelease, bowReleased },
+                { ActionType.BowRoll, bowRoll },
             };
             Transitions = _Transitions;
         }

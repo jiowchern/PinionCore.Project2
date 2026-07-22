@@ -31,5 +31,13 @@ namespace PinionCore.Project2.Shared
         UnarmedGrabThrowB = 20,            // 被丟投飛行(真烘焙 root motion)
         UnarmedGrabBreakA = 21,            // 被掙脫的後搖(只由 GrabResolver force 進入)
         UnarmedGrabBreakB = 22,            // 掙脫(被抓者白名單唯一入口)
+
+        BowIdle = 23,
+        BowLoad = 24,
+        BowHold = 25,
+        BowRelease = 26,
+        BowRoll = 27,
+
+
     }
 }

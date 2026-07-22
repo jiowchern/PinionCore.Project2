@@ -6,6 +6,7 @@ namespace PinionCore.Project2.Shared
     {
         Adventure,
         Battle,
+        Bow,
     }
     // 角色的名稱 移動 等外觀資訊
     // 曝光給 client 的資訊
