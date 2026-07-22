@@ -1,5 +1,15 @@
 namespace PinionCore.Project2.Shared
 {
+    /// <summary>
+    /// Animator 動作參數約定:int 參數 "ActionType",值 = (int)ActionType。
+    /// ActionAnimatorGenerator 據此在 controller 產生 AnyState 轉換(編輯器時期改參數即可測試各動作),
+    /// ActorShell 切換動作時寫入同一參數(統一同一套約定)。
+    /// </summary>
+    public static class ActionAnimatorParameter
+    {
+        public const string Name = "ActionType";
+    }
+
     // 動作型別即控制狀態機的轉移圖節點識別(ControllerStatus / StandardTransitionProvider);
     // 顯式數值:資產(ActionConfig.Action)存 int,插入新成員不得位移既有值。
     // 動作的能力/權限與表現規則(循環/重定向/打斷/凍結旋轉/stance)由 ActionConfig 欄位承載,

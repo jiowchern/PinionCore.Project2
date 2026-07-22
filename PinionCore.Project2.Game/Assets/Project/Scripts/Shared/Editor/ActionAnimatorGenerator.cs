@@ -11,6 +11,9 @@ namespace PinionCore.Project2.Shared.Editor
     /// <summary>
     /// 由 ActorConfig.Actions 重生模型 AnimatorController 的動作 states:
     /// state 名 = ActionType 的 enum 名(ActorShell 以同一約定 CrossFade),motion = ActionConfig.Clip。
+    /// 另維護 int 參數 ActionAnimatorParameter.Name(值 = (int)ActionType)與對應的 AnyState 轉換:
+    /// 編輯器時期在 Animator 視窗改參數即可切到對應動作 state 做測試;
+    /// runtime 由 ActorShell 切換動作時寫入同一參數(同一套約定)。
     /// controller 是產物不是來源 —— 換動作的視覺 clip 一律改 ActionConfig.Clip 再跑本產生器,
     /// 不要手動編輯 controller(下次產生會被蓋掉)。
     /// 比照 ActorConfigBaker:build 前自動跑,也可從選單手動執行。
@@ -128,6 +131,62 @@ namespace PinionCore.Project2.Shared.Editor
             if (fallback != null && machine.defaultState != fallback)
             {
                 machine.defaultState = fallback;
+                changed = true;
+            }
+
+            // 參數 ActionType(int,值 = enum 值):編輯器時期的測試入口 ——
+            // 在 Animator 視窗改參數,經下方 AnyState 轉換切到對應動作 state。
+            // 型別不符(手改成 float/bool)視為配置錯誤,移除重建;其他參數不動
+            var parameter = controller.parameters.FirstOrDefault(p => p.name == ActionAnimatorParameter.Name);
+            if (parameter != null && parameter.type != AnimatorControllerParameterType.Int)
+            {
+                Debug.Log($"[ActionAnimatorGenerator] {controller.name}: 參數 '{ActionAnimatorParameter.Name}' 型別 {parameter.type} → Int");
+                controller.RemoveParameter(parameter);
+                parameter = null;
+            }
+            if (parameter == null)
+            {
+                controller.AddParameter(ActionAnimatorParameter.Name, AnimatorControllerParameterType.Int);
+                changed = true;
+            }
+
+            // AnyState → 動作 state 的轉換:一個 state 一條,條件 ActionType == (int)enum,
+            // 無 exit time、固定 0.1s 淡入(與 ActorShell 的 CrossFade 同值)、
+            // canTransitionToSelf=false(runtime 由 code 先行切入時參數轉換不重複觸發)。
+            // 約定之外(手加/條件不符/重複)一律移除,與 state 同樣視 controller 為純產物
+            var actionByStateName = actions.Keys.ToDictionary(a => a.ToString());
+            var covered = new HashSet<AnimatorState>();
+            foreach (var transition in machine.anyStateTransitions)
+            {
+                var destination = transition.destinationState;
+                var valid = destination != null &&
+                    actionByStateName.TryGetValue(destination.name, out var action) &&
+                    !covered.Contains(destination) &&
+                    !transition.hasExitTime && !transition.canTransitionToSelf &&
+                    transition.hasFixedDuration && Mathf.Approximately(transition.duration, 0.1f) &&
+                    transition.conditions.Length == 1 &&
+                    transition.conditions[0].parameter == ActionAnimatorParameter.Name &&
+                    transition.conditions[0].mode == AnimatorConditionMode.Equals &&
+                    (int)transition.conditions[0].threshold == (int)action;
+                if (!valid)
+                {
+                    machine.RemoveAnyStateTransition(transition);
+                    changed = true;
+                }
+                else
+                    covered.Add(destination);
+            }
+            foreach (var action in actions.Keys.OrderBy(a => (int)a))
+            {
+                var state = states.FirstOrDefault(s => s.name == action.ToString());
+                if (state == null || covered.Contains(state))
+                    continue;
+                var transition = machine.AddAnyStateTransition(state);
+                transition.hasExitTime = false;
+                transition.hasFixedDuration = true;
+                transition.duration = 0.1f;
+                transition.canTransitionToSelf = false;
+                transition.AddCondition(AnimatorConditionMode.Equals, (int)action, ActionAnimatorParameter.Name);
                 changed = true;
             }
 

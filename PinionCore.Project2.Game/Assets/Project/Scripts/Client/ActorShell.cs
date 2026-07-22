@@ -48,11 +48,21 @@ namespace PinionCore.Project2.Client
 
         // ActionType → Animator state 名:約定 state 名 = enum 名,與 ActionAnimatorGenerator 同一約定
         //(controller 由產生器從 ActorConfig.Actions 重生,不再維護手寫映射表)。
-        // 動作 state 只靠 code CrossFade 進入(以 world time 差當起播偏移),不掛參數轉換。
         // 是否凍結旋轉由 ActionConfig.HoldRotation 決定(_HoldRotation):
         // 攻擊類凍結:段 Facing 是速度方向(側移/滑行)不是視覺朝向;
         // 走路/idle 不凍結:Facing 即移動方向,角色照常面向前進方向。
         static string _StateName(ActionType action) => action.ToString();
+
+        // 動作切換唯一入口:寫入 Animator 的 int 參數 ActionType(值 = enum 值,與產生器的
+        // AnyState 轉換圖同一約定,編輯器時期改參數即可測試各動作 state),
+        // 再 CrossFade 帶起播偏移收斂(晚加入者/本地預測)。仍需 CrossFade 的原因:
+        // 參數轉換無法帶起播偏移,且同值重播(連續受擊等 StartTicks 變、Action 不變)參數不變不會觸發;
+        // 產生器的 AnyState 轉換 canTransitionToSelf=false,code 已切入的 state 不會被參數轉換重複觸發
+        void _SwitchAction(ActionType action, float offsetSeconds)
+        {
+            _animator.SetInteger(ActionAnimatorParameter.Name, (int)action);
+            _animator.CrossFadeInFixedTime(_StateName(action), 0.1f, 0, offsetSeconds);
+        }
 
         // 此角色可播放的動作 config(與伺服器同一份資產,由 ActorProvider 於 Setup 傳入);
         // client 據此以 ActionType 查表取得表現資訊(HoldRotation/Stance/Loop 等),不過線
@@ -64,7 +74,7 @@ namespace PinionCore.Project2.Client
 
         // 模型上的 Animator(TestActor1 等模型 prefab 自帶,controller 指向 Configs/AnimatorController);
         // 模型非同步載入,動畫由 _Step 每幀收斂(CrossFade 去重),晚到也會在下一幀接上。
-        // controller 無參數轉換圖:動作 state 的進入全靠 code CrossFade(含本地預測)
+        // runtime 動作切換走 _SwitchAction(參數 + CrossFade,含本地預測)
         Animator _animator;
 
         // 預設轉移圖(與伺服器同一份 Shared 類):非循環動作播到 Duration 時
@@ -222,7 +232,7 @@ namespace PinionCore.Project2.Client
                         var offset = (float)actionElapsed;
                         if (offset < 0f)
                             offset = 0f;
-                        _animator.CrossFadeInFixedTime(_StateName(_actionInfo.Action), 0.1f, 0, offset);
+                        _SwitchAction(_actionInfo.Action, offset);
                     }
                     _appliedAction = _actionInfo.Action;
                     _appliedActionTicks = _actionInfo.StartTicks;
@@ -237,7 +247,7 @@ namespace PinionCore.Project2.Client
                         _transitions.Transitions.TryGetValue(_actionInfo.Action, out var transition) &&
                         _appliedAction != transition.Next.Action)
                     {
-                        _animator.CrossFadeInFixedTime(_StateName(transition.Next.Action), 0.1f, 0, (float)(actionElapsed - config.Duration));
+                        _SwitchAction(transition.Next.Action, (float)(actionElapsed - config.Duration));
                         _appliedAction = transition.Next.Action;
                         // 預測起點 = 排程邊界(StartTicks + Duration)+ 接招窗:
                         // 伺服器窗內續留原狀態,無人接招時 Next 的權威 ActionInfo 於窗到期才發,
