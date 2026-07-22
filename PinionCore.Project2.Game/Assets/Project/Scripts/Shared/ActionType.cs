@@ -37,7 +37,8 @@ namespace PinionCore.Project2.Shared
         BowHold = 25,
         BowRelease = 26,
         BowRoll = 27,
+		BowWalk = 28,   
 
 
-    }
+	}
 }

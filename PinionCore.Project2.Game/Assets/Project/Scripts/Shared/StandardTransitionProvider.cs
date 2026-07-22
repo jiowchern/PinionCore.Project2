@@ -255,7 +255,22 @@ namespace PinionCore.Project2.Shared
                     _Play(ActionType.BowLoad),
                     // R 循環 弓箭→冒險(SwitchStance 取白名單第一個異側 idle)
                     _Play(ActionType.AdventureIdle),
-                     _Play(ActionType.BowRoll),
+                    _Play(ActionType.BowRoll),
+                    _Play(ActionType.BowWalk),
+                },
+                Next = _Play(ActionType.BowIdle),
+                Damage = _Play(ActionType.UnarmedDamage),
+            };
+
+            var bowWalk = new Transition
+            {
+                Current = _Play(ActionType.BowWalk),
+                Playables = new[]
+                {
+                    _Play(ActionType.BowWalk),   // 自身 = 重定向
+                    _Play(ActionType.BowIdle),   // client Stop = Play(Next) 的放行入口
+                    _Play(ActionType.BowLoad),
+                    _Play(ActionType.BowRoll),
                 },
                 Next = _Play(ActionType.BowIdle),
                 Damage = _Play(ActionType.UnarmedDamage),
@@ -322,6 +337,7 @@ namespace PinionCore.Project2.Shared
                 { ActionType.UnarmedGrabThrowB, grabThrowB },
                 { ActionType.UnarmedGrabBreakB, grabBreakB },
                 { ActionType.BowIdle, bowIdle },
+                { ActionType.BowWalk, bowWalk },
                 { ActionType.BowLoad, bowLoad },
                 { ActionType.BowHold, bowHold },
                 { ActionType.BowRelease, bowReleased },
